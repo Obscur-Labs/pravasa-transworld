@@ -1,18 +1,20 @@
 'use client';
-import { Plus, X, GripVertical, ShieldCheck } from 'lucide-react';
+import { Plus, X, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { VisaTerm } from '@/types';
 
+export const emptyTerm = (): VisaTerm => ({ text: '', required: true, defaultChecked: false, order: 0 });
+
 interface TermsEditorProps {
   terms: VisaTerm[];
-  onAdd: () => void;
-  onUpdate: (i: number, key: keyof VisaTerm, value: any) => void;
-  onRemove: (i: number) => void;
+  onChange: (terms: VisaTerm[]) => void;
 }
 
-// Consent checkboxes the applicant must tick on the Review & Pay step.
-// Mandatory terms block submission until ticked; optional ones are recorded either way.
-export function TermsEditor({ terms, onAdd, onUpdate, onRemove }: TermsEditorProps) {
+/** Consent checkboxes the applicant sees on the Review & Pay step. */
+export function TermsEditor({ terms, onChange }: TermsEditorProps) {
+  const update = (i: number, patch: Partial<VisaTerm>) =>
+    onChange(terms.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -26,7 +28,7 @@ export function TermsEditor({ terms, onAdd, onUpdate, onRemove }: TermsEditorPro
             </p>
           </div>
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={onAdd}>
+        <Button type="button" size="sm" variant="outline" onClick={() => onChange([...terms, emptyTerm()])}>
           <Plus className="w-3.5 h-3.5 mr-1" />Add Term
         </Button>
       </div>
@@ -43,20 +45,17 @@ export function TermsEditor({ terms, onAdd, onUpdate, onRemove }: TermsEditorPro
           {terms.map((term, i) => (
             <div key={i} className="rounded-xl border border-border bg-muted/30 p-3">
               <div className="flex items-start gap-2">
-                <span className="flex items-center gap-1 text-muted-foreground/60 pt-2 flex-shrink-0">
-                  <GripVertical className="w-3.5 h-3.5" />
-                  <span className="text-xs font-semibold tabular-nums">{i + 1}</span>
-                </span>
+                <span className="w-6 pt-2 text-xs font-semibold tabular-nums text-muted-foreground flex-shrink-0 text-center">{i + 1}</span>
                 <textarea
                   className="flex-1 min-h-[64px] rounded-lg border border-input bg-card text-foreground text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-ring resize-y"
                   placeholder="e.g. I confirm my passport is valid for at least 6 months from the date of travel."
                   value={term.text}
-                  onChange={(e) => onUpdate(i, 'text', e.target.value)}
+                  onChange={(e) => update(i, { text: e.target.value })}
                 />
                 <button
                   type="button"
-                  onClick={() => onRemove(i)}
-                  title="Remove term"
+                  onClick={() => onChange(terms.filter((_, idx) => idx !== i))}
+                  aria-label="Remove term"
                   className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg flex-shrink-0"
                 >
                   <X className="w-4 h-4" />
@@ -65,21 +64,11 @@ export function TermsEditor({ terms, onAdd, onUpdate, onRemove }: TermsEditorPro
 
               <div className="flex flex-wrap items-center gap-4 mt-2.5 pl-8">
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={term.required}
-                    onChange={(e) => onUpdate(i, 'required', e.target.checked)}
-                    className="rounded"
-                  />
+                  <input type="checkbox" checked={term.required} onChange={(e) => update(i, { required: e.target.checked })} className="rounded" />
                   Mandatory <span className="text-muted-foreground/60">(blocks submission)</span>
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={term.defaultChecked}
-                    onChange={(e) => onUpdate(i, 'defaultChecked', e.target.checked)}
-                    className="rounded"
-                  />
+                  <input type="checkbox" checked={term.defaultChecked} onChange={(e) => update(i, { defaultChecked: e.target.checked })} className="rounded" />
                   Default selected
                 </label>
                 <span className={`ml-auto text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${

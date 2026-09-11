@@ -9,6 +9,7 @@ import { StatTile } from '@/components/ui/stat-tile';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { CustomerFormDialog } from '@/components/shared/customer-form-dialog';
 import { getUsers, toggleUserPromoApplicable, deleteUser } from '@/lib/api';
@@ -73,6 +74,8 @@ export default function CustomersPage() {
     const s = search.toLowerCase();
     return u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s) || u.phone.includes(s);
   });
+
+  const { pageItems, paginationProps } = usePagination(filtered, 'customers', `${tab}|${search}`);
 
   const individualCount = allUsers.filter((u) => (u.accountType || 'individual') === 'individual').length;
   const corporateCount = allUsers.filter((u) => u.accountType === 'corporate').length;
@@ -160,7 +163,7 @@ export default function CustomersPage() {
                 <EmptyState icon={Users} title={`No ${tab} customers found`} description={search ? 'Try a different search.' : 'Customers will appear here once they register.'} />
               </TableCell></TableRow>
             ) : (
-              filtered.map((u) => (
+              pageItems.map((u) => (
                 <TableRow
                   key={u._id}
                   onClick={() => router.push(`/users/${u._id}`)}
@@ -220,6 +223,7 @@ export default function CustomersPage() {
             )}
           </TableBody>
         </Table>
+        <Pagination {...paginationProps} className="border-t border-border" />
       </div>
 
       <CustomerFormDialog

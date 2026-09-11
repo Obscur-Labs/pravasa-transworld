@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatTile } from '@/components/ui/stat-tile';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -71,6 +72,9 @@ export default function CustomerProfilePage() {
       setDownloadingZip(false);
     }
   };
+
+  const { pageItems: vaultPage, paginationProps: vaultPagination } = usePagination(vaultDocs, 'customer-vault');
+  const { pageItems: appPage, paginationProps: appPagination } = usePagination(applications, 'customer-applications');
 
   if (loading) {
     return (
@@ -190,7 +194,7 @@ export default function CustomerProfilePage() {
           <EmptyState icon={FolderArchive} title="No documents in vault" description="Documents this customer uploads will appear here." />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {vaultDocs.map((doc) => (
+            {vaultPage.map((doc) => (
               <Card key={doc._id}>
                 <CardContent className="p-4 flex items-start gap-3">
                   <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -215,6 +219,7 @@ export default function CustomerProfilePage() {
             ))}
           </div>
         )}
+        <Pagination {...vaultPagination} className="px-0" />
       </div>
 
       {/* Applications */}
@@ -238,7 +243,7 @@ export default function CustomerProfilePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {applications.map((app) => (
+                {appPage.map((app) => (
                   <TableRow key={app._id}>
                     <TableCell>
                       <span className="font-mono text-xs bg-muted text-foreground/80 px-2 py-0.5 rounded">
@@ -278,6 +283,7 @@ export default function CustomerProfilePage() {
                 ))}
               </TableBody>
             </Table>
+            <Pagination {...appPagination} className="border-t border-border" />
           </div>
         )}
       </div>

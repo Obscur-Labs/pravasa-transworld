@@ -1,20 +1,23 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Loader2, RotateCcw, Trash2, AlertTriangle, Globe2, CreditCard, LayoutTemplate, MessageSquare, FileText, Users } from 'lucide-react';
+import { Loader2, RotateCcw, Trash2, AlertTriangle, Globe2, CreditCard, LayoutTemplate, MessageSquare, FileText, Users, ScrollText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/components/ui/use-toast';
 import { getTrash, restoreTrashItem, deleteTrashItem, emptyTrash } from '@/lib/api';
+import { timeAgo } from '@/lib/utils';
 import type { TrashItem, TrashEntityType } from '@/types';
 
 const TYPE_ICON: Record<TrashEntityType, React.ComponentType<{ className?: string }>> = {
   country: Globe2,
   visaType: CreditCard,
   formPreset: LayoutTemplate,
+  termPreset: ScrollText,
   contactLead: MessageSquare,
   application: FileText,
   user: Users,
@@ -24,22 +27,11 @@ const TYPE_BADGE: Record<TrashEntityType, string> = {
   country: 'bg-info/10 text-info border-info/20',
   visaType: 'bg-primary/10 text-primary border-primary/20',
   formPreset: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
+  termPreset: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
   contactLead: 'bg-warning/10 text-warning border-warning/20',
   application: 'bg-success/10 text-success border-success/20',
   user: 'bg-destructive/10 text-destructive border-destructive/20',
 };
-
-function timeAgo(iso: string) {
-  const d = new Date(iso).getTime();
-  const diff = Date.now() - d;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-}
 
 export default function TrashPage() {
   const [items, setItems] = useState<TrashItem[]>([]);
@@ -91,6 +83,8 @@ export default function TrashPage() {
     }
   };
 
+  const { pageItems, paginationProps } = usePagination(items, 'trash');
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader
@@ -127,7 +121,7 @@ export default function TrashPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((item) => {
+                {pageItems.map((item) => {
                   const Icon = TYPE_ICON[item.entityType] || Trash2;
                   return (
                     <TableRow key={item._id}>
@@ -158,6 +152,7 @@ export default function TrashPage() {
                 })}
               </TableBody>
             </Table>
+            <Pagination {...paginationProps} className="border-t border-border" />
           </div>
         </>
       )}

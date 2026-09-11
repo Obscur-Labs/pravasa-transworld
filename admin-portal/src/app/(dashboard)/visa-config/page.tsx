@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -129,6 +130,7 @@ function CategoryPanel({
 }) {
   const [label, setLabel] = useState('');
   const [saving, setSaving] = useState(false);
+  const { pageItems, paginationProps } = usePagination(options, `visa-config:${category}`);
 
   const handleAdd = async () => {
     const trimmed = label.trim();
@@ -170,9 +172,10 @@ function CategoryPanel({
         <EmptyState icon={SlidersHorizontal} title="No options yet" description="Add one above to make it available on the Visa Types form." />
       ) : (
         <div className="bg-card rounded-2xl border border-border divide-y divide-border">
-          {options.map((opt) => (
+          {pageItems.map((opt) => (
             <OptionRow key={opt._id} option={opt} onToggleActive={onToggleActive} onRelabel={onRelabel} onRequestDelete={onRequestDelete} />
           ))}
+          <Pagination {...paginationProps} />
         </div>
       )}
     </div>

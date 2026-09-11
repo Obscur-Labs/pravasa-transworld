@@ -2,6 +2,7 @@ import { Model } from 'mongoose';
 import Country from '../models/Country';
 import VisaType from '../models/VisaType';
 import FormPreset from '../models/FormPreset';
+import TermPreset from '../models/TermPreset';
 import ContactLead from '../models/ContactLead';
 import Application from '../models/Application';
 import User from '../models/User';
@@ -12,6 +13,7 @@ export const TRASH_MODELS: Record<TrashEntityType, Model<any>> = {
   country: Country,
   visaType: VisaType,
   formPreset: FormPreset,
+  termPreset: TermPreset,
   contactLead: ContactLead,
   application: Application,
   user: User,
@@ -21,6 +23,7 @@ export const ENTITY_LABELS: Record<TrashEntityType, string> = {
   country: 'Country',
   visaType: 'Visa Type',
   formPreset: 'Form Preset',
+  termPreset: 'Terms Preset',
   contactLead: 'Contact Lead',
   application: 'Application',
   user: 'Customer',
@@ -33,7 +36,8 @@ function deriveLabels(entityType: TrashEntityType, data: any): { label: string; 
     case 'visaType':
       return { label: data.name || 'Visa Type', sublabel: '' };
     case 'formPreset':
-      return { label: data.name || 'Form Preset', sublabel: data.description || '' };
+    case 'termPreset':
+      return { label: data.name || ENTITY_LABELS[entityType], sublabel: data.description || '' };
     case 'contactLead':
       return { label: data.name || 'Lead', sublabel: data.email || '' };
     case 'application':

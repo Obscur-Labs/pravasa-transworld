@@ -1,12 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { LogOut, Settings, MoreHorizontal, type LucideIcon } from 'lucide-react';
+import { Settings, MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { useAdminAuthStore } from '@/store/auth.store';
 import { topNavItems, configNavItems, bottomNavItems, otherNavItems, type NavItem } from '@/config/nav';
 
 function isActivePath(pathname: string, href: string) {
@@ -31,8 +29,6 @@ function NavLink({ href, label, icon: Icon, active, onNavigate }: NavItem & { ac
   );
 }
 
-// One reusable accordion group — used for both "Configurations" and "Other Options"
-// so the sidebar doesn't repeat the same trigger/content markup twice.
 function NavGroup({
   value, label, icon: Icon, items, pathname, onNavigate,
 }: {
@@ -68,53 +64,21 @@ function NavGroup({
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { admin, logout } = useAdminAuthStore();
 
-  const isConfigRoute = configNavItems.some(({ href }) => isActivePath(pathname, href));
-  const isOtherRoute = otherNavItems.some(({ href }) => isActivePath(pathname, href));
-  const [openGroups, setOpenGroups] = useState<string[]>(() => {
-    const initial: string[] = [];
-    if (isConfigRoute) initial.push('config');
-    if (isOtherRoute) initial.push('other');
-    return initial;
-  });
-
-  const handleLogout = () => {
-    onNavigate?.();
-    logout();
-    router.push('/login');
-  };
+  const [openGroups, setOpenGroups] = useState<string[]>(() => [
+    ...(configNavItems.some(({ href }) => isActivePath(pathname, href)) ? ['config'] : []),
+    ...(otherNavItems.some(({ href }) => isActivePath(pathname, href)) ? ['other'] : []),
+  ]);
 
   return (
     <>
-      <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          {/* The square mark, not the wordmark: it is a navy tile, so it reads the
-              same on the light and dark sidebar without a second asset. */}
-          <img
-            src="/logo-mark.png"
-            alt="Pravasa Transworld"
-            className="w-8 h-8 rounded-lg flex-shrink-0"
-          />
-          <div className="min-w-0">
-            <span className="text-foreground font-semibold text-sm block truncate">Pravasa Transworld</span>
-            <p className="text-muted-foreground text-xs">Admin Console</p>
-          </div>
+      <Link href="/dashboard" onClick={onNavigate} className="h-16 shrink-0 flex items-center gap-2.5 px-5 border-b border-border">
+        <img src="/logo-mark.png" alt="" className="w-8 h-8 rounded-lg flex-shrink-0" />
+        <div className="min-w-0 leading-tight">
+          <span className="text-foreground font-semibold text-sm block truncate">Pravasa Transworld</span>
+          <span className="text-muted-foreground text-xs">Admin Console</span>
         </div>
-      </div>
-
-      <div className="px-4 py-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback>{admin?.name?.[0]?.toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">{admin?.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{admin?.email}</p>
-          </div>
-        </div>
-      </div>
+      </Link>
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {topNavItems.map((item) => (
@@ -130,16 +94,6 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <NavGroup value="other" label="Other Options" icon={MoreHorizontal} items={otherNavItems} pathname={pathname} onNavigate={onNavigate} />
         </Accordion>
       </nav>
-
-      <div className="p-4 border-t border-border">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors w-full"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
-      </div>
     </>
   );
 }

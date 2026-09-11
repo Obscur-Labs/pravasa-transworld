@@ -22,4 +22,9 @@ const ActivityLogSchema = new Schema<IActivityLog>(
   { timestamps: true }
 );
 
+export const LOG_RETENTION_DAYS = 7;
+
+// MongoDB's TTL monitor removes entries once they pass the retention window.
+ActivityLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: LOG_RETENTION_DAYS * 24 * 60 * 60 });
+
 export default mongoose.model<IActivityLog>('ActivityLog', ActivityLogSchema);

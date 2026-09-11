@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil, Trash2, Loader2, Search, Globe, FileText, ArrowUpDown, MapPin, Plane } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Search, Globe, FileText, ArrowUpDown, MapPin, Plane, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,20 +11,56 @@ import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
-import { CardGridSkeleton } from '@/components/ui/skeleton';
+import { Pagination, usePagination } from '@/components/ui/pagination';
+import { CardGridSkeleton, TableSkeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/components/ui/use-toast';
 import { getCountries, createCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { useStoredPrefs } from '@/lib/useStoredPrefs';
 import type { Country } from '@/types';
 
 interface CountryForm { name: string; flag: string; description: string; }
 const emptyForm: CountryForm = { name: '', flag: '', description: '' };
 
+const DEFAULT_PREFS = {
+  view: 'grid' as 'grid' | 'list',
+  sortBy: 'name-asc' as 'name-asc' | 'name-desc' | 'active-first' | 'inactive-first' | 'website-first',
+  filterStatus: 'all' as 'all' | 'active' | 'inactive',
+  filterWeb: 'all' as 'all' | 'shown' | 'hidden',
+};
+
+const VIEWS = [
+  { value: 'grid', icon: LayoutGrid, label: 'Card view' },
+  { value: 'list', icon: List, label: 'List view' },
+] as const;
+
+const iconButton = 'p-1.5 text-muted-foreground rounded-lg transition-colors flex items-center';
+
+function CountryActions({ country, onEdit, onDelete }: { country: Country; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div className="flex gap-1 items-center">
+      <button onClick={onEdit} title="Edit basic info" className={cn(iconButton, 'hover:text-primary hover:bg-accent')}>
+        <Pencil className="w-3.5 h-3.5" />
+      </button>
+      <Link href={`/countries/${country._id}`} title="Open country and manage visa types" className={cn(iconButton, 'hover:text-primary hover:bg-accent')}>
+        <Plane className="w-3.5 h-3.5" />
+      </Link>
+      <Link href={`/countries/${country._id}/content`} title="Edit website content" className={cn(iconButton, 'hover:text-violet-600 hover:bg-violet-500/10')}>
+        <FileText className="w-3.5 h-3.5" />
+      </Link>
+      <button onClick={onDelete} title="Move to trash" className={cn(iconButton, 'hover:text-destructive hover:bg-destructive/10')}>
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export default function CountriesPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'active-first' | 'inactive-first' | 'website-first'>('name-asc');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
-  const [filterWeb, setFilterWeb] = useState<'all' | 'shown' | 'hidden'>('all');
+  const [prefs, updatePrefs] = useStoredPrefs('admin:countries', DEFAULT_PREFS);
+  const { view, sortBy, filterStatus, filterWeb } = prefs;
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<CountryForm>(emptyForm);
@@ -114,6 +150,8 @@ export default function CountriesPage() {
       return 0;
     });
 
+  const { pageItems, paginationProps } = usePagination(filtered, 'countries', `${search}|${sortBy}|${filterStatus}|${filterWeb}`);
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader
@@ -142,7 +180,7 @@ export default function CountriesPage() {
           <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sort</span>
         </div>
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+        <Select value={sortBy} onValueChange={(v) => updatePrefs({ sortBy: v as typeof sortBy })}>
           <SelectTrigger className="w-40 h-8 text-sm bg-card">
             <SelectValue />
           </SelectTrigger>
@@ -161,7 +199,7 @@ export default function CountriesPage() {
         {(['all', 'active', 'inactive'] as const).map((v) => (
           <button
             key={v}
-            onClick={() => setFilterStatus(v)}
+            onClick={() => updatePrefs({ filterStatus: v })}
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
               filterStatus === v
                 ? v === 'active' ? 'bg-success text-success-foreground' : v === 'inactive' ? 'bg-muted-foreground text-background' : 'bg-foreground text-background'
@@ -178,7 +216,7 @@ export default function CountriesPage() {
         {(['all', 'shown', 'hidden'] as const).map((v) => (
           <button
             key={v}
-            onClick={() => setFilterWeb(v)}
+            onClick={() => updatePrefs({ filterWeb: v })}
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
               filterWeb === v
                 ? v === 'shown' ? 'bg-violet-500 text-white' : v === 'hidden' ? 'bg-muted-foreground text-background' : 'bg-foreground text-background'
@@ -193,7 +231,7 @@ export default function CountriesPage() {
           <>
             <div className="w-px h-5 bg-border mx-1" />
             <button
-              onClick={() => { setFilterStatus('all'); setFilterWeb('all'); setSortBy('name-asc'); }}
+              onClick={() => updatePrefs({ sortBy: 'name-asc', filterStatus: 'all', filterWeb: 'all' })}
               className="px-3 py-1 rounded-full text-xs font-semibold text-destructive border border-destructive/20 hover:bg-destructive/10 transition-colors"
             >
               Reset
@@ -202,6 +240,24 @@ export default function CountriesPage() {
         )}
 
         <span className="ml-auto text-xs text-muted-foreground">{filtered.length} of {countries.length}</span>
+
+        <div className="flex p-0.5 rounded-lg border border-border bg-card" role="group" aria-label="Layout">
+          {VIEWS.map(({ value, icon: Icon, label }) => (
+            <button
+              key={value}
+              onClick={() => updatePrefs({ view: value })}
+              aria-label={label}
+              aria-pressed={view === value}
+              title={label}
+              className={cn(
+                'p-1.5 rounded-md transition-colors',
+                view === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Icon className="w-4 h-4" />
+            </button>
+          ))}
+        </div>
       </div>
 
       {showForm && (
@@ -233,38 +289,68 @@ export default function CountriesPage() {
       )}
 
       {loading ? (
-        <CardGridSkeleton count={8} />
+        view === 'grid' ? <CardGridSkeleton count={8} /> : <Card className="overflow-hidden"><Table><TableBody><TableSkeleton rows={8} cols={4} /></TableBody></Table></Card>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={MapPin}
           title={search ? `No countries match "${search}"` : 'No countries yet'}
           description={search ? 'Try a different search or reset your filters.' : 'Add a country to get started.'}
         />
+      ) : view === 'list' ? (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent bg-muted/40">
+                  <TableHead>Country</TableHead>
+                  <TableHead className="w-40">Status</TableHead>
+                  <TableHead className="w-40">Website</TableHead>
+                  <TableHead className="w-40 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageItems.map((c) => (
+                  <TableRow key={c._id} className={!c.isActive ? 'opacity-60' : ''}>
+                    <TableCell>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt="" className="w-8 h-6 object-cover rounded flex-shrink-0" />
+                        <div className="min-w-0">
+                          <Link href={`/countries/${c._id}`} className="font-semibold text-foreground hover:text-primary transition-colors">{c.name}</Link>
+                          {c.description && <p className="text-xs text-muted-foreground truncate max-w-md">{c.description}</p>}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={c.isActive} onChange={() => handleToggle(c._id)} disabled={toggling === c._id} tone="success" />
+                        <span className={`text-xs font-semibold ${c.isActive ? 'text-success' : 'text-muted-foreground'}`}>{c.isActive ? 'Active' : 'Inactive'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={!!c.showOnWebsite} onChange={() => handleToggleWeb(c._id)} disabled={togglingWeb === c._id} tone="violet" />
+                        <span className={`text-xs font-semibold ${c.showOnWebsite ? 'text-violet-600' : 'text-muted-foreground'}`}>{c.showOnWebsite ? 'On Website' : 'Hidden'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <CountryActions country={c} onEdit={() => startEdit(c)} onDelete={() => setDeleteId(c._id)} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((c) => (
+          {pageItems.map((c) => (
             <Card key={c._id} className={`hover:shadow-md transition-shadow ${!c.isActive ? 'opacity-60' : ''}`}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-2">
                   <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-10 h-7 object-cover rounded" />
-                  <div className="flex gap-1 items-center">
-                    <button onClick={() => startEdit(c)} title="Edit basic info" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg transition-colors">
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <Link href={`/countries/${c._id}`} title="Open country & manage visa types">
-                      <span className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg transition-colors flex items-center">
-                        <Plane className="w-3.5 h-3.5" />
-                      </span>
-                    </Link>
-                    <Link href={`/countries/${c._id}/content`} title="Edit website content">
-                      <span className="p-1.5 text-muted-foreground hover:text-violet-600 hover:bg-violet-500/10 rounded-lg transition-colors flex items-center">
-                        <FileText className="w-3.5 h-3.5" />
-                      </span>
-                    </Link>
-                    <button onClick={() => setDeleteId(c._id)} title="Move to trash" className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  <CountryActions country={c} onEdit={() => startEdit(c)} onDelete={() => setDeleteId(c._id)} />
                 </div>
 
                 <Link href={`/countries/${c._id}`} className="font-semibold text-foreground hover:text-primary transition-colors">{c.name}</Link>
@@ -301,6 +387,7 @@ export default function CountriesPage() {
           ))}
         </div>
       )}
+      {!loading && <Pagination {...paginationProps} className="px-0 mt-2" />}
 
       <ConfirmDialog
         open={!!deleteId}

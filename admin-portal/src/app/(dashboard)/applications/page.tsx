@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Pagination, usePageSize } from '@/components/ui/pagination';
 import { getApplications } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import type { Application, ApplicationStatus } from '@/types';
@@ -27,34 +28,34 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize('applications');
+
+  // Wait for a pause in typing before asking the server.
+  useEffect(() => {
+    const t = setTimeout(() => { setQuery(search.trim()); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   useEffect(() => {
+    let stale = false;
     setLoading(true);
-    const params: Record<string, string> = {};
-    if (statusFilter) params.status = statusFilter;
-    getApplications(params)
+    getApplications({ status: statusFilter || undefined, search: query || undefined, page, limit: pageSize })
       .then((r) => {
+        if (stale) return;
         setApplications(r.data.data.applications);
         setTotal(r.data.data.total);
       })
-      .finally(() => setLoading(false));
-  }, [statusFilter]);
-
-  const filtered = applications.filter((a) => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      a.referenceId?.toLowerCase().includes(s) ||
-      a.user?.name?.toLowerCase().includes(s) ||
-      a.user?.email?.toLowerCase().includes(s)
-    );
-  });
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
+  }, [statusFilter, query, page, pageSize]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Applications</h1>
-        <p className="text-muted-foreground text-sm mt-1">{total} total applications</p>
+        <p className="text-muted-foreground text-sm mt-1">{total} {statusFilter || query ? 'matching' : 'total'} applications</p>
       </div>
 
       {/* Filters */}
@@ -73,7 +74,7 @@ export default function ApplicationsPage() {
           <Filter className="w-4 h-4 text-muted-foreground" />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-input bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           >
             <option value="">All Statuses</option>
@@ -101,7 +102,7 @@ export default function ApplicationsPage() {
                 </TableRow>
               ))
             ) : (
-              filtered.map((app) => (
+              applications.map((app) => (
                 <TableRow key={app._id}>
                   <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{app.referenceId}</TableCell>
                   <TableCell>
@@ -132,13 +133,14 @@ export default function ApplicationsPage() {
             )}
           </TableBody>
         </Table>
-        {!loading && filtered.length === 0 && (
+        {!loading && applications.length === 0 && (
           <EmptyState
             icon={FileSearch}
             title="No applications found"
             description={search || statusFilter ? 'Try adjusting your search or filter.' : 'Applications will show up here once submitted.'}
           />
         )}
+        <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} className="border-t border-border" />
       </Card>
     </div>
   );

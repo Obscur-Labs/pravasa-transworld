@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export type TrashEntityType = 'country' | 'visaType' | 'formPreset' | 'contactLead' | 'application' | 'user';
+export type TrashEntityType = 'country' | 'visaType' | 'formPreset' | 'termPreset' | 'contactLead' | 'application' | 'user';
 
 export interface ITrash extends Document {
   entityType: TrashEntityType;
@@ -13,7 +13,7 @@ export interface ITrash extends Document {
 
 const TrashSchema = new Schema<ITrash>(
   {
-    entityType: { type: String, required: true, enum: ['country', 'visaType', 'formPreset', 'contactLead', 'application', 'user'] },
+    entityType: { type: String, required: true, enum: ['country', 'visaType', 'formPreset', 'termPreset', 'contactLead', 'application', 'user'] },
     label: { type: String, default: '' },
     sublabel: { type: String, default: '' },
     originalId: { type: Schema.Types.ObjectId, required: true },

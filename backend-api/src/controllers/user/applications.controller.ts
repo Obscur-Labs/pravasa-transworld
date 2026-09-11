@@ -349,10 +349,17 @@ export const downloadVisaSummaryPdf = async (req: AuthRequest, res: Response): P
       // Fields and documents are one authored sequence — the sheet lists them in that
       // same order so it matches what the applicant will actually see on the form.
       documents: [
-        ...(visaType.formFields || []).map((f) => ({
-          kind: 'field' as const, order: f.order ?? 0,
-          name: f.label || f.fieldName, description: f.placeholder || '', required: f.required, applicantType: f.applicantType,
-        })),
+        ...(visaType.formFields || []).flatMap((f) => [
+          {
+            kind: 'field' as const, order: f.order ?? 0,
+            name: f.label || f.fieldName, description: f.placeholder || '', required: f.required, applicantType: f.applicantType,
+          },
+          ...(f.subFields || []).map((sub) => ({
+            kind: 'field' as const, order: f.order ?? 0,
+            name: `${sub.label} (if ${f.label}: ${sub.showWhen.length ? sub.showWhen.join(' / ') : 'answered'})`,
+            description: sub.placeholder || '', required: sub.required, applicantType: f.applicantType,
+          })),
+        ]),
         ...(visaType.documentRequirements || []).map((d) => ({
           kind: 'document' as const, order: d.order ?? 0,
           name: d.name, description: d.description, required: d.required, applicantType: d.applicantType,

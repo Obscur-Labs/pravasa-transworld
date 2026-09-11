@@ -106,17 +106,29 @@ export interface VaultDocument {
 
 export type ApplicantType = 'adult' | 'child' | 'both';
 
+export type FieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea';
+
 export interface FormField {
   _id: string;
   label: string;
   fieldName: string;
-  type: 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea';
+  type: FieldType;
   required: boolean;
   options: string[];
   placeholder: string;
   order: number;
   applicantType?: ApplicantType;
+  subFields?: SubField[];
 }
+
+// A follow-up shown under its parent. Empty `showWhen` means any answer reveals it.
+export type SubField = Pick<FormField, 'label' | 'fieldName' | 'type' | 'required' | 'options' | 'placeholder'> & { showWhen: string[] };
+
+/** The follow-ups the parent's current answer reveals. */
+export const shownSubFields = (field: FormField, parentValue: string | undefined) =>
+  (field.subFields || []).filter((sub) =>
+    sub.showWhen.length > 0 ? sub.showWhen.includes(parentValue ?? '') : !!parentValue?.trim(),
+  );
 
 export interface DocumentRequirement {
   _id: string;

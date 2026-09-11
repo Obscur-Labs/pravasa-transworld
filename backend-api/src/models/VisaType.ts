@@ -3,16 +3,25 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type FieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea' | 'file';
 export type ApplicantType = 'adult' | 'child' | 'both';
 
-export interface IFormField {
-  _id?: mongoose.Types.ObjectId;
+interface IQuestion {
   label: string;
   fieldName: string;
   type: FieldType;
   required: boolean;
   options: string[];
   placeholder: string;
+}
+
+// A follow-up revealed by its parent's answer. Empty `showWhen` means any answer reveals it.
+export interface ISubField extends IQuestion {
+  showWhen: string[];
+}
+
+export interface IFormField extends IQuestion {
+  _id?: mongoose.Types.ObjectId;
   order: number;
   applicantType: ApplicantType;
+  subFields?: ISubField[];
 }
 
 // docType: a saved document kind ('custom' for a free-form name). Passport kinds
@@ -94,18 +103,28 @@ export interface IVisaType extends Document {
   isActive: boolean;
 }
 
-const FormFieldSchema = new Schema<IFormField>({
+const questionDefinition = {
   label: { type: String, required: true },
   fieldName: { type: String, required: true },
   type: { type: String, required: true },
   required: { type: Boolean, default: false },
   options: [{ type: String }],
   placeholder: { type: String, default: '' },
+};
+
+const SubFieldSchema = new Schema<ISubField>({
+  ...questionDefinition,
+  showWhen: [{ type: String }],
+}, { _id: false });
+
+export const FormFieldSchema = new Schema<IFormField>({
+  ...questionDefinition,
   order: { type: Number, default: 0 },
   applicantType: { type: String, enum: ['adult', 'child', 'both'], default: 'adult' },
+  subFields: { type: [SubFieldSchema], default: [] },
 });
 
-const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
+export const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
   name: { type: String, required: true },
   description: { type: String, default: '' },
   required: { type: Boolean, default: true },
@@ -119,7 +138,7 @@ const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
   order: { type: Number, default: 0 },
 });
 
-const VisaTermSchema = new Schema<IVisaTerm>({
+export const VisaTermSchema = new Schema<IVisaTerm>({
   text: { type: String, required: true, trim: true },
   required: { type: Boolean, default: true },
   defaultChecked: { type: Boolean, default: false },

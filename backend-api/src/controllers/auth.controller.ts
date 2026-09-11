@@ -187,7 +187,7 @@ export const verifyAdminOtp = async (req: Request, res: Response): Promise<void>
   record.verified = true;
   await record.save();
 
-  const Admin = (await import('../models/Admin')).default;
+  const { default: Admin, toAdminProfile } = await import('../models/Admin');
   const admin = await Admin.findOne({ email: email.toLowerCase() });
   if (!admin) {
     sendError(res, 'Admin not found', 404);
@@ -202,6 +202,6 @@ export const verifyAdminOtp = async (req: Request, res: Response): Promise<void>
 
   sendSuccess(res, {
     token,
-    admin: { _id: admin._id, name: admin.name, email: admin.email, phone: admin.phone },
+    admin: toAdminProfile(admin),
   }, 'Admin login successful');
 };

@@ -22,8 +22,8 @@ import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError, Paymen
 import { formatCurrency } from '@/lib/utils';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useAuthStore } from '@/store/auth.store';
-import { mergeFormItems } from '@/types';
-import type { Country, VisaType, FormField, FormItem, DocumentRequirement, VaultDocument } from '@/types';
+import { mergeFormItems, shownSubFields } from '@/types';
+import type { Country, VisaType, FormField, FormItem, DocumentRequirement, VaultDocument, SubField } from '@/types';
 
 type Step = 1 | 2 | 3 | 4;
 type DocSource =
@@ -94,6 +94,10 @@ const appliesToTraveler = (applicantType: string | undefined, trType: 'adult' | 
 
 const fieldsForTraveler = (fields: FormField[], tr: Traveler) =>
   fields.filter((f) => appliesToTraveler(f.applicantType, tr.type));
+
+// Each question plus the follow-ups its current answer reveals.
+const questionsForTraveler = (fields: FormField[], tr: Traveler, formData: Record<string, string>) =>
+  fieldsForTraveler(fields, tr).flatMap((f): (FormField | SubField)[] => [f, ...shownSubFields(f, formData[`${tr.key}__${f.fieldName}`])]);
 
 const docsForTraveler = (docs: DocumentRequirement[], tr: Traveler) =>
   docs.filter((d) => appliesToTraveler(d.applicantType, tr.type));
@@ -868,7 +872,7 @@ export default function ApplyPage() {
       const responses: Record<string, string> = {};
       const sortedFields = [...selectedVisa.formFields].sort((a, b) => a.order - b.order);
       for (const tr of travelers) {
-        for (const f of fieldsForTraveler(sortedFields, tr)) {
+        for (const f of questionsForTraveler(sortedFields, tr, formData)) {
           const val = formData[`${tr.key}__${f.fieldName}`];
           const key = `${tr.label} — ${f.label || f.fieldName}`.replace(/\./g, ' ');
           if (val && String(val).trim()) responses[key] = String(val);
@@ -1015,7 +1019,7 @@ export default function ApplyPage() {
   const requirements: DocumentRequirement[] = withDefaultPassport(selectedVisa?.documentRequirements || []);
 
   const travelerComplete = (tr: Traveler) => {
-    const fieldsOk = fieldsForTraveler(sortedFields, tr).filter((f) => f.required).every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim());
+    const fieldsOk = questionsForTraveler(sortedFields, tr, formData).filter((f) => f.required).every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim());
     const docsOk = docsForTraveler(requirements, tr).filter((r) => r.required).every((r) => {
       if (isPassportPair(r) && r.ocrEnabled !== false) return !!docSources[docKey(tr, r.name, '__front')] && !!docSources[docKey(tr, r.name, '__back')];
       return !!docSources[docKey(tr, r.name)];
@@ -1030,7 +1034,7 @@ export default function ApplyPage() {
     return true;
   };
 
-  const renderField = (field: FormField, prefix: string) => {
+  const renderField = (field: FormField | SubField, prefix: string) => {
     const key = `${prefix}__${field.fieldName}`;
     const common = {
       id: key,
@@ -1428,6 +1432,15 @@ export default function ApplyPage() {
                             {item.field.required && <span className="text-red-500 ml-1">*</span>}
                           </Label>
                           <div className="mt-1">{renderField(item.field, activeTr.key)}</div>
+                          {shownSubFields(item.field, formData[`${activeTr.key}__${item.field.fieldName}`]).map((sub) => (
+                            <div key={sub.fieldName} className="mt-3 ml-1 pl-4 border-l-2 border-brand-200 animate-fade-in">
+                              <Label htmlFor={`${activeTr.key}__${sub.fieldName}`}>
+                                {sub.label}
+                                {sub.required && <span className="text-red-500 ml-1">*</span>}
+                              </Label>
+                              <div className="mt-1">{renderField(sub, activeTr.key)}</div>
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <div key={`d:${item.doc._id || item.doc.name}`}>{renderDocCard(activeTr, item.doc)}</div>
@@ -1511,7 +1524,7 @@ export default function ApplyPage() {
                 <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Traveller Details</p>
                 <div className="space-y-4">
                   {travelers.map((tr) => {
-                    const entries = fieldsForTraveler(sortedFields, tr)
+                    const entries = questionsForTraveler(sortedFields, tr, formData)
                       .map((f) => [f.label || f.fieldName, formData[`${tr.key}__${f.fieldName}`]] as const)
                       .filter(([, v]) => v && String(v).trim());
                     return (

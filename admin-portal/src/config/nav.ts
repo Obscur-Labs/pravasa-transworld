@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard, FileText, Globe2, Users, Kanban,
-  Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal, Receipt, Mail,
+  Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal, Receipt, Mail, UserRound, ScrollText,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -15,13 +15,13 @@ export const topNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/applications', label: 'Applications', icon: FileText },
   { href: '/processing', label: 'Processing Board', icon: Kanban },
-  // Countries own their visa types — drill into a country to manage its visas.
   { href: '/countries', label: 'Countries & Visas', icon: Globe2 },
 ];
 
 // Grouped under the "Configurations" accordion in the sidebar.
 export const configNavItems: NavItem[] = [
   { href: '/form-config', label: 'Form Presets', icon: LayoutTemplate },
+  { href: '/terms-config', label: 'Terms Presets', icon: ScrollText },
   { href: '/visa-config', label: 'Visa Config', icon: SlidersHorizontal },
   { href: '/receipt-config', label: 'Receipt Config', icon: Receipt },
   { href: '/embassy-mail-config', label: 'Embassy Mail', icon: Mail },
@@ -40,4 +40,7 @@ export const otherNavItems: NavItem[] = [
   { href: '/logs', label: 'Activity Logs', icon: History },
 ];
 
-export const allNavItems: NavItem[] = [...topNavItems, ...configNavItems, ...bottomNavItems, ...otherNavItems];
+// Reached from the account menu, so only the command palette lists it.
+const accountNavItems: NavItem[] = [{ href: '/profile', label: 'My Profile', icon: UserRound }];
+
+export const allNavItems: NavItem[] = [...topNavItems, ...configNavItems, ...bottomNavItems, ...otherNavItems, ...accountNavItems];

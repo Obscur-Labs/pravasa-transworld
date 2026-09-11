@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/use-toast';
@@ -99,6 +100,8 @@ export default function FormConfigPage() {
     }
   };
 
+  const { pageItems, paginationProps } = usePagination(presets, 'form-presets');
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader
@@ -158,7 +161,7 @@ export default function FormConfigPage() {
         <EmptyState icon={LayoutTemplate} title="No form presets yet" description="Create a layout to reuse across visa types." />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {presets.map((p) => (
+          {pageItems.map((p) => (
             <Card key={p._id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-5 flex flex-col h-full">
                 <div className="flex items-start justify-between gap-2">
@@ -181,6 +184,7 @@ export default function FormConfigPage() {
           ))}
         </div>
       )}
+      {!loading && <Pagination {...paginationProps} className="px-0 mt-2" />}
 
       <p className="text-xs text-muted-foreground mt-6 flex items-center gap-1.5">
         <LayoutTemplate className="w-3.5 h-3.5" />

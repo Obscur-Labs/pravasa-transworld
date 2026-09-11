@@ -49,7 +49,13 @@ export interface FormField {
   placeholder: string;
   order: number;
   applicantType?: ApplicantType;
+  subFields?: SubField[];
 }
+
+// A follow-up shown under its parent. Empty `showWhen` means any answer reveals it.
+export type SubField = Pick<FormField, 'label' | 'fieldName' | 'type' | 'required' | 'options' | 'placeholder'> & { showWhen: string[] };
+
+export const hasOptions = (type: FieldType) => type === 'select' || type === 'radio';
 
 export type DocumentType =
   | 'custom' | 'passport' | 'passport_front' | 'passport_back' | 'page' | 'photo' | 'aadhaar' | 'pan';
@@ -346,6 +352,15 @@ export interface FormPreset {
   updatedAt: string;
 }
 
+export interface TermPreset {
+  _id: string;
+  name: string;
+  description: string;
+  terms: VisaTerm[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VaultDocument {
   _id: string;
   type: string;
@@ -472,7 +487,7 @@ export interface VisaFile {
   url: string;
 }
 
-export type TrashEntityType = 'country' | 'visaType' | 'formPreset' | 'contactLead' | 'application' | 'user';
+export type TrashEntityType = 'country' | 'visaType' | 'formPreset' | 'termPreset' | 'contactLead' | 'application' | 'user';
 
 export interface TrashItem {
   _id: string;
@@ -485,6 +500,27 @@ export interface TrashItem {
 }
 
 export type ActivityAction = 'create' | 'update' | 'delete';
+
+export interface AdminProfile {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  createdAt: string;
+}
+
+export interface AdminNotification {
+  _id: string;
+  title: string;
+  message: string;
+  type: string;
+  application: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+export const ACTION_BADGE = { create: 'success', update: 'info', delete: 'destructive' } as const;
 
 export interface ActivityLog {
   _id: string;

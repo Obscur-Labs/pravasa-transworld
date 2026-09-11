@@ -1,130 +1,111 @@
 'use client';
-import { createContext, useContext, useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
 import { useAdminAuthStore } from '@/store/auth.store';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from '@/components/ui/use-toast';
+import {
+  getAdminNotifications,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+  deleteAdminNotification,
+  deleteAllAdminNotifications,
+} from '@/lib/api';
+import type { AdminNotification } from '@/types';
 
-interface SocketContextType {
-  socket: Socket | null;
+interface NotificationContextType {
+  notifications: AdminNotification[];
   unreadCount: number;
-  fetchNotifications: () => Promise<void>;
+  loading: boolean;
+  hasMore: boolean;
+  loadMore: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   deleteAllNotifications: () => Promise<void>;
-  notifications: any[];
 }
 
-const SocketContext = createContext<SocketContextType>({
-  socket: null,
+const SocketContext = createContext<NotificationContextType>({
+  notifications: [],
   unreadCount: 0,
-  fetchNotifications: async () => {},
+  loading: true,
+  hasMore: false,
+  loadMore: async () => {},
   markAsRead: async () => {},
   markAllAsRead: async () => {},
   deleteNotification: async () => {},
   deleteAllNotifications: async () => {},
-  notifications: [],
 });
 
 export const useSocket = () => useContext(SocketContext);
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const { token, isAuthenticated } = useAdminAuthStore();
-  const { toast } = useToast();
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const token = useAdminAuthStore((s) => s.token);
+  const isAuthenticated = useAdminAuthStore((s) => s.isAuthenticated);
 
-  const fetchNotifications = async () => {
-    if (!token) return;
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.success) {
-        setNotifications(Array.isArray(data.data) ? data.data : []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch notifications', err);
-    }
+  const fetchPage = useCallback(async (before?: string) => {
+    const { notifications: page, hasMore, unreadCount } = (await getAdminNotifications(before)).data.data;
+    setNotifications((prev) => (before ? [...prev, ...page] : page));
+    setHasMore(hasMore);
+    setUnreadCount(unreadCount);
+  }, []);
+
+  const loadMore = async () => {
+    const oldest = notifications[notifications.length - 1];
+    if (oldest) await fetchPage(oldest.createdAt).catch(() => {});
   };
 
   const markAsRead = async (id: string) => {
-    if (!token) return;
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/notifications/${id}/read`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, read: true } : n)));
-    } catch (err) {}
+    await markAdminNotificationRead(id).catch(() => {});
+    setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, read: true } : n)));
+    setUnreadCount((c) => Math.max(0, c - 1));
   };
 
   const markAllAsRead = async () => {
-    if (!token) return;
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/notifications/read-all`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch (err) {}
+    await markAllAdminNotificationsRead().catch(() => {});
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
   };
 
   const deleteNotification = async (id: string) => {
-    if (!token) return;
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/notifications/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications((prev) => prev.filter((n) => n._id !== id));
-    } catch (err) {}
+    const target = notifications.find((n) => n._id === id);
+    await deleteAdminNotification(id).catch(() => {});
+    setNotifications((prev) => prev.filter((n) => n._id !== id));
+    if (target && !target.read) setUnreadCount((c) => Math.max(0, c - 1));
   };
 
   const deleteAllNotifications = async () => {
-    if (!token) return;
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/notifications/all`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications([]);
-    } catch (err) {}
+    await deleteAllAdminNotifications().catch(() => {});
+    setNotifications([]);
+    setHasMore(false);
+    setUnreadCount(0);
   };
 
   useEffect(() => {
-    if (isAuthenticated && token) {
-      fetchNotifications();
+    if (!isAuthenticated || !token) return;
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      const socketUrl = apiUrl.startsWith('http') ? new URL(apiUrl).origin : apiUrl;
-      
-      const socketInstance = io(socketUrl, {
-        auth: { token }
-      });
+    fetchPage()
+      .catch((err) => console.error('Failed to fetch notifications', err))
+      .finally(() => setLoading(false));
 
-      socketInstance.on('admin_notification', (newNotif) => {
-        setNotifications((prev) => [newNotif, ...prev]);
-        toast({
-          title: `🔔 ${newNotif.title}`,
-          description: newNotif.message,
-          variant: 'default',
-        });
-      });
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const socket = io(apiUrl.startsWith('http') ? new URL(apiUrl).origin : apiUrl, { auth: { token } });
 
-      setSocket(socketInstance);
-      return () => { socketInstance.disconnect(); };
-    }
-  }, [isAuthenticated, token]);
+    socket.on('admin_notification', (newNotif: AdminNotification) => {
+      setNotifications((prev) => [newNotif, ...prev]);
+      setUnreadCount((c) => c + 1);
+      toast({ title: newNotif.title, description: newNotif.message });
+    });
 
-  const unreadCount = Array.isArray(notifications)
-    ? notifications.filter((n) => !n.read).length
-    : 0;
+    return () => { socket.disconnect(); };
+  }, [isAuthenticated, token, fetchPage]);
 
   return (
     <SocketContext.Provider
-      value={{ socket, notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications }}
+      value={{ notifications, unreadCount, loading, hasMore, loadMore, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications }}
     >
       {children}
     </SocketContext.Provider>

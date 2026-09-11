@@ -7,15 +7,17 @@ import { useAdminAuthStore } from '@/store/auth.store';
 
 import { SocketProvider } from '@/components/providers/SocketProvider';
 import NotificationDropdown from '@/components/layout/NotificationDropdown';
+import AccountMenu from '@/components/layout/AccountMenu';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CommandPalette } from '@/components/command-palette';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCommandPaletteStore } from '@/store/command-palette.store';
+import { getAdminProfile } from '@/lib/api';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, _hasHydrated } = useAdminAuthStore();
+  const { isAuthenticated, _hasHydrated, updateAdmin } = useAdminAuthStore();
   const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const openPalette = useCommandPaletteStore((s) => s.setOpen);
@@ -24,14 +26,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (_hasHydrated && !isAuthenticated) router.push('/login');
   }, [isAuthenticated, _hasHydrated, router]);
 
-  // Mirrors the real chrome (sidebar + header + content) so the shell doesn't
-  // jump around once the persisted auth store rehydrates.
+  // Keeps name and role current when they change after this session signed in.
+  useEffect(() => {
+    if (isAuthenticated) getAdminProfile().then((r) => updateAdmin(r.data.data.profile)).catch(() => {});
+  }, [isAuthenticated, updateAdmin]);
+
   if (!_hasHydrated) {
     return (
       <div className="flex h-screen overflow-hidden bg-background">
-        <div className="hidden md:flex flex-col gap-2 w-64 shrink-0 border-r border-border p-4">
-          <Skeleton className="h-8 w-36 mb-4" />
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-9 w-full rounded-lg" />)}
+        <div className="hidden md:flex flex-col gap-2 w-64 shrink-0 border-r border-border">
+          <div className="h-16 flex items-center px-5 border-b border-border mb-2">
+            <Skeleton className="h-8 w-40" />
+          </div>
+          <div className="px-4 space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-9 w-full rounded-lg" />)}
+          </div>
         </div>
         <div className="flex-1 flex flex-col min-w-0">
           <div className="h-16 border-b border-border flex items-center justify-between px-4 sm:px-6 shrink-0">
@@ -39,6 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="flex items-center gap-2">
               <Skeleton className="h-8 w-8 rounded-lg" />
               <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 lg:w-36 rounded-full" />
             </div>
           </div>
           <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
@@ -68,7 +78,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </Sheet>
 
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="h-16 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 shrink-0 z-10">
+          <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6 shrink-0 z-10">
             <Button
               variant="ghost"
               size="icon"
@@ -100,6 +110,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </Button>
               <ThemeToggle />
               <NotificationDropdown />
+              <div className="w-px h-6 bg-border mx-1.5" />
+              <AccountMenu />
             </div>
           </header>
           <div className="flex-1 overflow-y-auto">

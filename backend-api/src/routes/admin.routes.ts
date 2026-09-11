@@ -15,9 +15,14 @@ import * as activityLogs from '../controllers/admin/activityLogs.controller';
 import * as visaConfig from '../controllers/admin/visaConfig.controller';
 import * as receiptConfig from '../controllers/admin/receiptConfig.controller';
 import * as embassyMail from '../controllers/admin/embassyMail.controller';
+import * as profile from '../controllers/admin/profile.controller';
+import * as termPresets from '../controllers/admin/termPresets.controller';
 
 const router = asyncRouter();
 router.use(adminProtect);
+
+// Profile
+router.route('/profile').get(profile.getProfile).put(profile.updateProfile);
 
 // Dashboard
 router.get('/dashboard', apps.getDashboardStats);
@@ -41,6 +46,10 @@ router.patch('/visa-types/:id/toggle', visaTypes.toggleVisaTypeStatus);
 // Form Presets
 router.route('/form-presets').get(formPresets.getFormPresets).post(formPresets.createFormPreset);
 router.route('/form-presets/:id').put(formPresets.updateFormPreset).delete(formPresets.deleteFormPreset);
+
+// Terms Presets
+router.route('/term-presets').get(termPresets.getTermPresets).post(termPresets.createTermPreset);
+router.route('/term-presets/:id').put(termPresets.updateTermPreset).delete(termPresets.deleteTermPreset);
 
 // Visa Config
 router.route('/visa-config').get(visaConfig.getVisaConfigOptions).post(visaConfig.createVisaConfigOption);

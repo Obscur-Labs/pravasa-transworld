@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/use-toast';
@@ -56,6 +57,7 @@ export default function LeadsPage() {
   });
 
   const unread = leads.filter((l) => !l.read).length;
+  const { pageItems, paginationProps } = usePagination(filtered, 'leads', search);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
@@ -87,7 +89,7 @@ export default function LeadsPage() {
         <EmptyState icon={MessageSquare} title={leads.length === 0 ? 'No contact leads yet' : 'No leads match your search'} />
       ) : (
         <div className="space-y-3">
-          {filtered.map((lead) => (
+          {pageItems.map((lead) => (
             <Card
               key={lead._id}
               className={`p-5 flex gap-4 transition-all ${!lead.read ? 'border-primary/30 shadow-sm' : ''}`}
@@ -149,6 +151,7 @@ export default function LeadsPage() {
               </div>
             </Card>
           ))}
+          <Pagination {...paginationProps} className="px-0" />
         </div>
       )}
 

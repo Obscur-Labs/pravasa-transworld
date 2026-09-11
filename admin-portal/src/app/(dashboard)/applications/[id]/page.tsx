@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/use-toast';
 import {
   getApplication, reviewDocument, approveAllDocuments, updateStatus, uploadVisaFile,
@@ -63,7 +64,7 @@ export default function AdminApplicationDetailPage() {
   const [processing, setProcessing] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
-  const [trashing, setTrashing] = useState(false);
+  const [confirmTrash, setConfirmTrash] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
@@ -278,15 +279,12 @@ export default function AdminApplicationDetailPage() {
   };
 
   const handleTrash = async () => {
-    if (!confirm('Move this application to Trash? You can restore it later from the Trash page.')) return;
-    setTrashing(true);
     try {
       await deleteApplication(id);
       toast({ title: 'Moved to Trash', description: 'Restore it anytime from the Trash page.', variant: 'success' });
       router.push('/applications');
     } catch (err: any) {
       toast({ title: 'Failed to move to trash', description: err.response?.data?.message, variant: 'destructive' });
-      setTrashing(false);
     }
   };
 
@@ -343,9 +341,9 @@ export default function AdminApplicationDetailPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Application Review</h1>
           <p className="text-xs text-muted-foreground">Application No. <span className="font-mono text-muted-foreground/80">{application.referenceId}</span></p>
         </div>
-        <Button variant="outline" onClick={handleTrash} disabled={trashing}
+        <Button variant="outline" onClick={() => setConfirmTrash(true)}
           className="ml-auto text-destructive border-destructive/20 hover:bg-destructive/10">
-          {trashing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Trash2 className="w-4 h-4 mr-2" /> Move to Trash</>}
+          <Trash2 className="w-4 h-4 mr-2" /> Move to Trash
         </Button>
       </div>
 
@@ -1002,6 +1000,15 @@ export default function AdminApplicationDetailPage() {
         open={mailOpen}
         onOpenChange={setMailOpen}
         onSent={fetchData}
+      />
+
+      <ConfirmDialog
+        open={confirmTrash}
+        onOpenChange={setConfirmTrash}
+        title="Move this application to Trash?"
+        description="You can restore it later from the Trash page."
+        confirmLabel="Move to Trash"
+        onConfirm={handleTrash}
       />
     </div>
   );

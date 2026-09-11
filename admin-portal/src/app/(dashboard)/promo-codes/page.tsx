@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatTile } from '@/components/ui/stat-tile';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -169,6 +170,7 @@ export default function PromoCodesPage() {
   });
 
   const totalUsage = promos.reduce((acc, p) => acc + p.usageCount, 0);
+  const { pageItems, paginationProps } = usePagination(filtered, 'promo-codes', search);
   const activeCount = promos.filter((p) => p.isActive).length;
   const websiteCount = promos.filter((p) => p.showOnWebsite).length;
 
@@ -230,7 +232,7 @@ export default function PromoCodesPage() {
               <TableRow><TableCell colSpan={8} className="p-0">
                 <EmptyState icon={Tag} title={search ? 'No matching promo codes' : 'No promo codes yet'} description={search ? 'Try a different search.' : 'Create your first promo code to get started.'} />
               </TableCell></TableRow>
-            ) : filtered.map((p) => (
+            ) : pageItems.map((p) => (
               <TableRow key={p._id}>
                 <TableCell>
                   <span className="font-mono font-bold text-foreground bg-muted px-2 py-0.5 rounded-lg tracking-widest text-xs">{p.code}</span>
@@ -280,6 +282,7 @@ export default function PromoCodesPage() {
             ))}
           </TableBody>
         </Table>
+        <Pagination {...paginationProps} className="border-t border-border" />
       </div>
 
       {/* ── Create / Edit Modal ── */}

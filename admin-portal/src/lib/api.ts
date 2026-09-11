@@ -31,6 +31,10 @@ export const sendAdminOtp = (data: { email: string }) =>
 export const verifyAdminOtp = (data: { email: string; otp: string }) =>
   api.post('/auth/admin/verify-otp', data);
 
+// Profile
+export const getAdminProfile = () => api.get('/admin/profile');
+export const updateAdminProfile = (data: { name: string; phone: string }) => api.put('/admin/profile', data);
+
 // Dashboard
 export const getDashboardStats = () => api.get('/admin/dashboard');
 
@@ -64,6 +68,12 @@ export const getFormPresets = () => api.get('/admin/form-presets');
 export const createFormPreset = (data: object) => api.post('/admin/form-presets', data);
 export const updateFormPreset = (id: string, data: object) => api.put(`/admin/form-presets/${id}`, data);
 export const deleteFormPreset = (id: string) => api.delete(`/admin/form-presets/${id}`);
+
+// Terms Presets
+export const getTermPresets = () => api.get('/admin/term-presets');
+export const createTermPreset = (data: object) => api.post('/admin/term-presets', data);
+export const updateTermPreset = (id: string, data: object) => api.put(`/admin/term-presets/${id}`, data);
+export const deleteTermPreset = (id: string) => api.delete(`/admin/term-presets/${id}`);
 
 // Visa Config
 export const getVisaConfig = () => api.get('/admin/visa-config');
@@ -148,7 +158,7 @@ export const markLeadRead = (id: string) => api.patch(`/admin/leads/${id}/read`)
 export const deleteLead = (id: string) => api.delete(`/admin/leads/${id}`);
 
 // Notifications
-export const getAdminNotifications = () => api.get('/admin/notifications');
+export const getAdminNotifications = (before?: string) => api.get('/admin/notifications', { params: { before } });
 export const markAdminNotificationRead = (id: string) => api.put(`/admin/notifications/${id}/read`);
 export const markAllAdminNotificationsRead = () => api.put('/admin/notifications/read-all');
 export const deleteAdminNotification = (id: string) => api.delete(`/admin/notifications/${id}`);

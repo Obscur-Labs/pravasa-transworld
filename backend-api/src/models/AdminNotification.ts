@@ -29,4 +29,6 @@ const AdminNotificationSchema = new Schema<IAdminNotification>(
   { timestamps: true }
 );
 
+AdminNotificationSchema.index({ createdAt: -1 });
+
 export default mongoose.model<IAdminNotification>('AdminNotification', AdminNotificationSchema);

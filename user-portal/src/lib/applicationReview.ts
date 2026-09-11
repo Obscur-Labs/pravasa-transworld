@@ -125,11 +125,13 @@ export function buildReviewRows(
         });
       }
     } else {
-      const label = norm(item.field.label || item.field.fieldName);
-      const idx = travAnswers.findIndex((a, i) => !usedAnswers.has(i) && norm(a.label) === label);
-      if (idx >= 0) {
-        usedAnswers.add(idx);
-        rows.push({ kind: 'answer', id: `a:${idx}`, label: travAnswers[idx].label, value: travAnswers[idx].value });
+      for (const q of [item.field, ...(item.field.subFields || [])]) {
+        const label = norm(q.label || q.fieldName);
+        const idx = travAnswers.findIndex((a, i) => !usedAnswers.has(i) && norm(a.label) === label);
+        if (idx >= 0) {
+          usedAnswers.add(idx);
+          rows.push({ kind: 'answer', id: `a:${idx}`, label: travAnswers[idx].label, value: travAnswers[idx].value });
+        }
       }
     }
   }

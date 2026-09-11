@@ -13,9 +13,12 @@ import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton, TableSkeleton } from '@/components/ui/skeleton';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { toast } from '@/components/ui/use-toast';
 import { ApplicationFormBuilder } from '@/components/shared/application-form-builder';
 import { TermsEditor } from '@/components/shared/terms-editor';
+import { TermPresetPanel } from '@/components/shared/term-preset-panel';
+import { useStoredPrefs } from '@/lib/useStoredPrefs';
 import {
   getCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite,
   getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType, reorderVisaTypes,
@@ -45,18 +48,17 @@ const withoutIds = <T extends { _id?: string }>(rows: T[]) => rows.map(({ _id, .
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
 const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false, order: 0 });
-const emptyTerm = (): VisaTerm => ({ text: '', required: true, defaultChecked: false, order: 0 });
 
-function TabButton({ step, label, active, done, onClick }: { step: number; label: string; active: boolean; done: boolean; onClick: () => void }) {
+function TabButton({ step, label, active, onClick }: { step: number; label: string; active: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap flex-shrink-0 transition-colors ${
         active ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
       }`}>
       <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold flex-shrink-0 transition-colors ${
-        done ? 'bg-success text-white' : active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+        active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
       }`}>
-        {done ? <Check className="w-3 h-3" /> : step}
+        {step}
       </span>
       {label}
     </button>
@@ -85,8 +87,8 @@ const SERVICE_FEE_ROWS: { label: string; hint?: string; fields: [PriceField, Pri
   { label: 'Corporate', hint: 'blank = same as individual', fields: ['corporateAdultServiceFee', 'corporateChildServiceFee'] },
 ];
 
-// Dialog steps, in order. The footer Back/Continue buttons walk this list.
-const TABS = ['info', 'pricing', 'form', 'notes', 'terms'] as const;
+// Dialog steps, in order. Any tab can be opened at any time; required fields are checked on save.
+const TABS = ['info', 'pricing', 'form', 'terms', 'notes'] as const;
 type TabKey = (typeof TABS)[number];
 const TAB_LABELS: Record<TabKey, string> = {
   info: 'Information',
@@ -98,6 +100,12 @@ const TAB_LABELS: Record<TabKey, string> = {
 // Which tab a given validation error lives on, so a failed save jumps to the right step.
 const ERROR_TAB: Record<string, TabKey> = {
   name: 'info', processingTime: 'info', adultPrice: 'pricing',
+};
+
+const DEFAULT_LIST_PREFS = {
+  filterCategory: '',
+  filterStatus: '' as '' | 'active' | 'inactive',
+  sortBy: 'custom' as 'custom' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'newest' | 'oldest',
 };
 
 const emptyForm = () => ({
@@ -127,9 +135,8 @@ export default function CountryDetailPage() {
   const [visaTypes, setVisaTypes] = useState<VisaType[]>([]);
   const [visaTypesLoading, setVisaTypesLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'' | 'active' | 'inactive'>('');
-  const [sortBy, setSortBy] = useState<'custom' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'newest' | 'oldest'>('custom');
+  const [listPrefs, updateListPrefs] = useStoredPrefs('admin:visa-types', DEFAULT_LIST_PREFS);
+  const { filterCategory, filterStatus, sortBy } = listPrefs;
   // Drag-to-reorder state for the custom sort (see canReorder / moveVisaType below).
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null>(null);
@@ -192,9 +199,7 @@ export default function CountryDetailPage() {
     return active;
   };
 
-  // Fields that live on the Information tab still need to be validated when the Form
-  // tab is active — hidden/unmounted fields don't participate in native HTML validation,
-  // so this replaces reliance on the `required` attribute across tab boundaries.
+  // Hidden tabs skip native validation, so required fields are checked here on save.
   const validateInfo = (): Record<string, string> => {
     const errs: Record<string, string> = {};
     if (!form.name.trim()) errs.name = 'Visa name is required';
@@ -203,32 +208,11 @@ export default function CountryDetailPage() {
     return errs;
   };
 
-  // Clears a single field's sticky error as soon as the admin edits it, instead of
-  // leaving stale red text/borders until the next validation attempt.
+  // Clears a field's error as soon as the admin edits it.
   const clearInfoError = (key: string) =>
     setInfoErrors((prev) => (prev[key] ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)) : prev));
 
-  // Shared gate for moving past the Information/Pricing steps, regardless of which
-  // later tab was clicked. Sends the admin to whichever tab holds the first error.
-  const goToTab = (tab: TabKey) => {
-    // Information and Pricing are always reachable — they're the ones being validated.
-    if (tab === 'info' || tab === 'pricing') { setActiveTab(tab); return; }
-    const errs = validateInfo();
-    setInfoErrors(errs);
-    const firstError = Object.keys(errs)[0];
-    if (firstError) {
-      const errorTab = ERROR_TAB[firstError] || 'info';
-      setActiveTab(errorTab);
-      toast({ title: 'Fill in the required fields', description: `Check the highlighted fields under ${TAB_LABELS[errorTab]}.`, variant: 'destructive' });
-      return;
-    }
-    setActiveTab(tab);
-  };
-
-  // Footer Back/Continue walk the TABS list rather than hard-coding neighbours.
   const tabIndex = TABS.indexOf(activeTab);
-  const goPrevTab = () => setActiveTab(TABS[Math.max(0, tabIndex - 1)]);
-  const goNextTab = () => goToTab(TABS[Math.min(TABS.length - 1, tabIndex + 1)]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -397,10 +381,7 @@ export default function CountryDetailPage() {
     router.push('/countries');
   };
 
-  const addTerm =() => setForm((f) => ({ ...f, terms: [...f.terms, emptyTerm()] }));
-  const removeTerm = (i: number) => setForm((f) => ({ ...f, terms: f.terms.filter((_, idx) => idx !== i) }));
-  const updateTerm = (i: number, key: keyof VisaTerm, value: any) =>
-    setForm((f) => ({ ...f, terms: f.terms.map((t, idx) => idx === i ? { ...t, [key]: value } : t) }));
+  const setTerms = (terms: VisaTerm[]) => setForm((f) => ({ ...f, terms }));
 
   // ── Form Presets ──
   const reloadPresets = () => getFormPresets().then((r) => setPresets(r.data.data)).catch(() => {});
@@ -590,6 +571,11 @@ export default function CountryDetailPage() {
   // can't see, so the handles only appear on the full list in custom order.
   const canReorder = sortBy === 'custom' && !search && !filterCategory && !filterStatus;
 
+  const { pageItems: visaPage, paginationProps: visaPagination } = usePagination(
+    displayedVisaTypes, 'visa-types', `${search}|${filterCategory}|${filterStatus}|${sortBy}`,
+  );
+  const visaOffset = visaPagination.pageSize ? (visaPagination.page - 1) * visaPagination.pageSize : 0;
+
   const moveVisaType = async (from: number, to: number) => {
     if (from === to || from < 0 || to < 0 || to >= displayedVisaTypes.length) return;
     const next = [...displayedVisaTypes];
@@ -716,22 +702,9 @@ export default function CountryDetailPage() {
           <DialogHeader className="border-b border-border pb-0 flex-shrink-0">
             <DialogTitle>{editId ? 'Edit Visa Type' : 'Create Visa Type'}</DialogTitle>
             <div className="flex gap-1 -mb-px overflow-x-auto">
-              {TABS.map((tab, i) => {
-                const errs = validateInfo();
-                const done = tab === 'info'
-                  ? !errs.name && !errs.processingTime
-                  : tab === 'pricing' ? !errs.adultPrice : false;
-                return (
-                  <TabButton
-                    key={tab}
-                    step={i + 1}
-                    label={TAB_LABELS[tab]}
-                    active={activeTab === tab}
-                    done={done}
-                    onClick={() => goToTab(tab)}
-                  />
-                );
-              })}
+              {TABS.map((tab, i) => (
+                <TabButton key={tab} step={i + 1} label={TAB_LABELS[tab]} active={activeTab === tab} onClick={() => setActiveTab(tab)} />
+              ))}
             </div>
           </DialogHeader>
           <form onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0">
@@ -968,30 +941,29 @@ export default function CountryDetailPage() {
                 />
               </div>
 
-              {/* ── Step 5: Terms the applicant must accept before paying ── */}
-              <div className={activeTab === 'terms' ? '' : 'hidden'}>
-                <TermsEditor terms={form.terms} onAdd={addTerm} onUpdate={updateTerm} onRemove={removeTerm} />
+              <div className={activeTab === 'terms' ? 'space-y-5' : 'hidden'}>
+                <TermPresetPanel terms={form.terms} onChange={setTerms} />
+                <TermsEditor terms={form.terms} onChange={setTerms} />
               </div>
 
             </div>
 
             <div className="flex items-center gap-2 px-6 py-4 border-t border-border flex-shrink-0">
               {tabIndex > 0 && (
-                <Button type="button" variant="outline" onClick={goPrevTab}>
+                <Button type="button" variant="outline" onClick={() => setActiveTab(TABS[tabIndex - 1])}>
                   <ChevronLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
               )}
               <div className="ml-auto flex gap-2">
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditId(null); }}>Cancel</Button>
-                {activeTab === 'terms' ? (
-                  <Button type="submit" disabled={saving}>
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editId ? 'Update Visa Type' : 'Create Visa Type'}
-                  </Button>
-                ) : (
-                  <Button type="button" onClick={goNextTab}>
-                    Continue to {TAB_LABELS[TABS[tabIndex + 1]]} <ChevronRight className="w-4 h-4 ml-1" />
+                {tabIndex < TABS.length - 1 && (
+                  <Button type="button" variant="outline" onClick={() => setActiveTab(TABS[tabIndex + 1])}>
+                    {TAB_LABELS[TABS[tabIndex + 1]]} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 )}
+                <Button type="submit" disabled={saving}>
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editId ? 'Update Visa Type' : 'Create Visa Type'}
+                </Button>
               </div>
             </div>
           </form>
@@ -1009,18 +981,18 @@ export default function CountryDetailPage() {
             className="pl-9 h-9 w-56"
           />
         </div>
-        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <select value={filterCategory} onChange={(e) => updateListPrefs({ filterCategory: e.target.value })} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Categories</option>
           {optionsFor('visaCategory').map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as '' | 'active' | 'inactive')} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <select value={filterStatus} onChange={(e) => updateListPrefs({ filterStatus: e.target.value as typeof filterStatus })} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
         <div className="flex items-center gap-2 ml-auto">
           <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <select value={sortBy} onChange={(e) => updateListPrefs({ sortBy: e.target.value as typeof sortBy })} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
             <option value="custom">Custom order (drag)</option>
             <option value="name-asc">Name (A–Z)</option>
             <option value="name-desc">Name (Z–A)</option>
@@ -1032,7 +1004,7 @@ export default function CountryDetailPage() {
         </div>
         {(search || filterCategory || filterStatus) && (
           <button
-            onClick={() => { setSearch(''); setFilterCategory(''); setFilterStatus(''); }}
+            onClick={() => { setSearch(''); updateListPrefs({ filterCategory: '', filterStatus: '' }); }}
             className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
             <X className="w-3 h-3" /> Clear filters
@@ -1066,7 +1038,8 @@ export default function CountryDetailPage() {
                 {visaTypes.length === 0 ? 'No visa types yet. Add one to get started.' : 'No visa types match the current filters.'}
               </TableCell></TableRow>
             ) : (
-              displayedVisaTypes.map((vt, i) => {
+              visaPage.map((vt, pageIndex) => {
+                const i = visaOffset + pageIndex;
                 // A visa is effectively hidden from customers if the country is off,
                 // even when its own toggle is on — reflect that here.
                 const effectivelyOff = countryInactive || !vt.isActive;
@@ -1189,6 +1162,7 @@ export default function CountryDetailPage() {
             )}
           </TableBody>
         </Table>
+        <Pagination {...visaPagination} className="border-t border-border" />
       </div>
 
       <ConfirmDialog

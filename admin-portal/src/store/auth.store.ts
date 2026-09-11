@@ -1,12 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { AdminProfile } from '@/types';
 
-interface Admin {
-  _id: string;
-  name: string;
-  email: string;
-  phone: string;
-}
+// Sessions saved before roles existed have no role until the layout refreshes the profile.
+type Admin = Omit<AdminProfile, 'role' | 'createdAt'> & Partial<Pick<AdminProfile, 'role' | 'createdAt'>>;
 
 interface AuthState {
   admin: Admin | null;
@@ -15,6 +12,7 @@ interface AuthState {
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
   login: (admin: Admin, token: string) => void;
+  updateAdmin: (patch: Partial<Admin>) => void;
   logout: () => void;
 }
 
@@ -30,6 +28,7 @@ export const useAdminAuthStore = create<AuthState>()(
         localStorage.setItem('adminToken', token);
         set({ admin, token, isAuthenticated: true });
       },
+      updateAdmin: (patch) => set((s) => ({ admin: s.admin ? { ...s.admin, ...patch } : s.admin })),
       logout: () => {
         localStorage.removeItem('adminToken');
         set({ admin: null, token: null, isAuthenticated: false });

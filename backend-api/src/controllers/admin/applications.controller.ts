@@ -19,25 +19,33 @@ import { logActivity } from '../../utils/activityLog';
 import { fetchBuffer } from '../../utils/fetchBuffer';
 import { sendSuccess, sendError } from '../../utils/response';
 
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// `limit=0` returns every match; `search` covers the application number and the applicant's name or email.
 export const getApplications = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { status, country, page = '1', limit = '20' } = req.query;
+  const { status, country, search } = req.query;
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.max(0, Number(req.query.limit ?? 20) || 0);
   const filter: Record<string, unknown> = {};
   if (status) filter.status = status;
   if (country) filter.country = country;
 
-  const skip = (Number(page) - 1) * Number(limit);
-  const [applications, total] = await Promise.all([
-    Application.find(filter)
-      .populate('user', 'name email phone')
-      .populate('visaType', 'name price')
-      .populate('country', 'name flag')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit)),
-    Application.countDocuments(filter),
-  ]);
+  const term = String(search ?? '').trim();
+  if (term) {
+    const pattern = new RegExp(escapeRegex(term), 'i');
+    const users = await User.find({ $or: [{ name: pattern }, { email: pattern }] }).select('_id');
+    filter.$or = [{ referenceId: pattern }, { user: { $in: users.map((u) => u._id) } }];
+  }
 
-  sendSuccess(res, { applications, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
+  const query = Application.find(filter)
+    .populate('user', 'name email phone')
+    .populate('visaType', 'name price')
+    .populate('country', 'name flag')
+    .sort({ createdAt: -1 });
+  if (limit) query.skip((page - 1) * limit).limit(limit);
+
+  const [applications, total] = await Promise.all([query, Application.countDocuments(filter)]);
+  sendSuccess(res, { applications, total, page, pages: limit ? Math.ceil(total / limit) : 1 });
 };
 
 export const getApplication = async (req: AdminRequest, res: Response): Promise<void> => {

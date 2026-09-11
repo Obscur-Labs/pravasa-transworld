@@ -56,11 +56,32 @@ export function normalizeFormItems<T extends { formFields?: any[]; documentRequi
     return name;
   };
 
+  const hasOptions = (field: any) => field?.type === 'select' || field?.type === 'radio';
+
+  // Triggers must be options the parent still offers; other parent types reveal on any answer.
+  const normalizeSubFields = (parent: any) =>
+    (Array.isArray(parent?.subFields) ? parent.subFields : [])
+      .filter((sub: any) => str(sub?.label) || str(sub?.fieldName))
+      .map((sub: any) => ({
+        ...sub,
+        label: str(sub?.label) || str(sub?.fieldName),
+        fieldName: uniqueName(sub),
+        showWhen: hasOptions(parent)
+          ? (Array.isArray(sub?.showWhen) ? sub.showWhen : []).filter((v: string) => parent.options?.includes(v))
+          : [],
+      }));
+
   const nextFields: any[] = [];
   const nextDocs: any[] = [];
   merged.forEach((entry, order) => {
     if (entry.kind === 'field') {
-      nextFields.push({ ...entry.field, label: str(entry.field?.label) || str(entry.field?.fieldName), fieldName: uniqueName(entry.field), order });
+      nextFields.push({
+        ...entry.field,
+        label: str(entry.field?.label) || str(entry.field?.fieldName),
+        fieldName: uniqueName(entry.field),
+        order,
+        subFields: normalizeSubFields(entry.field),
+      });
     } else {
       nextDocs.push({ ...entry.doc, name: str(entry.doc?.name), order });
     }

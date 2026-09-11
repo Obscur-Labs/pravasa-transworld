@@ -31,7 +31,7 @@ export const submitContactLead = async (req: Request, res: Response): Promise<vo
 };
 
 export const getLeads = async (_req: AdminRequest, res: Response): Promise<void> => {
-  const leads = await ContactLead.find().sort({ createdAt: -1 }).limit(100);
+  const leads = await ContactLead.find().sort({ createdAt: -1 });
   sendSuccess(res, leads);
 };
 
