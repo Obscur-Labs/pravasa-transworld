@@ -128,6 +128,10 @@ export const markCourierReceived = (id: string) =>
   api.put(`/admin/applications/${id}/courier/received`);
 export const deleteApplication = (id: string) => api.delete(`/admin/applications/${id}`);
 
+// AI content writer
+export const generateAiContent = (data: { purpose: string; context: Record<string, unknown>; currentText?: string; countryId?: string }) =>
+  api.post('/admin/ai/generate', data);
+
 // Payments
 export const getAdminPayments = () => api.get('/admin/payments');
 export const getPendingPayments = () => api.get('/admin/payments/pending');

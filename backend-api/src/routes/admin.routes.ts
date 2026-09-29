@@ -18,6 +18,8 @@ import * as embassyMail from '../controllers/admin/embassyMail.controller';
 import * as profile from '../controllers/admin/profile.controller';
 import * as termPresets from '../controllers/admin/termPresets.controller';
 import * as payments from '../controllers/admin/payments.controller';
+import * as ai from '../controllers/admin/ai.controller';
+import { aiLimiter } from '../middleware/rateLimiter';
 
 const router = asyncRouter();
 router.use(adminProtect);
@@ -84,6 +86,9 @@ router.post('/applications/:id/embassy-mail', embassyMail.sendApplicationEmbassy
 router.get('/applications/:id/documents/zip', apps.downloadApplicationDocumentsZip);
 router.get('/applications/:id/receipt', apps.downloadApplicationReceipt);
 router.delete('/applications/:id', apps.deleteApplication);
+
+// AI content writer
+router.post('/ai/generate', aiLimiter, ai.generateAiContent);
 
 // Payments
 router.get('/payments', apps.getAdminPayments);

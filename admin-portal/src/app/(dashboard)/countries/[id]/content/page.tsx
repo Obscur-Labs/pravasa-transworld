@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getCountries, updateCountryWebContent, uploadCountryImage, removeCountryImage } from '@/lib/api';
+import { AiGenerateButton, type AiPurpose } from '@/components/shared/ai-generate-button';
 import type { Country, CountryWebContent, CountryFaq } from '@/types';
 
 const emptyContent: CountryWebContent = {
@@ -60,17 +61,22 @@ function Section({ loc, title, subtitle, children }: {
   );
 }
 
-function TA({ value, onChange, placeholder, rows = 4 }: {
+function TA({ value, onChange, placeholder, rows = 4, ai }: {
   value: string; onChange: (v: string) => void; placeholder?: string; rows?: number;
+  /** AI button, pinned inside the field's top-right corner. */
+  ai?: React.ReactNode;
 }) {
   return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none transition-colors"
-    />
+    <div className="relative">
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className={`w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none transition-colors ${ai ? 'pr-12' : ''}`}
+      />
+      {ai && <div className="absolute right-2 top-2">{ai}</div>}
+    </div>
   );
 }
 
@@ -209,6 +215,28 @@ export default function CountryContentPage() {
 
   const setField = <K extends keyof CountryWebContent>(key: K, value: CountryWebContent[K]) =>
     setContent((prev) => ({ ...prev, [key]: value }));
+
+  // Everything else on this page, so the AI writes each card consistently with the rest.
+  const aiContext = (skip: string, extra: Record<string, unknown> = {}) => {
+    const { faqs, ...fields } = content;
+    return {
+      country: country?.name,
+      countryDescription: country?.description,
+      ...Object.fromEntries(Object.entries(fields).filter(([k]) => k !== skip)),
+      faqQuestions: (faqs || []).map((f) => f.question),
+      ...extra,
+    };
+  };
+
+  const aiFor = (key: keyof Omit<CountryWebContent, 'faqs' | 'highlights'>) => (
+    <AiGenerateButton
+      purpose={`country.${key}` as AiPurpose}
+      value={content[key] || ''}
+      onChange={(text) => setField(key, text)}
+      getContext={() => aiContext(key)}
+      countryId={id}
+    />
+  );
 
   const addHighlight = () => {
     const t = newHighlight.trim();
@@ -374,11 +402,15 @@ export default function CountryContentPage() {
             <div className="space-y-4">
               <div>
                 <Label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Hero Tagline</Label>
-                <Input
-                  placeholder="e.g. The Land of Maple Leaves and Mountain Majesty"
-                  value={content.heroTagline}
-                  onChange={(e) => setField('heroTagline', e.target.value)}
-                />
+                <div className="relative">
+                  <Input
+                    className="pr-12"
+                    placeholder="e.g. The Land of Maple Leaves and Mountain Majesty"
+                    value={content.heroTagline}
+                    onChange={(e) => setField('heroTagline', e.target.value)}
+                  />
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2">{aiFor('heroTagline')}</div>
+                </div>
                 <p className="text-[11px] text-muted-foreground mt-1">Shown as a subtitle next to "Visa" under the country name.</p>
               </div>
               <div>
@@ -416,6 +448,7 @@ export default function CountryContentPage() {
             <TA
               value={content.overview}
               onChange={(v) => setField('overview', v)}
+              ai={aiFor('overview')}
               placeholder="Write a compelling overview of the country and visa journey..."
               rows={5}
             />
@@ -426,6 +459,7 @@ export default function CountryContentPage() {
             <TA
               value={content.requirements}
               onChange={(v) => setField('requirements', v)}
+              ai={aiFor('requirements')}
               placeholder="General visa requirements — documents needed, eligibility criteria..."
               rows={5}
             />
@@ -436,6 +470,7 @@ export default function CountryContentPage() {
             <TA
               value={content.processingInfo}
               onChange={(v) => setField('processingInfo', v)}
+              ai={aiFor('processingInfo')}
               placeholder="Processing timeline, stages, what applicants can expect..."
               rows={4}
             />
@@ -446,6 +481,7 @@ export default function CountryContentPage() {
             <TA
               value={content.tips}
               onChange={(v) => setField('tips', v)}
+              ai={aiFor('tips')}
               placeholder="Helpful tips, common mistakes to avoid, best practices..."
               rows={4}
             />
@@ -496,7 +532,16 @@ export default function CountryContentPage() {
                       <TA
                         value={faq.answer}
                         onChange={(v) => updateFaq(i, 'answer', v)}
-                        placeholder="Enter the answer..."
+                        placeholder={faq.question.trim() ? 'Enter the answer, or let AI draft it...' : 'Enter the answer...'}
+                        ai={faq.question.trim() ? (
+                          <AiGenerateButton
+                            purpose="country.faqAnswer"
+                            value={faq.answer}
+                            onChange={(text) => updateFaq(i, 'answer', text)}
+                            getContext={() => aiContext('faqs', { question: faq.question })}
+                            countryId={id}
+                          />
+                        ) : undefined}
                         rows={3}
                       />
                     </div>

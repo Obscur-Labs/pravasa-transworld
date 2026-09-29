@@ -18,6 +18,7 @@ import { toast } from '@/components/ui/use-toast';
 import { ApplicationFormBuilder } from '@/components/shared/application-form-builder';
 import { TermsEditor } from '@/components/shared/terms-editor';
 import { TermPresetPanel } from '@/components/shared/term-preset-panel';
+import { AiGenerateButton } from '@/components/shared/ai-generate-button';
 import { useStoredPrefs } from '@/lib/useStoredPrefs';
 import {
   getCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite,
@@ -198,6 +199,27 @@ export default function CountryDetailPage() {
     }
     return active;
   };
+
+  const labelOf = (category: VisaConfigCategory, value?: string) =>
+    configOptions.find((o) => o.category === category && o.value === value)?.label || value;
+
+  // The visa type as it stands in the form right now, for the AI writer.
+  const visaAiContext = (skip: 'description' | 'additionalNotes') => ({
+    country: country?.name,
+    visaName: form.name,
+    ...(skip !== 'description' ? { description: form.description } : {}),
+    ...(skip !== 'additionalNotes' ? { additionalNotes: form.additionalNotes } : {}),
+    category: labelOf('visaCategory', form.visaCategory),
+    type: labelOf('visaSubType', form.visaSubType),
+    entry: form.entry.map((e) => labelOf('entryType', e)),
+    jurisdiction: labelOf('jurisdiction', form.jurisdiction),
+    processing: form.process === 'express' ? 'Express' : 'Normal',
+    processingTime: form.processingTime,
+    validity: form.validity,
+    stayDuration: form.stayDuration,
+    documentsRequired: form.documentRequirements.map((d) => d.name),
+    termsApplicantAccepts: form.terms.map((t) => t.text),
+  });
 
   // Hidden tabs skip native validation, so required fields are checked here on save.
   const validateInfo = (): Record<string, string> => {
@@ -665,7 +687,17 @@ export default function CountryDetailPage() {
               </div>
               <div>
                 <Label>Description</Label>
-                <Input className="mt-1" placeholder="Short description" value={countryForm.description} onChange={(e) => setCountryForm({ ...countryForm, description: e.target.value })} />
+                <div className="relative mt-1">
+                  <Input className="pr-12" placeholder="Short description" value={countryForm.description} onChange={(e) => setCountryForm({ ...countryForm, description: e.target.value })} />
+                  <AiGenerateButton
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2"
+                    purpose="country.description"
+                    value={countryForm.description}
+                    onChange={(text) => setCountryForm((f) => ({ ...f, description: text }))}
+                    getContext={() => ({ country: countryForm.name })}
+                    countryId={countryId}
+                  />
+                </div>
               </div>
               <div className="sm:col-span-3 flex gap-2">
                 <Button type="submit" disabled={savingCountry}>
@@ -728,7 +760,16 @@ export default function CountryDetailPage() {
                 </div>
                 <div>
                   <Label>Description</Label>
-                  <Input className="mt-1" placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  <div className="relative mt-1">
+                    <Input className="pr-12" placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                    <AiGenerateButton
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2"
+                      purpose="visaType.description"
+                      value={form.description}
+                      onChange={(text) => setForm((f) => ({ ...f, description: text }))}
+                      getContext={() => visaAiContext('description')}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -933,12 +974,22 @@ export default function CountryDetailPage() {
 
               <div className={activeTab === 'notes' ? 'space-y-2' : 'hidden'}>
                 <Label>Additional Notes</Label>
-                <textarea
-                  className="mt-1 w-full min-h-[240px] rounded-lg border border-input bg-card text-foreground text-sm p-3 focus:outline-none focus:ring-2 focus:ring-ring resize-y"
-                  placeholder="Anything worth telling the applicant about this visa…"
-                  value={form.additionalNotes}
-                  onChange={(e) => setForm({ ...form, additionalNotes: e.target.value })}
-                />
+                <div className="relative mt-1">
+                  <textarea
+                    className="w-full min-h-[240px] rounded-lg border border-input bg-card text-foreground text-sm p-3 pr-12 focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                    placeholder="Anything worth telling the applicant about this visa…"
+                    value={form.additionalNotes}
+                    onChange={(e) => setForm({ ...form, additionalNotes: e.target.value })}
+                  />
+                  <AiGenerateButton
+                    className="absolute right-2 top-2"
+                    purpose="visaType.additionalNotes"
+                    value={form.additionalNotes}
+                    onChange={(text) => setForm((f) => ({ ...f, additionalNotes: text }))}
+                    getContext={() => visaAiContext('additionalNotes')}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">The AI button uses the details, documents and terms entered in the other tabs, so fill those in first.</p>
               </div>
 
               <div className={activeTab === 'terms' ? 'space-y-5' : 'hidden'}>

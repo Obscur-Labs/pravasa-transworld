@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from '@/components/ui/use-toast';
 import { getCountries, createCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { AiGenerateButton } from '@/components/shared/ai-generate-button';
 import { useStoredPrefs } from '@/lib/useStoredPrefs';
 import type { Country } from '@/types';
 
@@ -275,7 +276,17 @@ export default function CountriesPage() {
               </div>
               <div>
                 <Label>Description</Label>
-                <Input className="mt-1" placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                <div className="relative mt-1">
+                  <Input className="pr-12" placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  <AiGenerateButton
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2"
+                    purpose="country.description"
+                    value={form.description}
+                    onChange={(text) => setForm((f) => ({ ...f, description: text }))}
+                    getContext={() => ({ country: form.name })}
+                    countryId={editId || undefined}
+                  />
+                </div>
               </div>
               <div className="sm:col-span-3 flex gap-2">
                 <Button type="submit" disabled={saving}>

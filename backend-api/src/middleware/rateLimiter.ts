@@ -14,3 +14,13 @@ const limiter = (limit: number, message: string) =>
 
 export const otpSendLimiter = limiter(20, 'Too many OTP requests from this network. Please try again in a few minutes.');
 export const otpVerifyLimiter = limiter(50, 'Too many verification attempts from this network. Please try again in a few minutes.');
+
+// Per signed-in admin (runs after adminProtect), to keep the Groq quota from being drained.
+export const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  keyGenerator: (req) => String((req as { admin?: { _id: unknown } }).admin?._id ?? 'anonymous'),
+  message: { success: false, message: 'Too many AI requests. Please wait a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
