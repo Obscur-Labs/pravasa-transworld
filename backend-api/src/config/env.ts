@@ -9,6 +9,12 @@ export function assertEnv(): void {
   const missing = required.filter((k) => !process.env[k]?.trim());
   if (missing.length) throw new Error(`Missing required env vars: ${missing.join(', ')}`);
 
+  // A placeholder or short JWT secret lets anyone sign an admin token.
+  const secret = process.env.JWT_SECRET!.trim();
+  if (isProd && (secret.length < 32 || /your_|secret_here|changeme/i.test(secret))) {
+    throw new Error('JWT_SECRET is a placeholder or shorter than 32 characters. Set a long random value.');
+  }
+
   if (!isProd) {
     const optional = PRODUCTION_REQUIRED.filter((k) => !process.env[k]?.trim());
     if (optional.length) console.warn(`[STARTUP] Not set (required in production): ${optional.join(', ')}`);

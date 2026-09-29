@@ -17,7 +17,7 @@ emailApi.setApiKey(
 // a response. Falls back to the notification sender when unset, so nothing breaks if the
 // second address was never configured.
 export const MAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'Pravasa Transworld';
-export const MAIL_FROM_EMAIL = process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER || '';
+export const MAIL_FROM_EMAIL = process.env.EMAIL_FROM_ADDRESS || '';
 
 export const EMBASSY_FROM_NAME = process.env.EMBASSY_EMAIL_FROM_NAME || MAIL_FROM_NAME;
 export const EMBASSY_FROM_EMAIL = process.env.EMBASSY_EMAIL_FROM_ADDRESS || MAIL_FROM_EMAIL;

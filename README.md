@@ -114,31 +114,15 @@ npm install
 
 ### 2. Configure Environment
 
-```bash
-cp backend-api/.env.example backend-api/.env
-```
+Each app has a single git-ignored `.env` file holding its local values, with comments
+saying what each variable needs in production. Live values are set on the hosts instead:
+the backend's on Render, the portals' on Vercel.
 
-Fill in `backend-api/.env`:
-
-```env
-MONGODB_URI=mongodb://localhost:27017/pravasatransworld
-JWT_SECRET=your_secure_secret
-CLOUDINARY_CLOUD_NAME=...
-CLOUDINARY_API_KEY=...
-CLOUDINARY_API_SECRET=...
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=you@gmail.com
-EMAIL_PASS=your_app_password
-FRONTEND_URL=http://localhost:3000
-ADMIN_URL=http://localhost:3001
-```
-
-Create `.env.local` in both portals:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-```
+| App | Variables |
+|---|---|
+| `backend-api/.env` | `NODE_ENV`, `PORT`, `MONGODB_URI`, `JWT_SECRET` (32+ random chars), `JWT_EXPIRES_IN`, `ENCRYPTION_KEY`, `FRONTEND_URL`, `ADMIN_URL`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `BREVO_API_KEY`, `EMAIL_FROM_NAME`, `EMAIL_FROM_ADDRESS`, `EMBASSY_EMAIL_FROM_NAME`, `EMBASSY_EMAIL_FROM_ADDRESS`, `GROQ_API_KEY`, `GROQ_CONTENT_API_KEY`; optional `CRON_SECRET`; local only `ENABLE_DEV_PANEL`, `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PHONE` |
+| `user-portal/.env` | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`; optional `NEXT_PUBLIC_GOOGLE_VERIFICATION` |
+| `admin-portal/.env` | `NEXT_PUBLIC_API_URL` |
 
 ### 3. Seed the Database
 
