@@ -49,6 +49,8 @@ interface Props {
   onOutcome?: (outcome: 'accepted' | 'dismissed') => void;
 }
 
+export const INSTALLED_TOAST = { title: 'Pravasa installed', description: 'Open it from your home screen or app list.', variant: 'success' as const };
+
 /** Installs the portal as an app, or explains how on browsers without an install prompt. */
 export default function InstallAppButton({ className = '', label = 'Install App', iconOnly = false, onOutcome }: Props) {
   const { mode, manual, install } = usePwaInstall();
@@ -60,10 +62,8 @@ export default function InstallAppButton({ className = '', label = 'Install App'
     if (mode === 'instructions') { setOpen(true); return; }
     const outcome = await install();
     if (outcome !== 'unavailable') onOutcome?.(outcome);
-    if (outcome === 'accepted') toast({ title: 'Pravasa installed', description: 'Open it from your home screen or app list.', variant: 'success' });
+    if (outcome === 'accepted') toast(INSTALLED_TOAST);
   };
-
-  const guide = manual ? STEPS[manual] : null;
 
   return (
     <>
@@ -71,40 +71,52 @@ export default function InstallAppButton({ className = '', label = 'Install App'
         <Download className="w-4 h-4 flex-shrink-0" aria-hidden />
         {!iconOnly && <span>{label}</span>}
       </button>
-
-      {guide && (
-        <Dialog.Root open={open} onOpenChange={setOpen}>
-          <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-[90] bg-slate-950/60 backdrop-blur-sm" />
-            <Dialog.Content className="fixed inset-x-0 bottom-0 z-[91] mx-auto w-full max-w-md rounded-t-2xl bg-white p-6 shadow-2xl focus:outline-none sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:w-[calc(100%-2rem)]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <img src="/icon-192.png" alt="" className="w-12 h-12 rounded-xl" />
-                  <div>
-                    <Dialog.Title className="text-lg font-bold text-slate-900">{guide.title}</Dialog.Title>
-                    <Dialog.Description className="text-xs text-slate-500">Get Pravasa Transworld as an app</Dialog.Description>
-                  </div>
-                </div>
-                <Dialog.Close aria-label="Close" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">
-                  <X className="w-4 h-4" />
-                </Dialog.Close>
-              </div>
-              <ol className="mt-5 space-y-3">
-                {guide.steps.map((step, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-700">{i + 1}</span>
-                    <span className="pt-0.5">{step}</span>
-                  </li>
-                ))}
-              </ol>
-              {guide.note && <p className="mt-4 text-xs text-slate-400">{guide.note}</p>}
-              <Dialog.Close className="mt-5 w-full rounded-xl bg-brand-800 py-2.5 text-sm font-semibold text-white hover:bg-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2">
-                Got it
-              </Dialog.Close>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog.Root>
-      )}
+      {manual && <InstallGuideDialog platform={manual} open={open} onOpenChange={setOpen} />}
     </>
+  );
+}
+
+/**
+ * Step-by-step install guide for browsers without an install prompt. Separate from the
+ * button so a menu can open it after the menu itself has closed.
+ */
+export function InstallGuideDialog({ platform, open, onOpenChange }: {
+  platform: ManualPlatform;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const guide = STEPS[platform];
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[90] bg-slate-950/60 backdrop-blur-sm" />
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-[91] mx-auto w-full max-w-md rounded-t-2xl bg-white p-6 shadow-2xl focus:outline-none sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:w-[calc(100%-2rem)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <img src="/icon-192.png" alt="" className="w-12 h-12 rounded-xl" />
+              <div>
+                <Dialog.Title className="text-lg font-bold text-slate-900">{guide.title}</Dialog.Title>
+                <Dialog.Description className="text-xs text-slate-500">Get Pravasa Transworld as an app</Dialog.Description>
+              </div>
+            </div>
+            <Dialog.Close aria-label="Close" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">
+              <X className="w-4 h-4" />
+            </Dialog.Close>
+          </div>
+          <ol className="mt-5 space-y-3">
+            {guide.steps.map((step, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-700">{i + 1}</span>
+                <span className="pt-0.5">{step}</span>
+              </li>
+            ))}
+          </ol>
+          {guide.note && <p className="mt-4 text-xs text-slate-500">{guide.note}</p>}
+          <Dialog.Close className="mt-5 w-full rounded-xl bg-brand-800 py-2.5 text-sm font-semibold text-white hover:bg-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2">
+            Got it
+          </Dialog.Close>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

@@ -34,10 +34,20 @@ export default function NotificationDropdown() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative text-slate-600 hover:bg-slate-100">
-          <Bell className="w-5 h-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+          className="relative text-slate-600 hover:bg-slate-100 data-[state=open]:bg-slate-100"
+        >
+          <Bell className="w-5 h-5" aria-hidden />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+            <span
+              aria-hidden
+              className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-[18px] text-center tabular-nums ring-2 ring-white"
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
           )}
         </Button>
       </DropdownMenuTrigger>
@@ -57,28 +67,33 @@ export default function NotificationDropdown() {
             sorted.map((notif) => (
               <div
                 key={notif._id}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleClick(notif)}
-                className={`group px-4 py-3 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
-                  notif.read ? 'bg-white hover:bg-slate-50 opacity-75' : 'bg-brand-50/50 hover:bg-brand-50'
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(notif); } }}
+                className={`group px-4 py-3 cursor-pointer border-b border-slate-100 last:border-0 transition-colors focus-visible:outline-none focus-visible:bg-slate-100 ${
+                  notif.read ? 'bg-white hover:bg-slate-50' : 'bg-brand-50/60 hover:bg-brand-50'
                 }`}
               >
                 <div className="flex justify-between items-start mb-1">
-                  <h4 className={`text-sm flex-1 min-w-0 pr-2 ${notif.read ? 'font-medium text-slate-700' : 'font-semibold text-slate-900'}`}>
+                  <h4 className={`text-sm flex-1 min-w-0 pr-2 ${notif.read ? 'font-medium text-slate-600' : 'font-semibold text-slate-900'}`}>
                     {notif.title}
                   </h4>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {!notif.read && <span className="w-2 h-2 bg-brand-600 rounded-full" />}
+                    {!notif.read && <span className="w-2 h-2 bg-brand-600 rounded-full" aria-label="Unread" />}
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                      onKeyDown={(e) => e.stopPropagation()}
+                      aria-label="Delete notification"
                       title="Delete"
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 p-0.5 rounded text-slate-500 hover:text-red-700 hover:bg-red-50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-                <p className={`text-xs ${notif.read ? 'text-slate-500' : 'text-slate-600'}`}>{notif.message}</p>
-                <span className="text-[10px] text-slate-400 mt-2 block">{new Date(notif.createdAt).toLocaleString()}</span>
+                <p className="text-xs text-slate-600">{notif.message}</p>
+                <span className="text-[11px] text-slate-500 mt-2 block">{new Date(notif.createdAt).toLocaleString()}</span>
               </div>
             ))
           )}

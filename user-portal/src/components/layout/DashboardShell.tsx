@@ -2,11 +2,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu } from 'lucide-react';
+import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import { useAuthStore } from '@/store/auth.store';
 import { SocketProvider } from '@/components/providers/SocketProvider';
 import NotificationDropdown from '@/components/layout/NotificationDropdown';
+import UserMenu from '@/components/layout/UserMenu';
 import KYCModal from '@/components/kyc/KYCModal';
 import InstallBanner from '@/components/pwa/InstallBanner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,7 +16,7 @@ import { getVaultDocuments } from '@/lib/api';
 interface KYCStatus { aadharFront: boolean; aadharBack: boolean; pan: boolean; }
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, _hasHydrated, user } = useAuthStore();
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -68,15 +69,15 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <div className="flex min-h-screen bg-slate-50">
         <div className="hidden lg:flex flex-col gap-2 w-64 shrink-0 bg-white border-r border-slate-200 p-4">
           <Skeleton className="h-8 w-40 mb-4" />
-          {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-9 w-full rounded-lg" />)}
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-full rounded-lg" />)}
         </div>
         <div className="flex-1 flex flex-col min-w-0">
           <div className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 lg:px-6">
             <Skeleton className="h-6 w-40 lg:hidden" />
-            <div className="hidden lg:block" />
+            <Skeleton className="hidden lg:block h-8 w-8 rounded-lg" />
             <div className="flex items-center gap-2">
               <Skeleton className="h-8 w-8 rounded-lg" />
-              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-8 w-14 rounded-full" />
             </div>
           </div>
           <div className="flex-1 p-6 max-w-5xl w-full mx-auto space-y-6">
@@ -98,8 +99,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <div className="flex min-h-screen bg-slate-50">
 
         {/* ── Desktop sidebar (hidden on mobile/tablet) ── */}
-        <DashboardSidebar collapsed={collapsed} onToggle={toggleSidebar} />
-        <div className={`hidden lg:block flex-shrink-0 transition-all duration-300 ease-in-out ${collapsed ? 'w-16' : 'w-64'}`} />
+        <DashboardSidebar collapsed={collapsed} />
+        <div className={`hidden lg:block flex-shrink-0 transition-[width] duration-300 ease-out motion-reduce:transition-none ${collapsed ? 'w-16' : 'w-64'}`} />
 
         {/* ── Mobile drawer ── */}
         {mobileOpen && (
@@ -109,7 +110,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
               onClick={() => setMobileOpen(false)}
             />
             <div className="relative z-10">
-              <DashboardSidebar collapsed={false} onToggle={() => setMobileOpen(false)} mobile />
+              <DashboardSidebar collapsed={false} onClose={() => setMobileOpen(false)} mobile />
             </div>
           </div>
         )}
@@ -124,35 +125,30 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             <div className="flex items-center gap-3 lg:hidden">
               <button
                 onClick={() => setMobileOpen(true)}
-                className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
                 aria-label="Open menu"
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <Link href="/" className="flex items-center" aria-label="Pravasa Transworld — home">
-                <img src="/logo.png" alt="Pravasa Transworld" className="h-7 w-auto" />
+              <Link href="/" className="flex items-center" aria-label="Pravasa Transworld home">
+                <img src="/logo.png" alt="" className="h-7 w-auto" />
               </Link>
             </div>
 
-            {/* Desktop: empty spacer */}
-            <div className="hidden lg:block" />
+            {/* Desktop: sidebar collapse, always in the same spot whatever the sidebar's width */}
+            <button
+              onClick={toggleSidebar}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!collapsed}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className="hidden lg:flex p-2 -ml-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              {collapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
+            </button>
 
-            {/* Right: bell + profile avatar */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <NotificationDropdown />
-              <Link
-                href="/profile"
-                className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center hover:ring-2 hover:ring-brand-400 transition-all overflow-hidden flex-shrink-0"
-                title="Profile"
-              >
-                {user?.profilePhoto ? (
-                  <img src={user.profilePhoto} alt="" className="w-8 h-8 object-cover" />
-                ) : (
-                  <span className="text-brand-700 font-semibold text-sm">
-                    {user?.name?.[0]?.toUpperCase() ?? '?'}
-                  </span>
-                )}
-              </Link>
+              <UserMenu />
             </div>
           </header>
 
