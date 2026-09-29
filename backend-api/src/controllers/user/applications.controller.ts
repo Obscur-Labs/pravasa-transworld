@@ -127,8 +127,9 @@ export const scanPassport = async (req: AuthRequest, res: Response): Promise<voi
   if (!req.file) { sendError(res, 'Image file is required'); return; }
   if (!req.file.mimetype.startsWith('image/')) { sendError(res, 'Only image files can be scanned'); return; }
   const side: 'front' | 'back' = req.body.side === 'back' ? 'back' : 'front';
+  const rescan = req.body.rescan === 'true';
   try {
-    const ocr = await extractPassport(req.file.buffer, side);
+    const ocr = await extractPassport(req.file.buffer, side, { rescan });
     sendSuccess(res, { fields: ocr.fields, confidence: ocr.confidence }, 'Passport scanned');
   } catch (err) {
     console.error('Passport scan failed:', err);

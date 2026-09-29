@@ -33,6 +33,7 @@ interface SideProps {
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onClear: () => void;
+  onRescan: () => void;
 }
 
 // ── Draggable + resizable floating image viewer ───────────────────────────────
@@ -201,7 +202,7 @@ function readPreview(file: File, set: (url: string | null) => void) {
 }
 
 // ── Single-side card ──────────────────────────────────────────────────────────
-function SideCard({ side, file, preview, scanning, dragging, onPick, onDrop, onDragOver, onDragLeave, onClear }: SideProps) {
+function SideCard({ side, file, preview, scanning, dragging, onPick, onDrop, onDragOver, onDragLeave, onClear, onRescan }: SideProps) {
   const isFront = side === 'front';
   const hasFile = !!file;
   const [maximized, setMaximized] = useState(false);
@@ -286,14 +287,26 @@ function SideCard({ side, file, preview, scanning, dragging, onPick, onDrop, onD
           )}
         </div>
 
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 flex gap-2">
           <button
             onClick={onPick}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all"
             style={{ background: hasFile ? 'rgba(255,255,255,0.8)' : undefined, borderColor: hasFile ? '#86efac' : '#e2e8f0', color: hasFile ? '#15803d' : '#64748b' }}
           >
             <Upload className="w-3 h-3" />{hasFile ? 'Replace' : 'Upload'}
           </button>
+          {/* Only photos can be read, so only they get a second look. */}
+          {preview && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRescan(); }}
+              disabled={scanning}
+              title="Read this photo again if some details came out wrong"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold border border-brand-200 bg-white/80 text-brand-700 hover:bg-brand-50 transition-all disabled:opacity-50 disabled:cursor-wait"
+            >
+              <RotateCcw className="w-3 h-3" />Scan again
+            </button>
+          )}
         </div>
       </div>
     </>
@@ -327,16 +340,12 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
     else setBackPreview(null);
   }, [backFile]);
 
-  const handleFile = useCallback(async (side: 'front' | 'back', file: File) => {
-    side === 'front' ? onFrontChange(file) : onBackChange(file);
-    readPreview(file, side === 'front' ? setFrontPreview : setBackPreview);
-
-    // Wipe fields for this side immediately so stale data from the old image disappears
-    const sideFields = side === 'front' ? PASSPORT_FRONT_FIELDS : PASSPORT_BACK_FIELDS;
-    const cleared = { ...values };
-    sideFields.forEach((k) => { cleared[k] = ''; });
-    onValuesChange(cleared);
-
+  /**
+   * Reads one side and fills its fields on top of `base`. A re-scan asks the server for a
+   * more careful second reading, and only replaces the fields it actually read, so a
+   * failed re-scan never wipes what the applicant already has or typed.
+   */
+  const scanSide = useCallback(async (side: 'front' | 'back', file: File, base: Record<string, string>, rescan: boolean) => {
     // Auto-fill is best-effort; when it can't help, say so rather than leaving the fields
     // silently empty.
     const fillManually = (title: string) =>
@@ -352,20 +361,39 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
       const fd = new FormData();
       fd.append('file', file);
       fd.append('side', side);
+      if (rescan) fd.append('rescan', 'true');
       const r = await scanPassport(fd);
-      const fields: Record<string, string> = r.data?.data?.fields || {};
-      const merged = { ...cleared };
-      for (const [k, v] of Object.entries(fields)) {
-        if (v) merged[k] = v;
+      const found = Object.entries((r.data?.data?.fields || {}) as Record<string, string>).filter(([, v]) => v);
+      if (!found.length) {
+        fillManually(rescan ? 'Still could not read this photo' : 'We could not read this photo');
+        return;
       }
-      onValuesChange(merged);
-      if (!Object.values(fields).some(Boolean)) fillManually('We could not read this photo');
+      onValuesChange({ ...base, ...Object.fromEntries(found) });
+      if (rescan) toast({ title: 'Passport read again', description: 'Please check the details below before continuing.' });
     } catch {
       fillManually('Auto-fill is unavailable right now');
     } finally {
       setScanning(null);
     }
-  }, [values, onFrontChange, onBackChange, onValuesChange]);
+  }, [onValuesChange]);
+
+  const handleFile = useCallback(async (side: 'front' | 'back', file: File) => {
+    side === 'front' ? onFrontChange(file) : onBackChange(file);
+    readPreview(file, side === 'front' ? setFrontPreview : setBackPreview);
+
+    // Wipe fields for this side immediately so stale data from the old image disappears
+    const sideFields = side === 'front' ? PASSPORT_FRONT_FIELDS : PASSPORT_BACK_FIELDS;
+    const cleared = { ...values };
+    sideFields.forEach((k) => { cleared[k] = ''; });
+    onValuesChange(cleared);
+
+    await scanSide(side, file, cleared, false);
+  }, [values, onFrontChange, onBackChange, onValuesChange, scanSide]);
+
+  const rescan = (side: 'front' | 'back') => {
+    const file = side === 'front' ? frontFile : backFile;
+    if (file && !scanning) scanSide(side, file, values, true);
+  };
 
   const clear = (side: 'front' | 'back') => {
     side === 'front' ? (onFrontChange(null), setFrontPreview(null)) : (onBackChange(null), setBackPreview(null));
@@ -410,6 +438,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
             onDragOver={(e) => { e.preventDefault(); setDragging('front'); }}
             onDragLeave={() => setDragging(null)}
             onClear={() => clear('front')}
+            onRescan={() => rescan('front')}
           />
           {frontFile ? (
             <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -436,6 +465,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
             onDragOver={(e) => { e.preventDefault(); setDragging('back'); }}
             onDragLeave={() => setDragging(null)}
             onClear={() => clear('back')}
+            onRescan={() => rescan('back')}
           />
           {backFile ? (
             <div className="rounded-xl border border-slate-200 bg-white p-3">
