@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { encryptionPlugin } from '../plugins/encryptionPlugin';
+import { withDeliveryUrl } from '../services/cloudinary.service';
 export type VaultDocumentType = 'passport' | 'aadhar' | 'pan' | 'photograph' | 'bank_statement' | 'degree' | 'other';
 
 export interface IDocumentVault extends Document {
@@ -25,7 +26,7 @@ const DocumentVaultSchema = new Schema<IDocumentVault>(
     publicId: { type: String, required: true },
     extractedData: { type: Map, of: String, default: {} },
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: withDeliveryUrl }
 );
 
 DocumentVaultSchema.plugin(encryptionPlugin, { fields: ['extractedData'] });

@@ -1,13 +1,10 @@
 import crypto from 'crypto';
+import { encryptionKey } from '../config/env';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // GCM standard: 96-bit IV
 
-const getSecretKey = (): Buffer => {
-  // .trim() prevents CRLF in .env files from producing a different key than the fallback
-  const secret = (process.env.ENCRYPTION_KEY || 'default-insecure-dev-key').trim();
-  return crypto.createHash('sha256').update(secret).digest();
-};
+const getSecretKey = (): Buffer => crypto.createHash('sha256').update(encryptionKey()).digest();
 
 // Format: enc:<iv_hex>:<authTag_hex>:<ciphertext_hex>
 export function encryptData(text: string): string {
@@ -49,7 +46,10 @@ export function decryptData(text: string): string {
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
     return decrypted.toString('utf8');
   } catch {
-    // Return empty string so the UI doesn't display raw ciphertext
-    return '';
+    // Keep the ciphertext. Returning '' here would let the next save() overwrite the real
+    // value with an empty string. encryptData() leaves "enc:" values untouched, so the
+    // stored data survives until the right ENCRYPTION_KEY is back.
+    console.error('[ENCRYPTION] Could not decrypt a stored value. Is ENCRYPTION_KEY correct?');
+    return text;
   }
 }

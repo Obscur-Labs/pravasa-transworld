@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { withDeliveryUrl } from '../services/cloudinary.service';
 
 export type DocumentStatus = 'pending' | 'approved' | 'rejected';
 
@@ -28,7 +29,7 @@ const DocumentSchema = new Schema<IDocument>(
     extractedData: { type: Map, of: String, default: {} },
     reviewedAt: { type: Date, default: null },
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: withDeliveryUrl }
 );
 
 export default mongoose.model<IDocument>('Document', DocumentSchema);

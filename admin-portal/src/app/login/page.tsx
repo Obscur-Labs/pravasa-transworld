@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       await sendAdminOtp({ email: email.trim() });
-      toast({ title: 'OTP sent', description: `A 6-digit code was sent to ${email}`, variant: 'success' });
+      toast({ title: 'Check your inbox', description: `If ${email} is an admin account, a 6-digit code is on its way.`, variant: 'success' });
       setStep('otp');
     } catch (err: any) {
       toast({

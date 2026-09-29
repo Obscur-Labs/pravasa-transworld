@@ -2,206 +2,214 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User';
-import OTP from '../models/OTP';
+import Admin, { toAdminProfile } from '../models/Admin';
+import OTP, { IOTP, IPendingUser } from '../models/OTP';
 import { sendOTPEmail } from '../services/email.service';
 import { sendSuccess, sendError } from '../utils/response';
+import { jwtSecret } from '../config/env';
 
-const generateOTP = (): string => String(Math.floor(100000 + Math.random() * 900000));
+const OTP_TTL_MS = 10 * 60 * 1000;
+const RESEND_COOLDOWN_MS = 30 * 1000;
+const MAX_ATTEMPTS = 5;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const signToken = (id: string): string =>
-  jwt.sign({ id, role: 'user' }, process.env.JWT_SECRET || 'secret', {
+type Role = 'user' | 'admin';
+
+const normalizeEmail = (email: unknown) => String(email ?? '').trim().toLowerCase();
+
+const signToken = (id: string, role: Role): string =>
+  jwt.sign({ id, role }, jwtSecret(), {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   } as jwt.SignOptions);
 
+// Keyed hash, so a leaked OTP collection can't be brute-forced offline.
+const hashCode = (email: string, role: Role, code: string) =>
+  crypto.createHmac('sha256', jwtSecret()).update(`${role}:${email}:${code}`).digest('hex');
+
+const devPanelEnabled = () => process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_PANEL === 'true';
+
+/** Creates a fresh code (replacing any earlier one) and mails it. Returns an error message on failure. */
+async function issueOtp(email: string, role: Role, recipientName: string, pendingUser?: IPendingUser): Promise<{ status: number; message: string } | null> {
+  const recent = await OTP.exists({ email, role, createdAt: { $gt: new Date(Date.now() - RESEND_COOLDOWN_MS) } });
+  if (recent) return { status: 429, message: 'Please wait a few seconds before requesting another code' };
+
+  const code = String(crypto.randomInt(100000, 1000000));
+  await OTP.deleteMany({ email, role });
+  await OTP.create({
+    email,
+    role,
+    codeHash: hashCode(email, role, code),
+    expiresAt: new Date(Date.now() + OTP_TTL_MS),
+    pendingUser,
+    devCode: devPanelEnabled() ? code : undefined,
+  });
+
+  try {
+    await sendOTPEmail(email, recipientName, code);
+  } catch (err: any) {
+    console.error(`[EMAIL ERROR] Failed to send ${role} OTP to`, email, err?.message ?? err);
+    if (process.env.NODE_ENV === 'production') {
+      // Drop the unsent code so the resend cooldown doesn't block an immediate retry.
+      await OTP.deleteMany({ email, role });
+      return { status: 500, message: 'Failed to send OTP email. Please try again.' };
+    }
+    console.log(`[DEV] ${role} OTP for ${email}: ${code}`);
+  }
+  return null;
+}
+
+/** Spends one attempt on the current code. Returns the record on a match, else an error message. */
+async function consumeOtp(email: string, role: Role, code: unknown): Promise<IOTP | string> {
+  // The attempt is counted atomically before comparing, so parallel guesses can't exceed the cap.
+  const record = await OTP.findOneAndUpdate(
+    { email, role, codeHash: { $exists: true }, expiresAt: { $gt: new Date() }, attempts: { $lt: MAX_ATTEMPTS } },
+    { $inc: { attempts: 1 } },
+    { new: true }
+  );
+  if (!record) return 'Invalid or expired OTP. Please request a new code.';
+
+  const expected = Buffer.from(record.codeHash, 'hex');
+  const actual = Buffer.from(hashCode(email, role, String(code ?? '').trim()), 'hex');
+  if (!crypto.timingSafeEqual(expected, actual)) {
+    const left = MAX_ATTEMPTS - record.attempts;
+    return left > 0
+      ? `Incorrect OTP. ${left} attempt${left === 1 ? '' : 's'} left.`
+      : 'Too many incorrect attempts. Please request a new code.';
+  }
+
+  await record.deleteOne();
+  return record;
+}
+
+const userPayload = (user: InstanceType<typeof User>) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  accountType: user.accountType,
+  gstNumber: user.gstNumber,
+  promoApplicable: user.promoApplicable !== false,
+});
+
 export const sendOtp = async (req: Request, res: Response): Promise<void> => {
-  const { name, email, phone, accountType, gstNumber } = req.body;
+  const { name, phone, accountType, gstNumber } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   if (!name || !email || !phone) {
     sendError(res, 'Name, email, and phone are required');
     return;
   }
+  if (!EMAIL_RE.test(email)) {
+    sendError(res, 'Please enter a valid email address');
+    return;
+  }
 
   const type: 'individual' | 'corporate' = accountType === 'corporate' ? 'corporate' : 'individual';
-
   if (type === 'corporate' && !gstNumber) {
     sendError(res, 'GST number is required for corporate accounts');
     return;
   }
 
-  let user = await User.findOne({ email: email.toLowerCase() });
-  if (!user) {
-    user = await User.create({ name, email: email.toLowerCase(), phone, accountType: type, gstNumber: type === 'corporate' ? gstNumber : undefined });
-  } else {
-    user.name = name;
-    user.phone = phone;
-    user.accountType = type;
-    if (type === 'corporate') user.gstNumber = gstNumber;
-    await user.save();
+  // Registration never touches an existing account. The details are only applied once
+  // the code proves the caller owns this inbox.
+  if (await User.exists({ email })) {
+    sendError(res, 'An account with this email already exists. Please log in instead.', 409);
+    return;
   }
 
-  const otp = generateOTP();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-  await OTP.deleteMany({ email: email.toLowerCase(), role: 'user' });
-  await OTP.create({ email: email.toLowerCase(), otp, role: 'user', expiresAt });
-
-  try {
-    await sendOTPEmail(email, name, otp);
-  } catch (err: any) {
-    console.error('[EMAIL ERROR] Failed to send OTP to', email, '—', err?.message ?? err);
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[DEV] OTP for ${email}: ${otp}`);
-    } else {
-      sendError(res, 'Failed to send OTP email. Please try again.', 500);
-      return;
-    }
-  }
+  const failure = await issueOtp(email, 'user', String(name), {
+    name: String(name),
+    phone: String(phone),
+    accountType: type,
+    gstNumber: type === 'corporate' ? String(gstNumber) : undefined,
+  });
+  if (failure) { sendError(res, failure.message, failure.status); return; }
 
   sendSuccess(res, { email }, 'OTP sent to your email');
 };
 
 export const sendLoginOtp = async (req: Request, res: Response): Promise<void> => {
-  const { email } = req.body;
-
+  const email = normalizeEmail(req.body.email);
   if (!email) {
     sendError(res, 'Email is required');
     return;
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ email });
   if (!user) {
     sendError(res, 'No account found with this email', 404);
     return;
   }
 
-  const otp = generateOTP();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-  await OTP.deleteMany({ email: email.toLowerCase(), role: 'user' });
-  await OTP.create({ email: email.toLowerCase(), otp, role: 'user', expiresAt });
-
-  try {
-    await sendOTPEmail(email, user.name, otp);
-  } catch (err: any) {
-    console.error('[EMAIL ERROR] Failed to send OTP to', email, '—', err?.message ?? err);
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[DEV] OTP for ${email}: ${otp}`);
-    } else {
-      sendError(res, 'Failed to send OTP email. Please try again.', 500);
-      return;
-    }
-  }
+  const failure = await issueOtp(email, 'user', user.name);
+  if (failure) { sendError(res, failure.message, failure.status); return; }
 
   sendSuccess(res, { email }, 'OTP sent to your email');
 };
 
 export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
-  const { email, otp } = req.body;
-
-  if (!email || !otp) {
+  const email = normalizeEmail(req.body.email);
+  if (!email || !req.body.otp) {
     sendError(res, 'Email and OTP are required');
     return;
   }
 
-  const record = await OTP.findOne({
-    email: email.toLowerCase(),
-    role: 'user',
-    verified: false,
-    expiresAt: { $gt: new Date() },
-  });
+  const result = await consumeOtp(email, 'user', req.body.otp);
+  if (typeof result === 'string') { sendError(res, result, 400); return; }
 
-  if (!record || record.otp !== otp) {
-    sendError(res, 'Invalid or expired OTP', 400);
-    return;
-  }
-
-  record.verified = true;
-  await record.save();
-
-  const user = await User.findOne({ email: email.toLowerCase() });
+  let user = await User.findOne({ email });
   if (!user) {
-    sendError(res, 'User not found', 404);
+    if (!result.pendingUser) {
+      sendError(res, 'No account found with this email', 404);
+      return;
+    }
+    const { name, phone, accountType, gstNumber } = result.pendingUser;
+    user = await User.create({ name, email, phone, accountType, gstNumber: accountType === 'corporate' ? gstNumber : undefined });
+  }
+  if (!user.isActive) {
+    sendError(res, 'This account has been deactivated. Please contact support.', 403);
     return;
   }
 
-  const token = signToken(String(user._id));
-  sendSuccess(res, { token, user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, accountType: user.accountType, gstNumber: user.gstNumber, promoApplicable: user.promoApplicable !== false } }, 'Login successful');
+  sendSuccess(res, { token: signToken(String(user._id), 'user'), user: userPayload(user) }, 'Login successful');
 };
 
 export const sendAdminOtp = async (req: Request, res: Response): Promise<void> => {
-  const { email } = req.body;
-
+  const email = normalizeEmail(req.body.email);
   if (!email) {
     sendError(res, 'Email is required');
     return;
   }
 
-  const Admin = (await import('../models/Admin')).default;
-  const admin = await Admin.findOne({ email: email.toLowerCase() });
-  if (!admin) {
-    sendError(res, 'No admin account found with this email', 404);
-    return;
+  // Same answer whether or not the address is an admin, so the endpoint can't be used
+  // to discover admin accounts.
+  const admin = await Admin.findOne({ email });
+  if (admin) {
+    const failure = await issueOtp(email, 'admin', admin.name);
+    if (failure) { sendError(res, failure.message, failure.status); return; }
   }
 
-  const otp = generateOTP();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-  await OTP.deleteMany({ email: email.toLowerCase(), role: 'admin' });
-  await OTP.create({ email: email.toLowerCase(), otp, role: 'admin', expiresAt });
-
-  try {
-    await sendOTPEmail(email, admin.name, otp);
-  } catch (err: any) {
-    console.error('[EMAIL ERROR] Failed to send admin OTP to', email, '—', err?.message ?? err);
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[DEV] Admin OTP for ${email}: ${otp}`);
-    } else {
-      sendError(res, 'Failed to send OTP email. Please try again.', 500);
-      return;
-    }
-  }
-
-  sendSuccess(res, { email }, 'OTP sent to admin email');
+  sendSuccess(res, { email }, 'If this email belongs to an admin account, a code has been sent');
 };
 
 export const verifyAdminOtp = async (req: Request, res: Response): Promise<void> => {
-  const { email, otp } = req.body;
-
-  if (!email || !otp) {
+  const email = normalizeEmail(req.body.email);
+  if (!email || !req.body.otp) {
     sendError(res, 'Email and OTP are required');
     return;
   }
 
-  const record = await OTP.findOne({
-    email: email.toLowerCase(),
-    role: 'admin',
-    verified: false,
-    expiresAt: { $gt: new Date() },
-  });
+  const result = await consumeOtp(email, 'admin', req.body.otp);
+  if (typeof result === 'string') { sendError(res, result, 400); return; }
 
-  if (!record || record.otp !== otp) {
-    sendError(res, 'Invalid or expired OTP', 400);
-    return;
-  }
-
-  record.verified = true;
-  await record.save();
-
-  const { default: Admin, toAdminProfile } = await import('../models/Admin');
-  const admin = await Admin.findOne({ email: email.toLowerCase() });
+  const admin = await Admin.findOne({ email });
   if (!admin) {
-    sendError(res, 'Admin not found', 404);
+    sendError(res, 'Invalid or expired OTP. Please request a new code.', 400);
     return;
   }
-
-  const token = jwt.sign(
-    { id: admin._id, role: 'admin' },
-    process.env.JWT_SECRET || 'secret',
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions
-  );
 
   sendSuccess(res, {
-    token,
+    token: signToken(String(admin._id), 'admin'),
     admin: toAdminProfile(admin),
   }, 'Admin login successful');
 };

@@ -2,6 +2,10 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import app from '../src/app';
 import { initCloudinary } from '../src/config/cloudinary';
+import { assertEnv } from '../src/config/env';
+
+// Fails the cold start rather than serving requests with missing secrets.
+assertEnv();
 
 // Reuse DB connection across warm invocations
 const connectIfNeeded = async () => {

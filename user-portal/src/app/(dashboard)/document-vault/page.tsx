@@ -26,8 +26,9 @@ const CFG: Record<DocType, { label: string; sublabel: string; icon: React.Elemen
 };
 const ALL: DocType[] = ['aadhar', 'pan', 'passport', 'photograph', 'bank_statement', 'degree', 'other'];
 
-/* PDF if URL ends with .pdf or comes from Cloudinary raw resource */
-const isPdf = (url: string) => /\.pdf($|\?|#)/i.test(url) || url.includes('/raw/upload/');
+/* PDF by extension, by the format param of a signed download link, or a Cloudinary raw resource */
+const isPdf = (url: string) =>
+  /\.pdf($|\?|#)/i.test(url) || /[?&]format=pdf(&|$)/i.test(url) || /\/raw\/(upload|download)/.test(url);
 
 /* Open-doc button — fetches a backend-signed URL first so the browser
    never needs to send auth headers to Cloudinary directly.            */

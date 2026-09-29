@@ -10,13 +10,12 @@ import VisaFile from '../../models/VisaFile';
 import User from '../../models/User';
 import Payment from '../../models/Payment';
 import Trash from '../../models/Trash';
-import { uploadToCloudinary } from '../../services/cloudinary.service';
+import { deliveryUrl, fetchAsset, uploadToCloudinary } from '../../services/cloudinary.service';
 import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
 import { generateReceiptPDF } from '../../services/pdf.service';
 import { buildReceiptData } from '../../utils/receiptData';
 import { computeVisaPricing, computeSubtotal, computeGst } from '../../utils/pricing';
 import { logActivity } from '../../utils/activityLog';
-import { fetchBuffer } from '../../utils/fetchBuffer';
 import { sendSuccess, sendError } from '../../utils/response';
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -360,9 +359,10 @@ export const uploadVisaFile = async (req: AdminRequest, res: Response): Promise<
   const application = await Application.findById(req.params.id).populate('user', 'name email');
   if (!application) { sendError(res, 'Application not found', 404); return; }
 
-  const { url, publicId } = await uploadToCloudinary(req.file.buffer, 'visa-files', 'raw');
+  // 'auto' keeps the real file type, so the visa opens inline instead of as a nameless binary.
+  const { url, publicId } = await uploadToCloudinary(req.file.buffer, 'visa-files', 'auto', { private: true });
 
-  await VisaFile.findOneAndUpdate(
+  const visaFile = await VisaFile.findOneAndUpdate(
     { application: application._id },
     { application: application._id, url, publicId },
     { upsert: true, new: true }
@@ -388,10 +388,10 @@ export const uploadVisaFile = async (req: AdminRequest, res: Response): Promise<
   }
 
   try {
-    await sendVisaDeliveredEmail(user.email, user.name, application.referenceId, url);
+    await sendVisaDeliveredEmail(user.email, user.name, application.referenceId, String(application._id));
   } catch (err) { console.error(err); }
 
-  sendSuccess(res, { url }, 'Visa uploaded and delivered');
+  sendSuccess(res, { url: deliveryUrl(visaFile.url, visaFile.publicId) }, 'Visa uploaded and delivered');
 };
 
 export const manualPaymentOverride = async (req: AdminRequest, res: Response): Promise<void> => {
@@ -544,7 +544,7 @@ export const downloadApplicationDocumentsZip = async (req: AdminRequest, res: Re
 
   for (const doc of docs) {
     try {
-      const buffer = await fetchBuffer(doc.url);
+      const buffer = await fetchAsset(doc.url, doc.publicId);
       const urlPath = doc.url.split('?')[0];
       const ext = urlPath.split('.').pop() || 'bin';
       const safeName = doc.requirementName.replace(/[^a-zA-Z0-9\-_]/g, '_');

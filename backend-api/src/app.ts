@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
 import userRoutes from './routes/user.routes';
 import publicRoutes from './routes/public.routes';
+import webhookRoutes from './routes/webhook.routes';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -39,6 +40,10 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // ── HTTP Security Headers (Helmet) ──────────────────────────────────────────
 // Disabled contentSecurityPolicy for a JSON API — CSP is a browser/HTML concern.
 app.use(helmet({ contentSecurityPolicy: false }));
+
+// ── Webhooks ─────────────────────────────────────────────────────────────────
+// Mounted before the JSON parser and sanitisers: signatures are checked on the raw body.
+app.use('/api/webhooks', webhookRoutes);
 
 // ── Body Parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
@@ -79,15 +84,21 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/public', publicRoutes);
 
-// Developer panel — git-ignored, local only
-if (process.env.NODE_ENV !== 'production') {
+// Developer panel: git-ignored and unauthenticated, so it needs an explicit opt-in and
+// only answers requests from this machine. remoteAddress is the real socket peer, which
+// X-Forwarded-For can't spoof.
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_PANEL === 'true') {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const devRoutes = require('./routes/dev.routes').default;
-    app.use('/dev', devRoutes);
-    console.log('[DEV] Developer panel active at /dev');
+    app.use('/dev', (req, res, next) => {
+      if (LOOPBACK.has(req.socket.remoteAddress || '')) return next();
+      res.status(404).json({ success: false, message: 'Route not found' });
+    }, devRoutes);
+    console.log('[DEV] Developer panel active at /dev (localhost only)');
   } catch {
-    // dev.routes.ts not present on this machine — that is fine
+    // dev.routes.ts not present on this machine
   }
 }
 

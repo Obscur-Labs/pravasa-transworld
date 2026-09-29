@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { withDeliveryUrl } from '../services/cloudinary.service';
 
 export interface IVisaFile extends Document {
   application: mongoose.Types.ObjectId;
@@ -13,7 +14,7 @@ const VisaFileSchema = new Schema<IVisaFile>(
     url: { type: String, required: true },
     publicId: { type: String, required: true },
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: withDeliveryUrl }
 );
 
 export default mongoose.model<IVisaFile>('VisaFile', VisaFileSchema);

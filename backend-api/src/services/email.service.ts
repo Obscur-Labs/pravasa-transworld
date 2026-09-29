@@ -222,8 +222,11 @@ export async function sendVisaDeliveredEmail(
   email: string,
   name: string,
   referenceId: string,
-  downloadUrl: string
+  applicationId: string
 ): Promise<void> {
+  // Links to the dashboard, never to the file: an emailed file link outlives its expiry
+  // and works for anyone the mail is forwarded to.
+  const downloadUrl = `${frontendUrl}/applications/${applicationId}`;
   console.log(`[VISA_DELIVERED] Sending visa ready email → ${email} | ref: ${referenceId}`);
   await sendMail(
     email,
@@ -237,7 +240,7 @@ export async function sendVisaDeliveredEmail(
             Congratulations! Your visa for application <strong>${referenceId}</strong> is ready.
           </p>
           <p style="color: #475569; font-size: 15px; margin: 0 0 32px;">
-            You can download your visa directly from your dashboard or using the button below.
+            Sign in to your dashboard to view and download it.
           </p>
           <a href="${downloadUrl}" style="display: inline-block; background: #16a34a; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
             Download Visa

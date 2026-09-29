@@ -1,6 +1,9 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
+import { jwtSecret } from '../config/env';
+import Admin from '../models/Admin';
+import User from '../models/User';
 
 let io: SocketIOServer;
 
@@ -20,30 +23,22 @@ export const initSocket = (server: HttpServer) => {
     },
   });
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return next(new Error('Authentication error'));
-    }
+    if (!token) return next(new Error('Authentication error'));
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
-      (socket as any).user = {
-        id: decoded.id,
-        role: decoded.role || 'user', // Assuming default is user if not specified in your JWT, but adjust if admin has role='admin'
-      };
-      
-      // Better to check if the token belongs to an admin.
-      // Usually, admin login sets role='admin'.
-      if (decoded.role === 'admin' || decoded.isAdmin) {
-          (socket as any).user.role = 'admin';
-      } else {
-          (socket as any).user.role = 'user';
-      }
-      
+      const decoded = jwt.verify(token, jwtSecret()) as { id: string; role?: string };
+      const role: SocketUser['role'] = decoded.role === 'admin' ? 'admin' : 'user';
+      // A valid token is not enough: the account may have been deleted or deactivated since.
+      const exists = role === 'admin'
+        ? await Admin.exists({ _id: decoded.id })
+        : await User.exists({ _id: decoded.id, isActive: true });
+      if (!exists) return next(new Error('Authentication error'));
+
+      (socket as any).user = { id: decoded.id, role };
       next();
-    } catch (err) {
+    } catch {
       next(new Error('Authentication error'));
     }
   });

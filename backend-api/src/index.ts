@@ -4,6 +4,8 @@ import { connectDB } from "./config/database";
 import { initCloudinary } from "./config/cloudinary";
 import { verifyMailConnection } from "./config/email";
 
+import { assertEnv } from "./config/env";
+
 import http from "http";
 import { initSocket } from "./utils/socket";
 
@@ -12,15 +14,9 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 initSocket(server);
 
-const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI', 'BREVO_API_KEY', 'EMAIL_FROM_ADDRESS'];
-const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
-if (missing.length) {
-  console.error(`[STARTUP] Missing required env vars: ${missing.join(', ')}`);
-  if (process.env.NODE_ENV === 'production') process.exit(1);
-}
-
 (async () => {
   try {
+    assertEnv();
     await connectDB();
     initCloudinary();
     await verifyMailConnection();

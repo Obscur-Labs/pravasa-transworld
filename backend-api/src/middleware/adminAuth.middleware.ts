@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import Admin, { IAdmin } from '../models/Admin';
 import { sendError } from '../utils/response';
+import { jwtSecret } from '../config/env';
 
 export interface AdminRequest extends Request {
   admin?: IAdmin;
@@ -18,7 +19,7 @@ export const adminProtect = async (req: AdminRequest, res: Response, next: NextF
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string; role: string };
+    const decoded = jwt.verify(token, jwtSecret()) as { id: string; role: string };
     if (decoded.role !== 'admin') {
       sendError(res, 'Not authorized as admin', 403);
       return;

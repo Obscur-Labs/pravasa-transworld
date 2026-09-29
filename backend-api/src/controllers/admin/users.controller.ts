@@ -1,31 +1,12 @@
 import { Response } from 'express';
-import https from 'https';
-import http from 'http';
 import archiver from 'archiver';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import DocumentVault from '../../models/DocumentVault';
 import User from '../../models/User';
+import { fetchAsset } from '../../services/cloudinary.service';
 import { sendSuccess, sendError } from '../../utils/response';
 import { logActivity } from '../../utils/activityLog';
 import { moveToTrash } from '../../utils/trash';
-
-async function fetchBuffer(url: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const protocol = url.startsWith('https://') ? https : http;
-    const chunks: Buffer[] = [];
-    const req = protocol.get(url, (res) => {
-      if (res.statusCode !== 200) {
-        res.resume();
-        reject(new Error(`HTTP ${res.statusCode}`));
-        return;
-      }
-      res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => resolve(Buffer.concat(chunks)));
-      res.on('error', reject);
-    });
-    req.on('error', reject);
-  });
-}
 
 export const getUserVaultDocuments = async (req: AdminRequest, res: Response): Promise<void> => {
   const docs = await DocumentVault.find({ user: req.params.userId }).sort({ createdAt: -1 });
@@ -55,7 +36,7 @@ export const downloadUserVaultZip = async (req: AdminRequest, res: Response): Pr
 
   for (const doc of docs) {
     try {
-      const buffer = await fetchBuffer(doc.url);
+      const buffer = await fetchAsset(doc.url, doc.publicId);
       const urlPath = doc.url.split('?')[0];
       const ext = urlPath.split('.').pop() || 'bin';
       const safeName = doc.label.replace(/[^a-zA-Z0-9\-_]/g, '_');

@@ -168,7 +168,7 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
   }
 
   const userId = String(req.user!._id);
-  const { url, publicId } = await uploadToCloudinary(req.file.buffer, `users/${userId}/documents`);
+  const { url, publicId } = await uploadToCloudinary(req.file.buffer, `users/${userId}/documents`, 'auto', { private: true });
 
   // Auto-extract passport details from the image. The doc kind comes from the
   // requirement's docType when sent; otherwise we fall back to the name.

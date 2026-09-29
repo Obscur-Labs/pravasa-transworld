@@ -8,7 +8,7 @@ import EmbassyMailConfig from '../../models/EmbassyMailConfig';
 import { EMBASSY_FROM_NAME, EMBASSY_FROM_EMAIL, EMBASSY_SENDER_IS_SHARED } from '../../config/email';
 import { sendEmbassyMail } from '../../services/email.service';
 import { logActivity } from '../../utils/activityLog';
-import { fetchBuffer } from '../../utils/fetchBuffer';
+import { fetchAsset } from '../../services/cloudinary.service';
 import { getCompanyInfo } from '../../utils/receiptData';
 import { sendSuccess, sendError } from '../../utils/response';
 import {
@@ -197,7 +197,7 @@ export const sendApplicationEmbassyMail = async (req: AdminRequest, res: Respons
   for (const doc of documents) {
     let buffer: Buffer;
     try {
-      buffer = await fetchBuffer(doc.url);
+      buffer = await fetchAsset(doc.url, doc.publicId);
     } catch (err) {
       console.error(`[EMBASSY_MAIL] Could not download "${doc.requirementName}"`, err);
       sendError(res, `Could not download "${doc.requirementName}". Nothing was sent — please retry.`, 502);

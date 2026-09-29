@@ -4,8 +4,8 @@ import Payment from '../../models/Payment';
 import Application from '../../models/Application';
 import PromoCode from '../../models/PromoCode';
 import { generateReceiptPDF } from '../../services/pdf.service';
+import { completeOnlinePayment } from '../../services/payment.service';
 import { buildReceiptData } from '../../utils/receiptData';
-import { uploadToCloudinary } from '../../services/cloudinary.service';
 import {
   isRazorpayConfigured,
   getRazorpayKeyId,
@@ -248,58 +248,15 @@ export const verifyPayment = async (req: AuthRequest, res: Response): Promise<vo
     return;
   }
 
-  payment.status = 'completed';
-  payment.transactionId = razorpay_payment_id;
-  payment.razorpayPaymentId = razorpay_payment_id;
-  payment.razorpaySignature = razorpay_signature;
-  payment.paidAt = new Date();
-  await payment.save();
-
-  application.status = 'payment_completed';
-  await application.save();
-
-  if (payment.promoCode) {
-    await PromoCode.findByIdAndUpdate(payment.promoCode, {
-      $inc: { usageCount: 1 },
-      $push: {
-        usedBy: {
-          user: req.user!._id,
-          userName: req.user!.name,
-          userEmail: req.user!.email,
-          applicationId: application._id,
-          applicationRef: application.referenceId,
-          usedAt: new Date(),
-          discountApplied: payment.discountApplied || 0,
-        },
-      },
-    });
-  }
-
-  const AdminNotification = (await import('../../models/AdminNotification')).default;
-  const Notification = (await import('../../models/Notification')).default;
-  const { getIO } = await import('../../utils/socket');
-  
-  const adminNotif = await AdminNotification.create({
-    title: 'Payment Received',
-    message: `Payment of ₹${payment.amount.toLocaleString('en-IN')} received for application ${application.referenceId}.`,
-    type: 'payment_received',
-    application: application._id,
+  // The webhook may have completed it a moment ago; either way the result is the same.
+  await completeOnlinePayment(payment._id, {
+    razorpayPaymentId: razorpay_payment_id,
+    razorpaySignature: razorpay_signature,
   });
 
-  const userNotif = await Notification.create({
-    user: req.user!._id,
-    title: 'Payment Successful',
-    message: `Your payment of ₹${payment.amount.toLocaleString('en-IN')} for application ${application.referenceId} was successful.`,
-    type: 'status_update',
-    application: application._id,
-  });
-
-  try {
-    getIO().to('admin_room').emit('admin_notification', adminNotif);
-    getIO().to(`user_${req.user!._id}`).emit('notification', userNotif);
-  } catch (err) {
-    console.error('Socket emission failed', err);
-  }
-
-  sendSuccess(res, { payment, application }, 'Payment successful');
+  const [completed, updatedApp] = await Promise.all([
+    Payment.findById(payment._id),
+    Application.findById(application._id),
+  ]);
+  sendSuccess(res, { payment: completed, application: updatedApp }, 'Payment successful');
 };

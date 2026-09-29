@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import User, { IUser } from '../models/User';
 import { sendError } from '../utils/response';
+import { jwtSecret } from '../config/env';
 
 export interface AuthRequest extends Request {
   user?: IUser;
@@ -18,7 +19,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string };
+    const decoded = jwt.verify(token, jwtSecret()) as { id: string };
     const user = await User.findById(decoded.id);
     if (!user || !user.isActive) {
       sendError(res, 'User not found or inactive', 401);
@@ -40,7 +41,7 @@ export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextF
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string };
+      const decoded = jwt.verify(token, jwtSecret()) as { id: string };
       const user = await User.findById(decoded.id);
       if (user && user.isActive) req.user = user;
     } catch {

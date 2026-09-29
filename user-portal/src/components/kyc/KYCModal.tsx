@@ -1,8 +1,8 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  ShieldCheck, Upload, CheckCircle2,
-  ArrowRight, Loader2, Fingerprint, CreditCard,
+  ShieldCheck, Upload, CheckCircle2, ArrowRight, ArrowLeft,
+  Loader2, Fingerprint, CreditCard, RefreshCw, Lock,
 } from 'lucide-react';
 import { uploadVaultDocument } from '@/lib/api';
 import { toast } from '@/components/ui/use-toast';
@@ -10,138 +10,78 @@ import { toast } from '@/components/ui/use-toast';
 interface KYCStatus { aadharFront: boolean; aadharBack: boolean; pan: boolean; }
 interface Props { initialStatus: KYCStatus; onComplete: () => void; }
 
-/* ── Simple Aadhaar card face ── */
-function AadhaarSideCard({
-  side,
+// Mirrors the server's upload filter, so an unsupported photo is caught before upload.
+const ACCEPT = 'image/jpeg,image/png';
+const MAX_BYTES = 10 * 1024 * 1024;
+
+const PRIMARY_BTN =
+  'w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ' +
+  'bg-gradient-to-br from-brand-800 to-brand-600 text-white shadow-[0_4px_15px_rgba(15,65,87,0.35)] ' +
+  'hover:from-brand-900 hover:to-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 ' +
+  'disabled:from-slate-100 disabled:to-slate-100 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed';
+
+/* One document slot: pick, preview, replace. A real button, so it works from the keyboard. */
+function DocSlot({
+  title,
+  hint,
   image,
   done,
   onPick,
+  icon: Icon,
+  tall,
 }: {
-  side: 'Front' | 'Back';
+  title: string;
+  hint: string;
   image: string | null;
   done: boolean;
   onPick: () => void;
+  icon: typeof Upload;
+  tall?: boolean;
 }) {
-  const isFront = side === 'Front';
-
+  const ready = done || !!image;
   return (
-    <div className="flex-1 rounded-2xl overflow-hidden border-2 transition-all"
-      style={{ borderColor: done || image ? '#86efac' : '#e2e8f0' }}>
-      {/* Header stripe — India flag colors */}
-      <div
-        className="px-3 py-2 flex items-center justify-between"
-        style={{
-          background: isFront
-            ? 'linear-gradient(135deg,#FF9933 0%,#FF9933 30%,#ffffff 45%,#ffffff 55%,#138808 70%,#138808 100%)'
-            : 'linear-gradient(135deg,#0B2E3D 0%,#207497 60%,#3095C0 100%)',
-        }}
-      >
-        <span className="text-[9px] font-bold tracking-widest"
-          style={{ color: isFront ? '#000000cc' : 'rgba(255,255,255,0.9)' }}>
-          AADHAAR
-        </span>
-        <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded"
-          style={{
-            background: isFront ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.2)',
-            color: isFront ? '#000000cc' : 'rgba(255,255,255,0.9)',
-          }}>
-          {side.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Upload / preview area */}
-      <div
-        className="flex flex-col items-center justify-center p-4 cursor-pointer min-h-[130px] bg-white group hover:bg-slate-50 transition-colors"
-        onClick={!done ? onPick : undefined}
-      >
-        {image ? (
-          <div className="w-full h-24 rounded-lg overflow-hidden border border-green-200">
-            <img src={image} alt={`Aadhaar ${side}`} className="w-full h-full object-cover" />
-          </div>
-        ) : done ? (
-          <div className="flex flex-col items-center gap-2 text-center">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
-            </div>
-            <p className="text-xs font-semibold text-green-700">Already uploaded</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-center">
-            <div className="w-12 h-12 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center group-hover:border-brand-300 group-hover:bg-brand-50 transition-all">
-              <Upload className="w-5 h-5 text-slate-400 group-hover:text-brand-500 transition-colors" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-600">{side} side</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Click to upload</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom status */}
-      <div className="px-3 pb-3">
-        {done || image ? (
-          <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-green-50 border border-green-200 text-xs font-semibold text-green-700">
-            <CheckCircle2 className="w-3 h-3" /> Ready
-          </div>
-        ) : (
-          <button
-            onClick={onPick}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 transition-all"
-          >
-            <Upload className="w-3 h-3" /> Upload
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── PAN card (simple flat card, no flip) ── */
-function PanCard({ image, done, onPick }: { image: string | null; done: boolean; onPick: () => void; }) {
-  return (
-    <div className="rounded-2xl overflow-hidden border-2 transition-all"
-      style={{ borderColor: done || image ? '#86efac' : '#e2e8f0' }}>
-      {/* Header */}
-      <div className="px-4 py-2.5 flex items-center justify-between"
-        style={{ background: 'linear-gradient(135deg,#061E27 0%,#0B2E3D 45%,#165874 100%)' }}>
-        <span className="text-[10px] font-bold tracking-widest text-white/80">INCOME TAX DEPT — PAN</span>
-        {(done || image) && (
-          <span className="flex items-center gap-1 bg-green-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-            <CheckCircle2 className="w-2.5 h-2.5" /> Ready
+    <button
+      type="button"
+      onClick={done ? undefined : onPick}
+      disabled={done}
+      aria-label={done ? `${title}: already uploaded` : image ? `${title}: selected, choose a different file` : `Upload ${title}`}
+      className={`group relative w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-3 text-center transition-all
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2
+        ${tall ? 'min-h-[150px]' : 'min-h-[130px]'}
+        ${ready ? 'border-green-300 bg-green-50/40' : 'border-dashed border-slate-300 bg-slate-50 hover:border-brand-300 hover:bg-brand-50'}
+        ${done ? 'cursor-default' : 'cursor-pointer'}`}
+    >
+      {image ? (
+        <>
+          <img src={image} alt="" className={`w-full ${tall ? 'h-28' : 'h-20'} rounded-lg object-cover border border-green-200`} />
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 group-hover:text-brand-600">
+            <RefreshCw className="w-3 h-3" /> Change
           </span>
-        )}
-      </div>
-
-      {/* Upload / preview */}
-      <div
-        className="flex flex-col items-center justify-center p-5 cursor-pointer min-h-[160px] bg-white group hover:bg-slate-50 transition-colors"
-        onClick={!done ? onPick : undefined}
-      >
-        {image ? (
-          <div className="w-full h-32 rounded-lg overflow-hidden border border-green-200">
-            <img src={image} alt="PAN Card" className="w-full h-full object-cover" />
-          </div>
-        ) : done ? (
-          <div className="flex flex-col items-center gap-2 text-center">
-            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="w-7 h-7 text-green-600" />
-            </div>
-            <p className="text-sm font-semibold text-green-700">PAN Card Uploaded</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-14 h-14 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center group-hover:border-brand-300 group-hover:bg-brand-50 transition-all">
-              <CreditCard className="w-7 h-7 text-slate-400 group-hover:text-brand-500 transition-colors" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-600">PAN Card Front</p>
-              <p className="text-xs text-slate-400 mt-0.5">Click to upload · JPG or PNG</p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        </>
+      ) : done ? (
+        <>
+          <span className="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center">
+            <CheckCircle2 className="w-6 h-6 text-green-600" />
+          </span>
+          <span className="text-xs font-semibold text-green-700">Already uploaded</span>
+        </>
+      ) : (
+        <>
+          <span className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center group-hover:border-brand-300 transition-colors">
+            <Icon className="w-5 h-5 text-slate-400 group-hover:text-brand-500 transition-colors" />
+          </span>
+          <span>
+            <span className="block text-xs font-semibold text-slate-700">{title}</span>
+            <span className="block text-[11px] text-slate-400 mt-0.5">{hint}</span>
+          </span>
+        </>
+      )}
+      {ready && (
+        <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-green-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+          <CheckCircle2 className="w-2.5 h-2.5" /> Ready
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -168,11 +108,23 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
   const abRef  = useRef<HTMLInputElement>(null);
   const panRef = useRef<HTMLInputElement>(null);
 
-  const pickFront = () => afRef.current?.click();
-  const pickBack  = () => abRef.current?.click();
-  const pickPan   = () => panRef.current?.click();
+  // Release preview blobs when they are replaced or the modal closes.
+  useEffect(() => () => { if (afPreview) URL.revokeObjectURL(afPreview); }, [afPreview]);
+  useEffect(() => () => { if (abPreview) URL.revokeObjectURL(abPreview); }, [abPreview]);
+  useEffect(() => () => { if (panPreview) URL.revokeObjectURL(panPreview); }, [panPreview]);
 
-  const handleFile = (side: 'front' | 'back' | 'pan', file: File) => {
+  const handleFile = (side: 'front' | 'back' | 'pan', input: HTMLInputElement) => {
+    const file = input.files?.[0];
+    input.value = ''; // lets the same file be picked again after a rejection
+    if (!file) return;
+    if (!ACCEPT.split(',').includes(file.type)) {
+      toast({ title: 'Unsupported file', description: 'Please choose a JPG or PNG image.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      toast({ title: 'File too large', description: 'Images must be under 10 MB.', variant: 'destructive' });
+      return;
+    }
     const url = URL.createObjectURL(file);
     if (side === 'front') { setAfFile(file); setAfPreview(url); }
     if (side === 'back')  { setAbFile(file); setAbPreview(url); }
@@ -196,7 +148,7 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
       }
       if (!afDone && afFile) setAfDone(true);
       if (!abDone && abFile) setAbDone(true);
-      toast({ title: 'Aadhaar saved!', variant: 'success' });
+      toast({ title: 'Aadhaar saved', variant: 'success' });
       setStep('pan');
     } catch (e: any) {
       toast({ title: 'Upload failed', description: e.response?.data?.message, variant: 'destructive' });
@@ -214,7 +166,7 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
       fd.append('label', 'PAN Card');
       await uploadVaultDocument(fd);
       setPanDone(true);
-      toast({ title: 'KYC Complete!', description: 'Your identity is verified.', variant: 'success' });
+      toast({ title: 'KYC documents saved', description: 'They are in your document vault.', variant: 'success' });
       onComplete();
     } catch (e: any) {
       toast({ title: 'Upload failed', description: e.response?.data?.message, variant: 'destructive' });
@@ -227,61 +179,60 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
   const totalDone   = [afDone || !!afFile, abDone || !!abFile, panDone || !!panFile].filter(Boolean).length;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(12px)' }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
 
-      {/* hidden inputs */}
-      <input ref={afRef}  type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleFile('front', e.target.files[0])} />
-      <input ref={abRef}  type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleFile('back',  e.target.files[0])} />
-      <input ref={panRef} type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleFile('pan',   e.target.files[0])} />
+      <input ref={afRef}  type="file" className="hidden" accept={ACCEPT} onChange={e => handleFile('front', e.target)} />
+      <input ref={abRef}  type="file" className="hidden" accept={ACCEPT} onChange={e => handleFile('back',  e.target)} />
+      <input ref={panRef} type="file" className="hidden" accept={ACCEPT} onChange={e => handleFile('pan',   e.target)} />
 
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kyc-title"
+        aria-describedby="kyc-desc"
+        className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto bg-white rounded-3xl shadow-2xl"
+      >
 
         {/* Header */}
-        <div className="relative overflow-hidden px-6 pt-7 pb-6"
-          style={{ background: 'linear-gradient(135deg,#061E27 0%,#0F4157 40%,#165874 80%,#165874 100%)' }}>
-          <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full opacity-20 animate-pulse"
-            style={{ background: 'radial-gradient(circle,#818cf8,transparent)' }} />
-          <div className="absolute -bottom-4 -left-4 w-24 h-24 rounded-full opacity-15 animate-pulse"
-            style={{ background: 'radial-gradient(circle,#38bdf8,transparent)', animationDelay: '1s' }} />
+        <div className="relative overflow-hidden px-6 pt-7 pb-6 bg-gradient-to-br from-brand-950 via-brand-800 to-brand-700">
+          <div aria-hidden className="absolute -top-6 -right-6 w-32 h-32 rounded-full opacity-20 motion-safe:animate-pulse bg-[radial-gradient(circle,theme(colors.gold.300),transparent)]" />
 
           <div className="relative z-10 flex items-center gap-3 mb-5">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.25)' }}>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-white/15 border border-white/25">
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg leading-tight">Verify Your Identity</h2>
-              <p className="text-brand-200 text-xs mt-0.5">Required to start any visa application</p>
+              <h2 id="kyc-title" className="text-white font-bold text-lg leading-tight">Verify Your Identity</h2>
+              <p id="kyc-desc" className="text-brand-200 text-xs mt-0.5">Required to start any visa application</p>
             </div>
           </div>
 
-          {/* Progress pills */}
-          <div className="relative z-10 flex items-center gap-2">
+          {/* Steps */}
+          <ol className="relative z-10 flex items-center gap-2" aria-label="KYC steps">
             {[
               { id: 'aadhaar', label: 'Aadhaar Card', icon: Fingerprint, done: aadhaarDone },
               { id: 'pan',     label: 'PAN Card',     icon: CreditCard,  done: panDone },
             ].map((s) => (
-              <div key={s.id}
+              <li key={s.id}
+                aria-current={step === s.id ? 'step' : undefined}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   step === s.id
-                    ? 'bg-white text-indigo-700 shadow-lg'
+                    ? 'bg-white text-brand-800 shadow-lg'
                     : s.done
                     ? 'text-white/80 border border-white/20'
                     : 'text-white/50 border border-white/10'
                 }`}>
                 {s.done
-                  ? <CheckCircle2 className="w-3 h-3 text-green-400" />
+                  ? <CheckCircle2 className="w-3 h-3 text-green-500" />
                   : <s.icon className="w-3 h-3" />}
                 {s.label}
-              </div>
+              </li>
             ))}
-            <div className="ml-auto text-white/60 text-xs font-mono">{totalDone}/3</div>
-          </div>
+            <li className="ml-auto text-white/60 text-xs font-mono" aria-label={`${totalDone} of 3 documents ready`}>{totalDone}/3</li>
+          </ol>
 
-          {/* Progress bar */}
           <div className="relative z-10 mt-3 h-1 bg-white/20 rounded-full overflow-hidden">
-            <div className="h-full bg-white rounded-full transition-all duration-700"
+            <div className="h-full bg-gold-400 rounded-full transition-all duration-700"
               style={{ width: `${(totalDone / 3) * 100}%` }} />
           </div>
         </div>
@@ -289,45 +240,27 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
         {/* Body */}
         <div className="px-6 py-5">
 
-          {/* ── AADHAAR STEP ── */}
           {step === 'aadhaar' && (
             <div>
               <p className="text-center text-sm text-slate-500 mb-5">
                 Upload <span className="font-semibold text-slate-700">both sides</span> of your Aadhaar card
               </p>
 
-              {/* Two simple cards side by side */}
-              <div className="flex gap-3 mb-5">
-                <AadhaarSideCard
-                  side="Front"
-                  image={afPreview}
-                  done={afDone}
-                  onPick={pickFront}
-                />
-                <AadhaarSideCard
-                  side="Back"
-                  image={abPreview}
-                  done={abDone}
-                  onPick={pickBack}
-                />
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                <DocSlot title="Front side" hint="JPG or PNG" icon={Upload}
+                  image={afPreview} done={afDone} onPick={() => afRef.current?.click()} />
+                <DocSlot title="Back side" hint="JPG or PNG" icon={Upload}
+                  image={abPreview} done={abDone} onPick={() => abRef.current?.click()} />
               </div>
 
-              <button
-                onClick={uploadAadhaar}
-                disabled={!canAadhaar || uploading}
-                className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={canAadhaar && !uploading
-                  ? { background: 'linear-gradient(135deg,#0F4157,#207497)', color: 'white', boxShadow: '0 4px 15px rgba(15,65,87,0.4)' }
-                  : { background: '#f1f5f9', color: '#94a3b8' }}
-              >
+              <button type="button" onClick={uploadAadhaar} disabled={!canAadhaar || uploading} className={PRIMARY_BTN}>
                 {uploading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" />Uploading…</>
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Uploading...</>
                   : <>{aadhaarDone ? 'Continue' : 'Save & Continue'} <ArrowRight className="w-4 h-4" /></>}
               </button>
             </div>
           )}
 
-          {/* ── PAN STEP ── */}
           {step === 'pan' && (
             <div>
               <p className="text-center text-sm text-slate-500 mb-5">
@@ -335,58 +268,32 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
               </p>
 
               <div className="mb-5">
-                <PanCard image={panPreview} done={panDone} onPick={pickPan} />
+                <DocSlot title="PAN card front" hint="JPG or PNG, up to 10 MB" icon={CreditCard} tall
+                  image={panPreview} done={panDone} onPick={() => panRef.current?.click()} />
               </div>
 
-              {!panDone && !panFile && (
-                <div className="flex justify-center mb-4">
-                  <button
-                    onClick={pickPan}
-                    className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium border bg-slate-50 text-slate-500 border-slate-200 hover:border-brand-300 hover:text-brand-600 transition-all"
-                  >
-                    <Upload className="w-3 h-3" />
-                    Choose PAN image
-                  </button>
-                </div>
-              )}
-
-              {panFile && (
-                <div className="flex justify-center mb-4">
-                  <span className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium bg-green-50 text-green-700 border border-green-200">
-                    <CheckCircle2 className="w-3 h-3" /> PAN selected
-                  </span>
-                </div>
-              )}
-
-              <button
-                onClick={uploadPan}
-                disabled={!canPan || uploading}
-                className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={canPan && !uploading
-                  ? { background: 'linear-gradient(135deg,#0F4157,#207497)', color: 'white', boxShadow: '0 4px 15px rgba(15,65,87,0.4)' }
-                  : { background: '#f1f5f9', color: '#94a3b8' }}
-              >
+              <button type="button" onClick={uploadPan} disabled={!canPan || uploading} className={PRIMARY_BTN}>
                 {uploading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" />Uploading…</>
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Uploading...</>
                   : <><ShieldCheck className="w-4 h-4" />{panDone ? 'Continue to Dashboard' : 'Complete KYC'}</>}
               </button>
 
               <button
+                type="button"
                 onClick={() => setStep('aadhaar')}
-                className="w-full mt-2 py-2 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                className="w-full mt-2 py-2 flex items-center justify-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
               >
-                ← Back to Aadhaar
+                <ArrowLeft className="w-3 h-3" /> Back to Aadhaar
               </button>
             </div>
           )}
 
         </div>
 
-        {/* Footer note */}
         <div className="px-6 pb-5">
-          <p className="text-center text-[11px] text-slate-400 leading-relaxed">
-            Your documents are encrypted and stored securely.
-            They are only used to pre-fill visa applications.
+          <p className="flex items-start justify-center gap-1.5 text-center text-[11px] text-slate-400 leading-relaxed">
+            <Lock className="w-3 h-3 mt-0.5 shrink-0" />
+            Stored privately in your document vault and only used to pre-fill your visa applications.
           </p>
         </div>
       </div>

@@ -47,6 +47,19 @@ export const createRazorpayOrder = async (
   return order as unknown as RazorpayOrder;
 };
 
+export const getWebhookSecret = (): string => process.env.RAZORPAY_WEBHOOK_SECRET?.trim() || '';
+
+// Webhook signature = HMAC-SHA256(raw request body, webhook secret). Must be computed on
+// the exact bytes received, before any JSON parsing.
+export const verifyWebhookSignature = (rawBody: Buffer, signature: string, secret: string): boolean => {
+  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  } catch {
+    return false;
+  }
+};
+
 // Razorpay checkout signature = HMAC-SHA256(order_id + "|" + payment_id, key_secret)
 export const verifyPaymentSignature = (
   orderId: string,

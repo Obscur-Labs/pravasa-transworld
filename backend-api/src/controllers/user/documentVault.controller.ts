@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import DocumentVault, { VaultDocumentType } from '../../models/DocumentVault';
-import { uploadToCloudinary, deleteFromCloudinary, getSignedUrl } from '../../services/cloudinary.service';
+import ApplicationDocument from '../../models/Document';
+import { uploadToCloudinary, deleteFromCloudinary, deliveryUrl } from '../../services/cloudinary.service';
 import { extractFromDocument } from '../../services/ocr.service';
 import { sendSuccess, sendError } from '../../utils/response';
 
@@ -16,7 +17,7 @@ export const uploadVaultDocument = async (req: AuthRequest, res: Response): Prom
   if (!type || !label) { sendError(res, 'type and label are required'); return; }
 
   const userId = String(req.user!._id);
-  const { url, publicId } = await uploadToCloudinary(req.file.buffer, `users/${userId}/vault`);
+  const { url, publicId } = await uploadToCloudinary(req.file.buffer, `users/${userId}/vault`, 'auto', { private: true });
 
   // Run OCR on supported document types
   let extractedData: Record<string, string> = {};
@@ -48,23 +49,23 @@ export const uploadVaultDocument = async (req: AuthRequest, res: Response): Prom
   sendSuccess(res, doc, 'Document saved to vault', 201);
 };
 
-/**
- * Returns a 1-hour signed Cloudinary URL for a vault document.
- * The browser can open this URL directly without any Authorization header,
- * even if the Cloudinary account enforces authenticated delivery.
- */
+/** A fresh 1-hour link to a vault document, for when the one in the list has expired. */
 export const getVaultDocumentUrl = async (req: AuthRequest, res: Response): Promise<void> => {
   const doc = await DocumentVault.findOne({ _id: req.params.id, user: req.user!._id });
   if (!doc) { sendError(res, 'Document not found', 404); return; }
-  const viewUrl = getSignedUrl(doc.url, doc.publicId);
-  sendSuccess(res, { url: viewUrl });
+  sendSuccess(res, { url: deliveryUrl(doc.url, doc.publicId) });
 };
 
 export const deleteVaultDocument = async (req: AuthRequest, res: Response): Promise<void> => {
   const doc = await DocumentVault.findOne({ _id: req.params.id, user: req.user!._id });
   if (!doc) { sendError(res, 'Document not found', 404); return; }
 
-  try { await deleteFromCloudinary(doc.publicId); } catch {}
+  // Documents added to an application "from vault" point at this same file, so keep it
+  // while any application still uses it.
+  const inUse = await ApplicationDocument.exists({ publicId: doc.publicId });
+  if (!inUse) {
+    try { await deleteFromCloudinary(doc.publicId, doc.url); } catch (err) { console.error('Vault file delete failed', err); }
+  }
   await doc.deleteOne();
 
   sendSuccess(res, null, 'Document deleted from vault');
