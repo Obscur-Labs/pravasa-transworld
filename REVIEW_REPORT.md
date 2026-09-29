@@ -10,7 +10,8 @@ Legend: 🔴 critical/high · 🟠 medium · 🟡 low · ✅ good
 > - **Fixed:** 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7 and 2.9.
 > - **Fixed along the way:** 3.2 (vault delete no longer destroys files that applications use) and part of 3.13 (sockets re-check the account on connect).
 > - **Still open:** 2.8 (compliance decisions; the KYC flow is kept as is, with only its modal UI polished) and all of sections 3 to 5.
-> - **Deployment steps:** run `npm run migrate:private-assets -- --apply` once. Set `RAZORPAY_WEBHOOK_SECRET` and register the webhook in Razorpay.
+> - **Deployment steps:** run `npm run migrate:private-assets -- --apply` once.
+> - **Update:** Razorpay was later removed entirely, which retires 2.7. Payments are now direct UPI with manual verification in the admin portal.
 
 ---
 

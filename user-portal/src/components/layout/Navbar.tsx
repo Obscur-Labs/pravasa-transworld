@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import InstallAppButton from '@/components/pwa/InstallAppButton';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -53,6 +54,10 @@ export default function Navbar() {
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
+            <InstallAppButton
+              iconOnly
+              className="p-2 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            />
             <Button
               variant="ghost"
               size="sm"
@@ -92,6 +97,10 @@ export default function Navbar() {
             </Link>
           ))}
           <div className="pt-3 border-t border-slate-100 space-y-2">
+            <InstallAppButton
+              label="Install the App"
+              className="w-full flex items-center justify-center gap-2 rounded-md border border-brand-200 bg-brand-50 py-2 text-sm font-semibold text-brand-800 hover:bg-brand-100 transition-colors"
+            />
             <Button variant="outline" size="sm" className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold" asChild>
               <Link href="/login">Sign In</Link>
             </Button>

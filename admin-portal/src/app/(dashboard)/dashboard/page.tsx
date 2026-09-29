@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatTile } from '@/components/ui/stat-tile';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PendingPaymentsCard } from '@/components/shared/pending-payments-card';
 import { getDashboardStats, getApplications } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Application } from '@/types';
@@ -59,6 +60,8 @@ export default function AdminDashboard() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader title="Dashboard" description="Overview of all visa applications." />
+
+      <PendingPaymentsCard />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">

@@ -12,15 +12,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
-  getApplication, uploadDocument, createPaymentOrder, verifyPayment, recordPaymentFailure,
-  getVaultDocuments, addDocumentFromVault, getUserPayments, downloadReceipt, submitCourierDetails,
+  getApplication, uploadDocument, getVaultDocuments, addDocumentFromVault, getUserPayments, downloadReceipt, submitCourierDetails,
 } from '@/lib/api';
-import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError, PaymentFailedError } from '@/lib/razorpay';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { buildReviewRows, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import StatusTimeline from '@/components/dashboard/StatusTimeline';
-import type { Application, Document as AppDocument, VisaFile, DocumentRequirement, VaultDocument } from '@/types';
+import UpiPaymentDialog from '@/components/payment/UpiPaymentDialog';
+import type { Application, ApplicationPayment, Document as AppDocument, VisaFile, DocumentRequirement, VaultDocument } from '@/types';
 import { STATUS_LABELS } from '@/types';
+
+// Stages where the application can still be paid for (mirrors the backend).
+const PRE_PAYMENT_STAGES = ['submitted', 'documents_under_review', 'documents_approved', 'payment_pending'];
 
 const VAULT_TYPE_LABELS: Record<string, string> = {
   passport: 'Passport',
@@ -52,7 +54,7 @@ const docStatusIcon = (status: string) => {
 function triggerFileUpload(onFile: (file: File) => void) {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
+  input.accept = '.jpg,.jpeg,.png,.pdf';
   input.onchange = (e: any) => {
     const file = e.target?.files?.[0];
     if (file) onFile(file);
@@ -84,8 +86,10 @@ export default function ApplicationDetailPage() {
   const [visaFile, setVisaFile] = useState<VisaFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
-  const [paying, setPaying] = useState(false);
-  const [paymentError, setPaymentError] = useState('');
+  const [payment, setPayment] = useState<ApplicationPayment | null>(null);
+  const [verificationHours, setVerificationHours] = useState(24);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payPromo, setPayPromo] = useState<string | undefined>();
 
   const [courierTracking, setCourierTracking] = useState('');
   const [courierPhone, setCourierPhone] = useState('');
@@ -112,6 +116,8 @@ export default function ApplicationDetailPage() {
       setApplication(app);
       setDocuments(r.data.data.documents);
       setVisaFile(r.data.data.visaFile);
+      setPayment(r.data.data.payment || null);
+      setVerificationHours(r.data.data.verificationHours || 24);
       setCourierTracking(app.courier?.trackingNumber || '');
       setCourierPhone(app.courier?.phone || '');
       setCourierExpected(app.courier?.expectedDate || '');
@@ -136,6 +142,15 @@ export default function ApplicationDetailPage() {
     loadReceiptPayment();
     getVaultDocuments().then((r) => setVaultDocs(r.data.data || [])).catch(() => {});
   }, [id]);
+
+  // The apply flow lands here with ?pay=1 (and any promo code) to open the payment straight away.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pay') !== '1') return;
+    setPayPromo(params.get('promo') || undefined);
+    setPayOpen(true);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, []);
 
   const handleDownloadReceipt = async () => {
     if (!receiptPaymentId) return;
@@ -223,43 +238,6 @@ export default function ApplicationDetailPage() {
     }
   };
 
-  const handlePayment = async () => {
-    setPaying(true);
-    setPaymentError('');
-    try {
-      const orderRes = await createPaymentOrder(id);
-      const order = orderRes.data.data;
-      await loadRazorpayScript();
-      const checkout = await openRazorpayCheckout(order);
-      await verifyPayment(id, checkout);
-      toast({ title: 'Payment successful!', description: 'Your application is now being processed. You can download your receipt from this page.', variant: 'success' });
-      fetchData();
-      loadReceiptPayment();
-    } catch (err: any) {
-      if (err instanceof PaymentCancelledError) {
-        toast({ title: 'Payment cancelled', description: 'You can complete the payment anytime from this page.' });
-      } else if (err instanceof PaymentFailedError) {
-        // The gateway declined it. Record the reason so support sees why, and show the
-        // applicant the gateway's own wording rather than a generic failure.
-        setPaymentError(err.description);
-        await recordPaymentFailure(id, {
-          razorpayOrderId: err.razorpayOrderId,
-          razorpayPaymentId: err.razorpayPaymentId,
-          code: err.code,
-          description: err.description,
-        }).catch(() => {});
-        toast({ title: 'Payment declined', description: err.description, variant: 'destructive' });
-        fetchData();
-      } else {
-        const message = err.response?.data?.message || 'Something went wrong. Please try again.';
-        setPaymentError(message);
-        toast({ title: 'Payment failed', description: message, variant: 'destructive' });
-      }
-    } finally {
-      setPaying(false);
-    }
-  };
-
   const handleCourierSubmit = async () => {
     setSavingCourier(true);
     try {
@@ -298,6 +276,10 @@ export default function ApplicationDetailPage() {
   if (!application) return <div className="p-6 text-center text-slate-400">Application not found.</div>;
 
   const canUploadDocs = ['payment_completed', 'documents_under_review'].includes(application.status);
+  const needsPayment = PRE_PAYMENT_STAGES.includes(application.status)
+    && !receiptPaymentId
+    && payment?.status !== 'completed'
+    && payment?.status !== 'awaiting_verification';
   const requirements: DocumentRequirement[] = application.visaType?.documentRequirements || [];
 
   // A rejection is a request for a replacement, so a rejected document stays replaceable
@@ -530,35 +512,53 @@ export default function ApplicationDetailPage() {
           )}
 
           {/* Awaiting payment */}
-          {['submitted', 'payment_pending'].includes(application.status) && (
+          {needsPayment && (
             <Card className="border-brand-200 bg-brand-50">
               <CardContent className="p-5">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h3 className="font-bold text-brand-900 mb-1">Payment Required</h3>
-                    <p className="text-brand-700 text-sm">Complete the payment securely via Razorpay to start processing your application.</p>
+                    <p className="text-brand-700 text-sm">Pay by UPI to start processing your application. Processing begins once our team verifies the payment.</p>
                     <p className="text-2xl font-bold text-brand-900 mt-2">{formatCurrency(application.paymentAmount)}</p>
                   </div>
-                  <Button onClick={handlePayment} disabled={paying} className="ml-4">
-                    {paying ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <><CreditCard className="w-4 h-4 mr-2" />{paymentError ? 'Try Again' : 'Pay Now'}</>}
+                  <Button onClick={() => setPayOpen(true)} className="sm:ml-4 shrink-0">
+                    <CreditCard className="w-4 h-4 mr-2" />{payment?.status === 'failed' ? 'Pay Again' : 'Pay by UPI'}
                   </Button>
                 </div>
 
-                {/* The gateway's own wording — vague failures leave people retrying the
-                    same declined card without knowing why. */}
-                {paymentError && (
+                {payment?.status === 'failed' && payment.failureReason && (
                   <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-white p-3">
                     <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold text-red-700">Your last payment did not go through</p>
-                      <p className="text-sm text-red-600 mt-0.5">{paymentError}</p>
-                      <p className="text-xs text-slate-500 mt-1.5">
-                        No money has been taken. If your bank shows a deduction, it is reversed automatically within a few working days.
-                      </p>
+                      <p className="text-sm font-semibold text-red-700">Your last payment could not be verified</p>
+                      <p className="text-sm text-red-600 mt-0.5">{payment.failureReason}</p>
+                      {payment.rejectedUtr && (
+                        <p className="text-xs text-slate-500 mt-1.5">Reference submitted: <span className="font-mono">{payment.rejectedUtr}</span></p>
+                      )}
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Submitted, waiting for an admin to match it against the bank statement */}
+          {payment?.status === 'awaiting_verification' && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <Clock className="w-6 h-6 text-amber-600 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-amber-900 mb-0.5">Payment Submitted, Being Verified</h3>
+                    <p className="text-amber-800 text-sm">
+                      We verify payments within {verificationHours} hours. Visa processing starts once your payment of {formatCurrency(payment.amount)} is verified.
+                    </p>
+                    <p className="text-xs text-amber-700 mt-2">
+                      UTR <span className="font-mono font-semibold">{payment.utr}</span>
+                      {payment.submittedAt && <> &middot; submitted {formatDate(payment.submittedAt)}</>}
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1120,6 +1120,14 @@ export default function ApplicationDetailPage() {
           </Card>
         </div>
       </div>
+
+      <UpiPaymentDialog
+        applicationId={id}
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        promoCode={payPromo}
+        onSubmitted={fetchData}
+      />
     </div>
   );
 }

@@ -18,9 +18,10 @@ import {
   requestCourier, markCourierReceived,
 } from '@/lib/api';
 import { EmbassyMailDialog } from '@/components/shared/embassy-mail-dialog';
+import { PaymentReviewActions } from '@/components/shared/payment-review-actions';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib/applicationReview';
-import type { Application, Document, EmbassyMail, Payment, VisaFile } from '@/types';
+import type { Application, Document, EmbassyMail, Payment, PaymentStatus, VisaFile } from '@/types';
 import { STATUS_LABELS, SELECTABLE_STATUSES } from '@/types';
 
 // ── 4-step simplified status ──
@@ -41,6 +42,16 @@ function getStepState(status: string, stepIdx: number): 'done' | 'active' | 'pen
   }
   return 'pending';
 }
+
+const PAYMENT_BADGE: Record<PaymentStatus, { label: string; variant: 'success' | 'destructive' | 'warning' | 'secondary' }> = {
+  completed: { label: 'Paid', variant: 'success' },
+  awaiting_verification: { label: 'To verify', variant: 'warning' },
+  pending: { label: 'Not submitted', variant: 'secondary' },
+  failed: { label: 'Rejected', variant: 'destructive' },
+  refunded: { label: 'Refunded', variant: 'secondary' },
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = { upi: 'UPI', cash: 'Cash', manual_override: 'Manual', online: 'Card (legacy)' };
 
 // Common reasons, one click away — most rejections are one of these.
 const QUICK_REJECT_REASONS = [
@@ -854,20 +865,24 @@ export default function AdminApplicationDetailPage() {
                   <div key={p._id} className="p-4">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-bold text-foreground tabular-nums">{formatCurrency(p.amount)}</p>
-                      <Badge variant={p.status === 'completed' ? 'success' : p.status === 'failed' ? 'destructive' : 'warning'}>
-                        {p.status === 'completed' ? 'Paid' : p.status === 'failed' ? 'Failed' : p.status === 'refunded' ? 'Refunded' : 'Awaiting'}
-                      </Badge>
+                      <Badge variant={PAYMENT_BADGE[p.status].variant}>{PAYMENT_BADGE[p.status].label}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {p.method === 'cash' ? 'Cash' : 'Online'} &middot; {formatDate(p.paidAt || p.failedAt || p.createdAt)}
+                      {PAYMENT_METHOD_LABELS[p.method] || 'Online'} &middot; {formatDate(p.paidAt || p.failedAt || p.submittedAt || p.createdAt)}
+                      {p.verifiedByName && <> &middot; {p.status === 'failed' ? 'rejected' : 'verified'} by {p.verifiedByName}</>}
                     </p>
                     {p.status === 'failed' && p.failureReason && (
-                      <p className="text-xs text-destructive mt-1.5">
-                        {p.failureReason}{p.failureCode ? ` (${p.failureCode})` : ''}
+                      <p className="text-xs text-destructive mt-1.5">{p.failureReason}</p>
+                    )}
+                    {(p.utr || p.rejectedUtr || p.transactionId) && (
+                      <p className="text-[11px] text-muted-foreground font-mono mt-1 break-all">
+                        {p.method === 'upi' ? 'UTR ' : ''}{p.utr || p.rejectedUtr || p.transactionId}
                       </p>
                     )}
-                    {p.transactionId && (
-                      <p className="text-[11px] text-muted-foreground font-mono mt-1 break-all">{p.transactionId}</p>
+                    {p.status === 'awaiting_verification' && (
+                      <div className="mt-3">
+                        <PaymentReviewActions paymentId={p._id} amount={p.amount} utr={p.utr} onDone={fetchData} />
+                      </div>
                     )}
                   </div>
                 ))}

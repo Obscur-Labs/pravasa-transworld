@@ -185,6 +185,21 @@ export interface CourierRequest {
   receivedAt: string | null;
 }
 
+/** The latest payment attempt on an application, as the applicant sees it. */
+export interface ApplicationPayment {
+  _id: string;
+  amount: number;
+  method: 'upi' | 'cash' | 'manual_override' | 'online';
+  status: 'pending' | 'awaiting_verification' | 'completed' | 'failed' | 'refunded';
+  utr?: string;
+  rejectedUtr?: string;
+  submittedAt?: string | null;
+  failureReason?: string;
+  failedAt?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+}
+
 export interface Application {
   _id: string;
   visaType: VisaType;

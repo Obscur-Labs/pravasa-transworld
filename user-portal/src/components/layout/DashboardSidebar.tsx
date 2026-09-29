@@ -6,6 +6,7 @@ import {
   Stamp, CreditCard, FolderLock, ChevronLeft, ChevronRight, X, User,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
+import InstallAppButton from '@/components/pwa/InstallAppButton';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -125,6 +126,13 @@ export default function DashboardSidebar({ collapsed, onToggle, mobile = false }
             <ChevronRight className="w-4 h-4" />
           </button>
         )}
+        <InstallAppButton
+          iconOnly={isCollapsed && !mobile}
+          label="Install App"
+          className={`flex items-center rounded-lg text-sm font-medium text-brand-700 hover:bg-brand-50 transition-colors ${
+            isCollapsed && !mobile ? 'p-2 justify-center' : 'gap-3 px-3 py-2.5 w-full'
+          }`}
+        />
         <Link
           href="/profile"
           title={isCollapsed && !mobile ? 'Profile' : undefined}

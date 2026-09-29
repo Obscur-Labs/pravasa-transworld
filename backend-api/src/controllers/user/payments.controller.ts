@@ -4,14 +4,12 @@ import Payment from '../../models/Payment';
 import Application from '../../models/Application';
 import PromoCode from '../../models/PromoCode';
 import { generateReceiptPDF } from '../../services/pdf.service';
-import { completeOnlinePayment } from '../../services/payment.service';
-import { buildReceiptData } from '../../utils/receiptData';
 import {
-  isRazorpayConfigured,
-  getRazorpayKeyId,
-  createRazorpayOrder,
-  verifyPaymentSignature,
-} from '../../services/razorpay.service';
+  PRE_PAYMENT_STAGES, UTR_RE, buildUpiLink, hasCompletedPayment, isUpiConfigured,
+  loadPaymentConfig, notifyAdmins, notifyUser, renderPaymentTerms,
+} from '../../services/payment.service';
+import { alertAdminsOfPayment } from '../../services/paymentAlerts.service';
+import { buildReceiptData } from '../../utils/receiptData';
 import { sendSuccess, sendError } from '../../utils/response';
 
 export const getUserPayments = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -59,16 +57,29 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-// Step 1: create a Razorpay order + pending Payment record
-export const createPaymentOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+/**
+ * Step 1 of a UPI payment: works out the amount (with any promo), keeps one open payment
+ * record for it, and returns what the customer needs to pay: UPI ID, payee name, the
+ * upi:// link for the QR, and the confirmations they must accept when submitting.
+ */
+export const startUpiPayment = async (req: AuthRequest, res: Response): Promise<void> => {
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
-  if (!['submitted', 'payment_pending'].includes(application.status)) { sendError(res, 'Payment is not required at this stage'); return; }
+  if (!PRE_PAYMENT_STAGES.includes(application.status) || await hasCompletedPayment(application._id)) {
+    sendError(res, 'Payment is not required at this stage'); return;
+  }
   if (!application.paymentAmount || application.paymentAmount <= 0) { sendError(res, 'Invalid payment amount'); return; }
-  if (!isRazorpayConfigured()) { sendError(res, 'Payment gateway is not configured. Please contact support.', 503); return; }
+  if (await Payment.exists({ application: application._id, status: 'awaiting_verification' })) {
+    sendError(res, 'Your payment has already been submitted and is being verified.', 409); return;
+  }
 
-  let billAmount = application.paymentAmount;
-  let promoId: string | undefined;
+  const config = await loadPaymentConfig();
+  if (!isUpiConfigured(config)) {
+    sendError(res, 'Online payment is not available right now. Please contact our team to complete your payment.', 503); return;
+  }
+
+  let amount = application.paymentAmount;
+  let promoId: unknown;
   let discountApplied = 0;
 
   const promoCode = req.body?.promoCode;
@@ -81,182 +92,98 @@ export const createPaymentOrder = async (req: AuthRequest, res: Response): Promi
       $or: [{ expiresAt: { $exists: false } }, { expiresAt: null }, { expiresAt: { $gt: now } }],
     });
     if (promo && (promo.usageLimit === undefined || promo.usageCount < promo.usageLimit)) {
-      if (promo.discountType === 'percentage') {
-        discountApplied = Math.round((billAmount * promo.discountValue) / 100);
-      } else {
-        discountApplied = Math.min(promo.discountValue, billAmount);
-      }
-      billAmount = Math.max(0, billAmount - discountApplied);
-      promoId = String(promo._id);
+      discountApplied = promo.discountType === 'percentage'
+        ? Math.round((amount * promo.discountValue) / 100)
+        : Math.min(promo.discountValue, amount);
+      amount = Math.max(0, amount - discountApplied);
+      promoId = promo._id;
     }
   }
-
-  try {
-    const order = await createRazorpayOrder(billAmount, `rcpt_${application.referenceId}`, {
-      applicationId: String(application._id),
-      referenceId: application.referenceId,
-    });
-
-    await Payment.findOneAndUpdate(
-      { application: application._id, user: req.user!._id, status: 'pending', gateway: 'razorpay' },
-      {
-        application: application._id,
-        user: req.user!._id,
-        amount: billAmount,
-        currency: order.currency,
-        method: 'online',
-        status: 'pending',
-        gateway: 'razorpay',
-        razorpayOrderId: order.id,
-        ...(promoId ? { promoCode: promoId, discountApplied } : {}),
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    sendSuccess(res, {
-      keyId: getRazorpayKeyId(),
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      name: 'Pravasa Transworld',
-      description: `Visa application ${application.referenceId}`,
-      prefill: {
-        name: req.user!.name,
-        email: req.user!.email,
-        contact: (req.user as any).phone || '',
-      },
-      discountApplied,
-      originalAmount: application.paymentAmount,
-    });
-  } catch (err) {
-    console.error('Razorpay order creation failed', err);
-    sendError(res, 'Could not initiate payment. Please try again.', 502);
+  if (amount < 1) {
+    sendError(res, 'This promo code covers the full amount. Please contact our team to complete your application.'); return;
   }
+
+  const payment = await Payment.findOneAndUpdate(
+    { application: application._id, user: req.user!._id, status: 'pending', method: 'upi' },
+    {
+      $set: {
+        amount, currency: 'INR', gateway: 'upi', discountApplied,
+        ...(promoId ? { promoCode: promoId } : {}),
+      },
+      ...(promoId ? {} : { $unset: { promoCode: '' } }),
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  sendSuccess(res, {
+    paymentId: payment._id,
+    referenceId: application.referenceId,
+    amount,
+    originalAmount: application.paymentAmount,
+    discountApplied,
+    upi: {
+      upiId: config.upiId,
+      payeeName: config.payeeName,
+      link: buildUpiLink(config, amount, application.referenceId, String(payment._id)),
+    },
+    terms: renderPaymentTerms(config),
+    verificationHours: config.verificationHours,
+  });
 };
 
 /**
- * A turned-down payment is a dead end for the applicant unless someone is told, so
- * every failure raises it on both sides: the applicant gets the gateway's own wording
- * and a nudge to retry, the admin gets a heads-up that the application is stuck at
- * payment. The application also drops to 'payment_pending' so it stops reading as a
- * fresh submission awaiting review.
+ * Step 2: the customer has paid in their UPI app and hands over the transaction reference.
+ * Nothing is marked paid here. The payment waits for an admin to match the UTR against
+ * the bank statement.
  */
-async function announcePaymentFailure(
-  application: any,
-  payment: any,
-  userId: unknown,
-  userName: string,
-): Promise<void> {
-  if (application.status === 'submitted') {
-    application.status = 'payment_pending';
-    await application.save();
-  }
-
-  const AdminNotification = (await import('../../models/AdminNotification')).default;
-  const Notification = (await import('../../models/Notification')).default;
-  const reason = payment.failureReason || 'The payment could not be completed';
-
-  const adminNotif = await AdminNotification.create({
-    title: 'Payment Failed',
-    message: `${userName}'s payment of ₹${Number(payment.amount || 0).toLocaleString('en-IN')} for application ${application.referenceId} failed: ${reason}`,
-    type: 'payment_failed',
-    application: application._id,
-  });
-
-  const userNotif = await Notification.create({
-    user: userId,
-    title: 'Payment Failed',
-    message: `Your payment for application ${application.referenceId} did not go through: ${reason}. No money has been taken — you can try again from the application page.`,
-    type: 'payment_failed',
-    application: application._id,
-  });
-
-  try {
-    const { getIO } = await import('../../utils/socket');
-    getIO().to('admin_room').emit('admin_notification', adminNotif);
-    getIO().to(`user_${userId}`).emit('notification', userNotif);
-  } catch (err) {
-    console.error('Socket emission failed', err);
-  }
-}
-
-/**
- * Records a checkout the gateway turned down. Razorpay reports these to the browser
- * through its `payment.failed` event and never calls our server, so the client hands
- * the reason over here — otherwise a declined card is indistinguishable from the user
- * simply closing the window.
- */
-export const recordPaymentFailure = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { razorpayOrderId, razorpayPaymentId, code, description, reason } = req.body || {};
+export const submitUpiPayment = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { paymentId, acceptedTerms } = req.body || {};
+  const utr = String(req.body?.utr ?? '').replace(/\s+/g, '');
+  if (!paymentId) { sendError(res, 'paymentId is required'); return; }
+  if (!UTR_RE.test(utr)) { sendError(res, 'Enter the 12-digit UPI transaction reference (UTR) from your UPI app'); return; }
 
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
 
-  // Pin to the order the failure belongs to; fall back to the open attempt when the
-  // client could not tell us (the order id is absent on some gateway error payloads).
-  const payment = razorpayOrderId
-    ? await Payment.findOne({ application: application._id, user: req.user!._id, razorpayOrderId })
-    : await Payment.findOne({ application: application._id, user: req.user!._id, status: 'pending' }).sort({ createdAt: -1 });
+  const config = await loadPaymentConfig();
+  const terms = renderPaymentTerms(config);
+  const accepted: string[] = Array.isArray(acceptedTerms) ? acceptedTerms.map(String) : [];
+  if (terms.some((t) => !accepted.includes(t))) { sendError(res, 'Please tick all the confirmations before submitting'); return; }
 
-  if (!payment) { sendError(res, 'Payment order not found', 404); return; }
-  // A late failure report must never undo a payment that already went through.
-  if (payment.status === 'completed') { sendSuccess(res, payment, 'Payment already completed'); return; }
-  // Retries of the same report must not re-notify anyone about the same failure.
-  if (payment.status === 'failed') { sendSuccess(res, payment, 'Payment failure already recorded'); return; }
-
-  payment.status = 'failed';
-  payment.failureReason = String(description || reason || 'The payment could not be completed');
-  payment.failureCode = String(code || '');
-  payment.failedAt = new Date();
-  if (razorpayPaymentId) payment.razorpayPaymentId = String(razorpayPaymentId);
-  await payment.save();
-
-  await announcePaymentFailure(application, payment, req.user!._id, req.user!.name);
-
-  sendSuccess(res, payment, 'Payment failure recorded');
-};
-
-// Step 2: verify checkout signature, then mark payment complete
-export const verifyPayment = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-    sendError(res, 'Missing payment verification details'); return;
+  if (await Payment.exists({ utr })) {
+    sendError(res, 'This UTR has already been submitted. Please check the reference in your UPI app.', 409); return;
   }
 
-  const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
-  if (!application) { sendError(res, 'Application not found', 404); return; }
+  const submittedAt = new Date();
+  const payment = await Payment.findOneAndUpdate(
+    { _id: paymentId, application: application._id, user: req.user!._id, status: 'pending' },
+    {
+      $set: {
+        status: 'awaiting_verification', utr, acceptedTerms: terms, submittedAt,
+        verifyBy: new Date(submittedAt.getTime() + config.verificationHours * 60 * 60 * 1000),
+        remindersSent: [],
+      },
+    },
+    { new: true }
+  );
+  if (!payment) { sendError(res, 'This payment was already submitted. Please refresh the page.', 409); return; }
 
-  const payment = await Payment.findOne({
+  const amount = `₹${payment.amount.toLocaleString('en-IN')}`;
+  await notifyAdmins({
+    title: 'UPI Payment to Verify',
+    message: `${req.user!.name} submitted a UPI payment of ${amount} for ${application.referenceId} (UTR ${utr}). Match it against the bank statement.`,
+    type: 'payment_submitted',
     application: application._id,
-    user: req.user!._id,
-    razorpayOrderId: razorpay_order_id,
   });
-  if (!payment) { sendError(res, 'Payment order not found', 404); return; }
-
-  // Idempotent: checkout handler + retries may both hit this endpoint
-  if (payment.status === 'completed') { sendSuccess(res, { payment, application }, 'Payment already verified'); return; }
-
-  if (!verifyPaymentSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-    payment.status = 'failed';
-    payment.failureReason = 'Payment signature verification failed';
-    payment.failureCode = 'SIGNATURE_MISMATCH';
-    payment.failedAt = new Date();
-    payment.razorpayPaymentId = razorpay_payment_id;
-    await payment.save();
-    await announcePaymentFailure(application, payment, req.user!._id, req.user!.name);
-    sendError(res, 'Payment verification failed. If money was deducted, it will be refunded automatically.', 400);
-    return;
-  }
-
-  // The webhook may have completed it a moment ago; either way the result is the same.
-  await completeOnlinePayment(payment._id, {
-    razorpayPaymentId: razorpay_payment_id,
-    razorpaySignature: razorpay_signature,
+  await notifyUser(req.user!._id, {
+    title: 'Payment Submitted',
+    message: `We received your payment details for ${application.referenceId}. We will verify them within ${config.verificationHours} hours, and processing starts once verified.`,
+    type: 'status_update',
+    application: application._id,
   });
 
-  const [completed, updatedApp] = await Promise.all([
-    Payment.findById(payment._id),
-    Application.findById(application._id),
-  ]);
-  sendSuccess(res, { payment: completed, application: updatedApp }, 'Payment successful');
+  // Emails go out in the background so the customer isn't kept waiting on them.
+  alertAdminsOfPayment(payment, 'new').catch((err) => console.error('[PAYMENT_ALERT] New payment alert failed', err));
+
+  sendSuccess(res, payment, 'Payment submitted for verification');
 };

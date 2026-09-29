@@ -4,6 +4,8 @@ export type AdminNotificationType =
   | 'new_application'
   | 'new_lead'
   | 'payment_received'
+  | 'payment_submitted'
+  | 'payment_reminder'
   | 'payment_failed'
   | 'courier_shipped'
   | 'status_update'

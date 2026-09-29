@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import Script from 'next/script';
 import { Toaster } from '@/components/ui/toaster';
+import ServiceWorkerRegistrar from '@/components/pwa/ServiceWorkerRegistrar';
+import { PWA_CAPTURE_SCRIPT } from '@/lib/pwaCaptureScript';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -94,8 +97,13 @@ export const metadata: Metadata = {
   },
 
   manifest: '/site.webmanifest',
+  applicationName: 'Pravasa Transworld',
+  // iPhone/iPad "Add to Home Screen": open full-screen with the short name under the icon.
+  appleWebApp: { capable: true, title: 'Pravasa', statusBarStyle: 'default' },
 
   other: {
+    // Next only emits the standard tag; iOS before 16.4 needs Apple's to open full-screen.
+    'apple-mobile-web-app-capable': 'yes',
     ...(process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION
       ? { 'google-site-verification': process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION }
       : {}),
@@ -106,8 +114,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <Script id="pwa-install-capture" strategy="beforeInteractive">{PWA_CAPTURE_SCRIPT}</Script>
         {children}
         <Toaster />
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );

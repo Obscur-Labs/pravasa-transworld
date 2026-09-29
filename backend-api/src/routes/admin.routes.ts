@@ -17,6 +17,7 @@ import * as receiptConfig from '../controllers/admin/receiptConfig.controller';
 import * as embassyMail from '../controllers/admin/embassyMail.controller';
 import * as profile from '../controllers/admin/profile.controller';
 import * as termPresets from '../controllers/admin/termPresets.controller';
+import * as payments from '../controllers/admin/payments.controller';
 
 const router = asyncRouter();
 router.use(adminProtect);
@@ -86,6 +87,10 @@ router.delete('/applications/:id', apps.deleteApplication);
 
 // Payments
 router.get('/payments', apps.getAdminPayments);
+router.get('/payments/pending', payments.getPendingPayments);
+router.put('/payments/:id/approve', payments.approveUpiPayment);
+router.put('/payments/:id/reject', payments.rejectUpiPayment);
+router.route('/payment-config').get(payments.getPaymentConfig).put(payments.updatePaymentConfig);
 
 // Users
 router.get('/users', apps.getUsers);

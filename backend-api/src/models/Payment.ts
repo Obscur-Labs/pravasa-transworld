@@ -1,7 +1,11 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export type PaymentMethod = 'online' | 'cash' | 'manual_override';
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+// 'online' is kept only so records from the retired card gateway still load.
+export type PaymentMethod = 'upi' | 'cash' | 'manual_override' | 'online';
+// pending: UPI details shown, customer has not confirmed paying yet.
+// awaiting_verification: customer submitted a UTR; an admin must match it to the bank statement.
+// failed: an admin rejected the submission (failureReason says why); the customer can pay again.
+export type PaymentStatus = 'pending' | 'awaiting_verification' | 'completed' | 'failed' | 'refunded';
 
 export interface IPayment extends Document {
   application: mongoose.Types.ObjectId;
@@ -12,19 +16,27 @@ export interface IPayment extends Document {
   status: PaymentStatus;
   transactionId: string;
   gateway: string;
-  razorpayOrderId: string;
-  razorpayPaymentId: string;
-  razorpaySignature: string;
+  // UPI transaction reference (12-digit RRN) the customer entered. Unique across payments,
+  // so one bank credit can't be claimed twice. Moved to rejectedUtr on rejection.
+  utr?: string;
+  rejectedUtr: string;
+  // The confirmations the customer ticked, verbatim, as shown at the time.
+  acceptedTerms: string[];
+  submittedAt: Date | null;
+  // The deadline promised to the customer at submission (submittedAt + verification hours).
+  verifyBy: Date | null;
+  // Reminder offsets (minutes before verifyBy) already sent to admins, so none repeats.
+  remindersSent: number[];
+  verifiedAt: Date | null;
+  verifiedBy: mongoose.Types.ObjectId | null;
+  verifiedByName: string;
   promoCode?: mongoose.Types.ObjectId;
   discountApplied?: number;
   markedByAdmin: boolean;
   adminNote: string;
   receiptUrl: string;
   paidAt: Date | null;
-  // Why the gateway turned the attempt down, kept verbatim so support can act on it
-  // ("card declined by issuer", "insufficient funds", …). Set alongside status 'failed'.
   failureReason: string;
-  failureCode: string;
   failedAt: Date | null;
   createdAt: Date;
 }
@@ -34,14 +46,20 @@ const PaymentSchema = new Schema<IPayment>(
     application: { type: Schema.Types.ObjectId, ref: 'Application', required: true },
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     amount: { type: Number, required: true },
-    currency: { type: String, default: 'USD' },
-    method: { type: String, enum: ['online', 'cash', 'manual_override'], default: 'online' },
-    status: { type: String, enum: ['pending', 'completed', 'failed', 'refunded'], default: 'pending' },
+    currency: { type: String, default: 'INR' },
+    method: { type: String, enum: ['upi', 'cash', 'manual_override', 'online'], default: 'upi' },
+    status: { type: String, enum: ['pending', 'awaiting_verification', 'completed', 'failed', 'refunded'], default: 'pending' },
     transactionId: { type: String, default: '' },
     gateway: { type: String, default: '' },
-    razorpayOrderId: { type: String, default: '', index: true },
-    razorpayPaymentId: { type: String, default: '' },
-    razorpaySignature: { type: String, default: '' },
+    utr: { type: String },
+    rejectedUtr: { type: String, default: '' },
+    acceptedTerms: { type: [String], default: [] },
+    submittedAt: { type: Date, default: null },
+    verifyBy: { type: Date, default: null },
+    remindersSent: { type: [Number], default: [] },
+    verifiedAt: { type: Date, default: null },
+    verifiedBy: { type: Schema.Types.ObjectId, ref: 'Admin', default: null },
+    verifiedByName: { type: String, default: '' },
     promoCode: { type: Schema.Types.ObjectId, ref: 'PromoCode' },
     discountApplied: { type: Number, default: 0 },
     markedByAdmin: { type: Boolean, default: false },
@@ -49,10 +67,14 @@ const PaymentSchema = new Schema<IPayment>(
     receiptUrl: { type: String, default: '' },
     paidAt: { type: Date, default: null },
     failureReason: { type: String, default: '' },
-    failureCode: { type: String, default: '' },
     failedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
+
+PaymentSchema.index({ utr: 1 }, { unique: true, partialFilterExpression: { utr: { $exists: true } } });
+PaymentSchema.index({ application: 1, createdAt: -1 });
+PaymentSchema.index({ status: 1, submittedAt: 1 });
+PaymentSchema.index({ user: 1, status: 1 });
 
 export default mongoose.model<IPayment>('Payment', PaymentSchema);

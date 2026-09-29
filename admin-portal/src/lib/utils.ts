@@ -22,3 +22,12 @@ export function timeAgo(date: string | Date): string {
   const days = Math.floor(hours / 24);
   return days < 7 ? `${days}d ago` : formatDate(date);
 }
+
+/** Countdown to a deadline, e.g. "11h 20m left" or "Overdue by 2h 5m". */
+export function deadlineLabel(deadline: string | Date, now = Date.now()): { label: string; overdue: boolean; urgent: boolean } {
+  const diffMin = Math.round((new Date(deadline).getTime() - now) / 60000);
+  const abs = Math.abs(diffMin);
+  const span = abs >= 60 ? `${Math.floor(abs / 60)}h ${abs % 60}m` : `${abs}m`;
+  if (diffMin < 0) return { label: `Overdue by ${span}`, overdue: true, urgent: true };
+  return { label: `${span} left`, overdue: false, urgent: diffMin <= 120 };
+}

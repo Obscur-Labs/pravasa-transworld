@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  Bell, CheckCheck, CreditCard, FileText, Loader2, MessageSquare, RefreshCw, Trash2, Truck, X,
+  Bell, CheckCheck, Clock, CreditCard, FileText, Loader2, MessageSquare, RefreshCw, Trash2, Truck, X,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ const TYPE_STYLE: Record<string, { icon: LucideIcon; tone: string }> = {
   new_application: { icon: FileText, tone: 'bg-primary/10 text-primary' },
   new_lead: { icon: MessageSquare, tone: 'bg-info/10 text-info' },
   payment_received: { icon: CreditCard, tone: 'bg-success/10 text-success' },
+  payment_submitted: { icon: CreditCard, tone: 'bg-warning/10 text-warning' },
+  payment_reminder: { icon: Clock, tone: 'bg-warning/10 text-warning' },
   payment_failed: { icon: CreditCard, tone: 'bg-destructive/10 text-destructive' },
   courier_shipped: { icon: Truck, tone: 'bg-warning/10 text-warning' },
   status_update: { icon: RefreshCw, tone: 'bg-info/10 text-info' },

@@ -12,6 +12,8 @@ import {
 } from '@/lib/api';
 import type { AdminNotification } from '@/types';
 
+const PAYMENT_QUEUE_TYPES = new Set(['payment_submitted', 'payment_reminder']);
+
 interface NotificationContextType {
   notifications: AdminNotification[];
   unreadCount: number;
@@ -22,6 +24,8 @@ interface NotificationContextType {
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   deleteAllNotifications: () => Promise<void>;
+  /** Goes up whenever the payment verification queue changes, so pages know to refetch. */
+  paymentsVersion: number;
 }
 
 const SocketContext = createContext<NotificationContextType>({
@@ -34,6 +38,7 @@ const SocketContext = createContext<NotificationContextType>({
   markAllAsRead: async () => {},
   deleteNotification: async () => {},
   deleteAllNotifications: async () => {},
+  paymentsVersion: 0,
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -43,6 +48,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
+  const [paymentsVersion, setPaymentsVersion] = useState(0);
   const token = useAdminAuthStore((s) => s.token);
   const isAuthenticated = useAdminAuthStore((s) => s.isAuthenticated);
 
@@ -98,14 +104,18 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       setNotifications((prev) => [newNotif, ...prev]);
       setUnreadCount((c) => c + 1);
       toast({ title: newNotif.title, description: newNotif.message });
+      if (PAYMENT_QUEUE_TYPES.has(newNotif.type)) setPaymentsVersion((v) => v + 1);
     });
+
+    // Another admin verified or rejected a payment.
+    socket.on('payments_changed', () => setPaymentsVersion((v) => v + 1));
 
     return () => { socket.disconnect(); };
   }, [isAuthenticated, token, fetchPage]);
 
   return (
     <SocketContext.Provider
-      value={{ notifications, unreadCount, loading, hasMore, loadMore, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications }}
+      value={{ notifications, unreadCount, loading, hasMore, loadMore, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications, paymentsVersion }}
     >
       {children}
     </SocketContext.Provider>

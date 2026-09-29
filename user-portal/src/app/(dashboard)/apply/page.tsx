@@ -14,11 +14,10 @@ import { CardGridSkeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
   getActiveCountries, getPublicVisaTypes, createApplication, uploadDocument,
-  addDocumentFromVault, createPaymentOrder, verifyPayment, recordPaymentFailure, getVaultDocuments,
+  addDocumentFromVault, getVaultDocuments,
   validatePromoCode, downloadVisaSummaryPdf,
 } from '@/lib/api';
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
-import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError, PaymentFailedError } from '@/lib/razorpay';
 import { formatCurrency } from '@/lib/utils';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useAuthStore } from '@/store/auth.store';
@@ -33,7 +32,7 @@ type Traveler = { key: string; label: string; type: 'adult' | 'child' };
 
 const STEPS = ['Country', 'Visa Type', 'Applicant Details', 'Review & Pay'];
 const DRAFT_KEY = 'visa_app_draft';
-const ACCEPTED = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
+const ACCEPTED = '.jpg,.jpeg,.png,.pdf';
 // Fixed 18% GST applied to the service fee only (visa + VFS are untaxed) — mirrors backend.
 const GST_RATE = 0.18;
 
@@ -946,42 +945,11 @@ export default function ApplyPage() {
         }
       }
 
-      setSubmitStatus('Initializing secure payment…');
       localStorage.removeItem(DRAFT_KEY);
-      const orderRes = await createPaymentOrder(appId, promoResult?.code);
-      const order = orderRes.data.data;
-      await loadRazorpayScript();
-
-      let checkout;
-      try {
-        checkout = await openRazorpayCheckout(order);
-      } catch (err) {
-        if (err instanceof PaymentCancelledError) {
-          toast({ title: 'Payment pending', description: 'Your application was saved. You can complete payment from the application page.' });
-          router.push(`/applications/${appId}`);
-          return;
-        }
-        // Declined by the gateway. The application is already saved, so record why the
-        // attempt failed and send the applicant to the page where they can retry.
-        if (err instanceof PaymentFailedError) {
-          await recordPaymentFailure(appId, {
-            razorpayOrderId: err.razorpayOrderId,
-            razorpayPaymentId: err.razorpayPaymentId,
-            code: err.code,
-            description: err.description,
-          }).catch(() => {});
-          toast({ title: 'Payment declined', description: `${err.description} Your application was saved — you can try paying again from the application page.`, variant: 'destructive' });
-          router.push(`/applications/${appId}`);
-          return;
-        }
-        throw err;
-      }
-
-      setSubmitStatus('Verifying payment…');
-      await verifyPayment(appId, checkout);
-
-      toast({ title: 'Application submitted!', description: 'Payment received. Our team will review your documents shortly.', variant: 'success' });
-      router.push(`/applications/${appId}`);
+      toast({ title: 'Application saved', description: 'Complete your UPI payment to start processing.', variant: 'success' });
+      // The application page owns the payment flow; ?pay=1 opens it straight away.
+      const promo = promoResult?.code ? `&promo=${encodeURIComponent(promoResult.code)}` : '';
+      router.push(`/applications/${appId}?pay=1${promo}`);
     } catch (err: any) {
       toast({ title: 'Error', description: err.response?.data?.message || 'Failed to submit', variant: 'destructive' });
     } finally {
@@ -1707,7 +1675,7 @@ export default function ApplyPage() {
 
               <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
                 <p className="text-sm text-emerald-700">
-                  <strong>Secure payment via Razorpay</strong> — you&apos;ll be redirected to a secure checkout to pay with UPI, card, or netbanking.
+                  <strong>Pay by UPI.</strong> After you submit, you&apos;ll see a QR code and UPI ID to pay from any UPI app. Our team verifies the payment, and visa processing starts once it is verified.
                 </p>
               </div>
 
@@ -1756,7 +1724,7 @@ export default function ApplyPage() {
             {submitting ? (
               <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">{submitStatus || 'Submitting…'}</span></span>
             ) : (
-              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Pay &amp; Submit Application</span>
+              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Submit &amp; Pay by UPI</span>
             )}
           </Button>
         )}

@@ -62,14 +62,10 @@ export const addDocumentFromVault = (id: string, data: { vaultDocId: string; req
 // Live passport OCR (no persistence) used to pre-fill the editable review form.
 export const scanPassport = (formData: FormData) =>
   api.post('/user/ocr/passport', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-export const createPaymentOrder = (id: string, promoCode?: string) =>
-  api.post(`/user/applications/${id}/payment/order`, promoCode ? { promoCode } : {});
-export const verifyPayment = (id: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
-  api.post(`/user/applications/${id}/payment/verify`, data);
-export const recordPaymentFailure = (
-  id: string,
-  data: { razorpayOrderId?: string; razorpayPaymentId?: string; code?: string; description?: string },
-) => api.post(`/user/applications/${id}/payment/failed`, data);
+export const startUpiPayment = (id: string, promoCode?: string) =>
+  api.post(`/user/applications/${id}/payment/upi`, promoCode ? { promoCode } : {});
+export const submitUpiPayment = (id: string, data: { paymentId: string; utr: string; acceptedTerms: string[] }) =>
+  api.post(`/user/applications/${id}/payment/upi/submit`, data);
 export const submitCourierDetails = (id: string, data: { trackingNumber: string; phone: string; expectedDate: string }) =>
   api.put(`/user/applications/${id}/courier`, data);
 

@@ -130,6 +130,11 @@ export const deleteApplication = (id: string) => api.delete(`/admin/applications
 
 // Payments
 export const getAdminPayments = () => api.get('/admin/payments');
+export const getPendingPayments = () => api.get('/admin/payments/pending');
+export const approvePayment = (id: string, note?: string) => api.put(`/admin/payments/${id}/approve`, { note });
+export const rejectPayment = (id: string, reason: string) => api.put(`/admin/payments/${id}/reject`, { reason });
+export const getPaymentConfig = () => api.get('/admin/payment-config');
+export const updatePaymentConfig = (data: object) => api.put('/admin/payment-config', data);
 
 // Users
 export const getUsers = () => api.get('/admin/users');

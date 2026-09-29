@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0B2E3D" />
+  <title>You're offline | Pravasa Transworld</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; min-height: 100dvh;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+      background: #0B2E3D; color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      text-align: center;
+    }
+    main { max-width: 360px; }
+    img { width: 88px; height: 88px; border-radius: 22px; }
+    h1 { font-size: 22px; margin: 20px 0 8px; }
+    p { margin: 0 0 24px; color: #BFE0EE; font-size: 15px; line-height: 1.5; }
+    button {
+      appearance: none; border: 0; border-radius: 12px; padding: 12px 24px;
+      background: #9F7437; color: #ffffff; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    button:focus-visible { outline: 3px solid #DFC29A; outline-offset: 3px; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/icon-192.png" alt="Pravasa Transworld" />
+    <h1>You're offline</h1>
+    <p>Check your internet connection. Your applications and documents are safe and will be here when you're back online.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+  </main>
+</body>
+</html>

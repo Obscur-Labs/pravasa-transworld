@@ -430,20 +430,44 @@ export interface CourierRequest {
   receivedAt: string | null;
 }
 
+export type PaymentStatus = 'pending' | 'awaiting_verification' | 'completed' | 'failed' | 'refunded';
+
 export interface Payment {
   _id: string;
   amount: number;
-  method: 'online' | 'cash' | 'manual_override';
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  // 'online' only appears on records from the retired card gateway.
+  method: 'upi' | 'cash' | 'manual_override' | 'online';
+  status: PaymentStatus;
   transactionId: string;
-  razorpayOrderId: string;
-  razorpayPaymentId: string;
+  utr?: string;
+  rejectedUtr?: string;
+  acceptedTerms?: string[];
+  submittedAt?: string | null;
+  verifyBy?: string | null;
+  verifiedAt?: string | null;
+  verifiedByName?: string;
+  discountApplied?: number;
   failureReason: string;
-  failureCode: string;
   failedAt: string | null;
   paidAt: string | null;
   adminNote: string;
   createdAt: string;
+}
+
+/** A submitted UPI payment in the verification queue, with its application and customer. */
+export interface PendingPayment extends Payment {
+  application: { _id: string; referenceId: string; status: ApplicationStatus; visaType?: { name: string }; country?: { name: string; flag: string } } | null;
+  user: { _id: string; name: string; email: string; phone: string } | null;
+  promoCode?: { code: string } | null;
+}
+
+export interface PaymentConfig {
+  _id: string;
+  upiId: string;
+  payeeName: string;
+  merchantCode: string;
+  verificationHours: number;
+  terms: string[];
 }
 
 export interface Application {

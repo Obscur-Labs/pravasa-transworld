@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { SocketProvider } from '@/components/providers/SocketProvider';
 import NotificationDropdown from '@/components/layout/NotificationDropdown';
 import KYCModal from '@/components/kyc/KYCModal';
+import InstallBanner from '@/components/pwa/InstallBanner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getVaultDocuments } from '@/lib/api';
 
@@ -155,6 +156,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             </div>
           </header>
 
+          <InstallBanner />
           <div className="flex-1">
             {children}
           </div>

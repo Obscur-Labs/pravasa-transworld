@@ -16,9 +16,18 @@ import { generateReceiptPDF } from '../../services/pdf.service';
 import { buildReceiptData } from '../../utils/receiptData';
 import { computeVisaPricing, computeSubtotal, computeGst } from '../../utils/pricing';
 import { logActivity } from '../../utils/activityLog';
+import { POST_PAYMENT_STAGES, PRE_PAYMENT_STAGES, hasCompletedPayment } from '../../services/payment.service';
 import { sendSuccess, sendError } from '../../utils/response';
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Work starts only after payment is verified: moving an application out of the pre-payment
+// stages into processing needs a completed payment. Applications already past payment
+// (including older ones from before this rule) are not held back.
+async function startsWorkUnpaid(application: { _id: unknown; status: string }, target: string): Promise<boolean> {
+  if (!PRE_PAYMENT_STAGES.includes(application.status) || !POST_PAYMENT_STAGES.includes(target)) return false;
+  return !(await hasCompletedPayment(application._id));
+}
 
 // `limit=0` returns every match; `search` covers the application number and the applicant's name or email.
 export const getApplications = async (req: AdminRequest, res: Response): Promise<void> => {
@@ -236,6 +245,10 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
   const application = await Application.findById(req.params.id).populate('user', 'name email');
   if (!application) { sendError(res, 'Application not found', 404); return; }
 
+  if (await startsWorkUnpaid(application, status)) {
+    sendError(res, 'Verify the payment before moving this application into processing'); return;
+  }
+
   application.status = status as ApplicationStatus;
   if (rejectionReason) application.rejectionReason = rejectionReason;
   if (adminNotes) application.adminNotes = adminNotes;
@@ -358,6 +371,9 @@ export const uploadVisaFile = async (req: AdminRequest, res: Response): Promise<
 
   const application = await Application.findById(req.params.id).populate('user', 'name email');
   if (!application) { sendError(res, 'Application not found', 404); return; }
+  if (await startsWorkUnpaid(application, 'visa_delivered')) {
+    sendError(res, 'Verify the payment before delivering the visa'); return;
+  }
 
   // 'auto' keeps the real file type, so the visa opens inline instead of as a nameless binary.
   const { url, publicId } = await uploadToCloudinary(req.file.buffer, 'visa-files', 'auto', { private: true });
@@ -401,6 +417,9 @@ export const manualPaymentOverride = async (req: AdminRequest, res: Response): P
   if (!application) { sendError(res, 'Application not found', 404); return; }
   if (!['payment_pending', 'submitted'].includes(application.status)) {
     sendError(res, 'Application is not awaiting payment'); return;
+  }
+  if (await Payment.exists({ application: application._id, status: 'awaiting_verification' })) {
+    sendError(res, 'A UPI payment for this application is waiting for verification. Approve or reject it first.', 409); return;
   }
 
   const transactionId = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;

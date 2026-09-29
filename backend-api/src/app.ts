@@ -8,8 +8,7 @@ import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
 import userRoutes from './routes/user.routes';
 import publicRoutes from './routes/public.routes';
-import webhookRoutes from './routes/webhook.routes';
-
+import cronRoutes from './routes/cron.routes';
 const app = express();
 app.set('trust proxy', 1);
 
@@ -40,10 +39,6 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // ── HTTP Security Headers (Helmet) ──────────────────────────────────────────
 // Disabled contentSecurityPolicy for a JSON API — CSP is a browser/HTML concern.
 app.use(helmet({ contentSecurityPolicy: false }));
-
-// ── Webhooks ─────────────────────────────────────────────────────────────────
-// Mounted before the JSON parser and sanitisers: signatures are checked on the raw body.
-app.use('/api/webhooks', webhookRoutes);
 
 // ── Body Parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
@@ -83,6 +78,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/cron', cronRoutes);
 
 // Developer panel: git-ignored and unauthenticated, so it needs an explicit opt-in and
 // only answers requests from this machine. remoteAddress is the real socket peer, which

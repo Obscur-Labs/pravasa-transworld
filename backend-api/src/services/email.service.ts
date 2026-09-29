@@ -252,3 +252,95 @@ export async function sendVisaDeliveredEmail(
     'VISA_DELIVERED'
   );
 }
+
+/** The outcome of an admin checking a UPI payment against the bank statement. */
+export async function sendPaymentReviewEmail(
+  email: string,
+  name: string,
+  referenceId: string,
+  applicationId: string,
+  outcome: { verified: true; amount: number } | { verified: false; reason: string }
+): Promise<void> {
+  const title = outcome.verified ? 'Payment Verified' : 'Payment Could Not Be Verified';
+  const body = outcome.verified
+    ? `We have verified your payment of <strong>&#8377;${outcome.amount.toLocaleString('en-IN')}</strong>. Visa processing for your application has now started.`
+    : `We could not match your payment to our bank records: <strong>${escapeHtml(outcome.reason)}</strong>. No processing has started. Please check the details and submit the payment again from your application page, or reply to our support team.`;
+  console.log(`[PAYMENT_REVIEW] ${title} → ${email} | ref: ${referenceId}`);
+  await sendMail(
+    email,
+    `${title}: ${referenceId}`,
+    `
+      <div style="${baseStyle}">
+        ${header(title)}
+        <div style="padding: 40px 32px;">
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${escapeHtml(name)},</p>
+          <p style="color: #475569; font-size: 15px; margin: 0 0 32px;">
+            Application <strong>${referenceId}</strong>: ${body}
+          </p>
+          <a href="${frontendUrl}/applications/${applicationId}" style="display: inline-block; background: #165874; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            View Application
+          </a>
+        </div>
+        ${footer()}
+      </div>
+    `,
+    'PAYMENT_REVIEW'
+  );
+}
+
+const adminUrl = process.env.ADMIN_URL || 'http://localhost:3001';
+
+const istDateTime = (d: Date) =>
+  d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }) + ' IST';
+
+/**
+ * Tells an admin a UPI payment is waiting to be matched against the bank statement:
+ * once when it arrives, then as reminders while the promised deadline approaches.
+ */
+export async function sendAdminPaymentAlert(
+  to: string,
+  p: {
+    kind: 'new' | 'reminder';
+    timeLeft: string;
+    customerName: string;
+    referenceId: string;
+    amount: number;
+    utr: string;
+    submittedAt: Date;
+    verifyBy: Date;
+  }
+): Promise<void> {
+  const amount = `&#8377;${p.amount.toLocaleString('en-IN')}`;
+  const title = p.kind === 'new' ? 'New UPI Payment to Verify' : `Payment Verification Due in ${p.timeLeft}`;
+  const intro = p.kind === 'new'
+    ? `${escapeHtml(p.customerName)} just submitted a UPI payment. Please check it against the bank statement and verify or reject it.`
+    : `This payment is still waiting for verification. The customer was promised a decision by <strong>${istDateTime(p.verifyBy)}</strong>, which is ${escapeHtml(p.timeLeft)} from now.`;
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding: 6px 0; color: #64748b; font-size: 13px; width: 120px;">${label}</td><td style="padding: 6px 0; color: #061E27; font-size: 14px; font-weight: 600;">${value}</td></tr>`;
+
+  await sendMail(
+    to,
+    `${p.kind === 'new' ? 'Verify payment' : `Reminder (${p.timeLeft} left)`}: ${p.amount.toLocaleString('en-IN')} INR, ${p.referenceId}`,
+    `
+      <div style="${baseStyle}">
+        ${header(title)}
+        <div style="padding: 32px;">
+          <p style="color: #475569; font-size: 15px; margin: 0 0 20px;">${intro}</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 0 0 24px;">
+            ${row('Application', escapeHtml(p.referenceId))}
+            ${row('Customer', escapeHtml(p.customerName))}
+            ${row('Amount', amount)}
+            ${row('UTR', `<span style="font-family: monospace;">${escapeHtml(p.utr)}</span>`)}
+            ${row('Submitted', istDateTime(p.submittedAt))}
+            ${row('Verify by', istDateTime(p.verifyBy))}
+          </table>
+          <a href="${adminUrl}/payments" style="display: inline-block; background: #165874; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Open Payment Verification
+          </a>
+        </div>
+        ${footer()}
+      </div>
+    `,
+    p.kind === 'new' ? 'ADMIN_PAYMENT_NEW' : 'ADMIN_PAYMENT_REMINDER'
+  );
+}

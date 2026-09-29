@@ -6,6 +6,8 @@ import VisaFile from '../../models/VisaFile';
 import VisaType from '../../models/VisaType';
 import Country from '../../models/Country';
 import VisaConfigOption from '../../models/VisaConfigOption';
+import Payment from '../../models/Payment';
+import { loadPaymentConfig } from '../../services/payment.service';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { extractPassport } from '../../services/ocr.service';
 import { generateVisaSummaryPDF } from '../../services/pdf.service';
@@ -140,9 +142,16 @@ export const getApplication = async (req: AuthRequest, res: Response): Promise<v
     .populate('country');
   if (!application) { sendError(res, 'Application not found', 404); return; }
 
-  const documents = await Document.find({ application: application._id });
-  const visaFile = await VisaFile.findOne({ application: application._id });
-  sendSuccess(res, { application, documents, visaFile });
+  const [documents, visaFile, payment, paymentConfig] = await Promise.all([
+    Document.find({ application: application._id }),
+    VisaFile.findOne({ application: application._id }),
+    // Latest attempt only: enough to show "being verified" or why the last one was rejected.
+    Payment.findOne({ application: application._id })
+      .sort({ createdAt: -1 })
+      .select('amount method status utr rejectedUtr submittedAt failureReason failedAt paidAt createdAt'),
+    loadPaymentConfig(),
+  ]);
+  sendSuccess(res, { application, documents, visaFile, payment, verificationHours: paymentConfig.verificationHours });
 };
 
 // Stages during which an applicant may still add or swap documents.
@@ -256,21 +265,6 @@ export const submitCourierDetails = async (req: AuthRequest, res: Response): Pro
   }
 
   sendSuccess(res, application, 'Courier details saved');
-};
-
-export const makePayment = async (req: AuthRequest, res: Response): Promise<void> => {
-  const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
-  if (!application) { sendError(res, 'Application not found', 404); return; }
-
-  if (!['submitted', 'payment_pending'].includes(application.status)) {
-    sendError(res, 'Payment is not currently required for this application'); return;
-  }
-
-  // Simulate payment — in production integrate Stripe/Razorpay here
-  application.status = 'payment_completed';
-  await application.save();
-
-  sendSuccess(res, application, 'Payment completed successfully');
 };
 
 export const getPublicCountries = async (_req: AuthRequest, res: Response): Promise<void> => {
