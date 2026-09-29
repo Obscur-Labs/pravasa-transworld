@@ -2,6 +2,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Camera, Check, X, Upload, FileText, Loader2, ScanLine, Maximize2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { scanPassport } from '@/lib/api';
+import { toast } from '@/components/ui/use-toast';
 
 export const PASSPORT_FRONT_FIELDS = [
   'Passport No.', 'Surname', 'Given Name(s)', 'Nationality', 'Date of Birth',
@@ -336,7 +337,15 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
     sideFields.forEach((k) => { cleared[k] = ''; });
     onValuesChange(cleared);
 
-    if (!file.type.startsWith('image/')) return;
+    // Auto-fill is best-effort; when it can't help, say so rather than leaving the fields
+    // silently empty.
+    const fillManually = (title: string) =>
+      toast({ title, description: `Please type the ${side === 'front' ? 'front page' : 'back page'} details below.` });
+
+    if (!file.type.startsWith('image/')) {
+      fillManually('PDFs are not read automatically');
+      return;
+    }
 
     setScanning(side);
     try {
@@ -350,8 +359,9 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
         if (v) merged[k] = v;
       }
       onValuesChange(merged);
+      if (!Object.values(fields).some(Boolean)) fillManually('We could not read this photo');
     } catch {
-      /* extraction is best-effort */
+      fillManually('Auto-fill is unavailable right now');
     } finally {
       setScanning(null);
     }

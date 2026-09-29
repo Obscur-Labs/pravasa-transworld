@@ -1,16 +1,13 @@
-import Groq from 'groq-sdk';
 import Country from '../models/Country';
 import VisaType from '../models/VisaType';
 import VisaConfigOption from '../models/VisaConfigOption';
+import { hasGroqKey, withGroq } from './groq.service';
 
-// Separate key from OCR so content generation can't exhaust the passport-scanning quota.
-const apiKey = () => process.env.GROQ_CONTENT_API_KEY?.trim() || process.env.GROQ_API_KEY?.trim() || '';
+// Own key, separate from OCR, so content generation can't exhaust the passport-scanning quota.
+const KEY_ENV = 'GROQ_CONTENT_API_KEY';
 const MODEL = process.env.GROQ_CONTENT_MODEL || 'openai/gpt-oss-120b';
 
-let client: Groq | null = null;
-const groq = () => (client ??= new Groq({ apiKey: apiKey() }));
-
-export const isAiConfigured = () => !!apiKey();
+export const isAiConfigured = () => hasGroqKey(KEY_ENV);
 
 type Length = 'tagline' | 'short' | 'medium';
 
@@ -166,7 +163,7 @@ export async function generateContent(opts: {
     current ? `Current text to improve:\n${current.slice(0, 3000)}` : '',
   ].filter(Boolean).join('\n\n');
 
-  const response = await groq().chat.completions.create({
+  const response = await withGroq(KEY_ENV, (groq) => groq.chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -176,7 +173,7 @@ export async function generateContent(opts: {
     max_completion_tokens: 2048,
     // gpt-oss reasons before answering; low effort keeps it quick for short copy.
     ...(MODEL.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
-  } as any);
+  } as any));
 
   const text = clean(response.choices[0]?.message?.content || '', purpose.length);
   if (!text) throw Object.assign(new Error('The AI returned an empty answer. Please try again.'), { status: 502 });

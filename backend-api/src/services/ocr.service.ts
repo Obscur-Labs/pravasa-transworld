@@ -1,10 +1,8 @@
-import Groq from 'groq-sdk';
+import { withGroq } from './groq.service';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-// Groq retires vision models fairly often (llama-4-scout was decommissioned),
-// so keep this overridable without a redeploy.
-const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
+// Groq retires vision models fairly often (llama-4-scout, then qwen3.6-27b), so keep this
+// overridable from the environment without a redeploy.
+const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b';
 
 export interface ExtractedDocumentData {
   name?: string;
@@ -36,7 +34,7 @@ async function callGroqVision(imageBuffer: Buffer, prompt: string): Promise<stri
   const base64 = imageBuffer.toString('base64');
   const mimeType = detectMimeType(imageBuffer);
 
-  const response = await groq.chat.completions.create({
+  const response = await withGroq('GROQ_VISION_API_KEY', (groq) => groq.chat.completions.create({
     model: VISION_MODEL,
     // Reasoning models burn the token budget on <think> traces and then wrap
     // the answer in prose — turn both off so we get bare JSON back.
@@ -56,7 +54,12 @@ async function callGroqVision(imageBuffer: Buffer, prompt: string): Promise<stri
     ],
     temperature: 0,
     max_tokens: 2048,
-  } as any);
+  } as any).catch((err: any) => {
+    if (err?.status === 404) {
+      console.error(`[OCR] Groq vision model "${VISION_MODEL}" is not available (likely retired). Set GROQ_VISION_MODEL to a current Groq vision model.`);
+    }
+    throw err;
+  }));
 
   return response.choices[0]?.message?.content || '';
 }
