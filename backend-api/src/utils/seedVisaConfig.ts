@@ -3,7 +3,7 @@ import { connectDB } from '../config/database';
 import VisaConfigOption from '../models/VisaConfigOption';
 
 // Idempotent backfill of the option lists that used to be hardcoded on the Visa Types
-// page — safe to re-run; only inserts options that don't already exist.
+// page, safe to re-run; only inserts options that don't already exist.
 const options = [
   { category: 'jurisdiction', value: 'pan-india', label: 'Pan India', order: 0 },
   { category: 'jurisdiction', value: 'mumbai', label: 'Mumbai', order: 1 },

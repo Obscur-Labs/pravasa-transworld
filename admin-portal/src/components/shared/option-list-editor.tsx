@@ -8,7 +8,7 @@ interface OptionListEditorProps {
   onChange: (opts: string[]) => void;
 }
 
-// Shared by the Visa Types and Form Presets pages — both let an admin build a
+// Shared by the Visa Types and Form Presets pages, both let an admin build a
 // select/radio field's option list the same way.
 export function OptionListEditor({ options, onChange }: OptionListEditorProps) {
   const [draft, setDraft] = useState('');

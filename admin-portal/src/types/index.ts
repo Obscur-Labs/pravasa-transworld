@@ -29,12 +29,12 @@ export const ALL_STATUSES: ApplicationStatus[] = [
   'visa_rejected', 'visa_delivered',
 ];
 
-// Statuses an admin can set manually — mirrors the 4-step Application Progress (+ Rejected).
+// Statuses an admin can set manually, mirrors the 4-step Application Progress (+ Rejected).
 export const SELECTABLE_STATUSES: ApplicationStatus[] = [
   'submitted', 'payment_completed', 'visa_processing', 'visa_approved', 'visa_rejected',
 ];
 
-// 'file' was dropped when fields and documents merged into one ordered list — a
+// 'file' was dropped when fields and documents merged into one ordered list, a
 // document requirement covers uploads properly (review lifecycle + OCR).
 export type FieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea';
 export type ApplicantType = 'adult' | 'child' | 'both';
@@ -77,7 +77,7 @@ export interface DocumentRequirement {
   applicantType?: ApplicantType;
   docType?: DocumentType;
   ocrEnabled?: boolean;
-  // Shares one sequence with FormField.order — see mergeFormItems().
+  // Shares one sequence with FormField.order, see mergeFormItems().
   order: number;
 }
 
@@ -91,7 +91,7 @@ export type FormItem =
  *
  * `order` spans both arrays. When those orders are coherent (all distinct) they are
  * used as-is. Records written before documents had an `order` at all have every
- * document sitting at 0, which would interleave nonsensically — that duplication is
+ * document sitting at 0, which would interleave nonsensically, that duplication is
  * the tell, and such records fall back to "fields first, then documents" in stored
  * array order, exactly how they used to render. Opening and re-saving one in the
  * admin rewrites proper orders, so legacy data heals itself on first edit.
@@ -131,7 +131,7 @@ export function toFieldName(label: string): string {
  *  - rewrites `order` from position in the merged list, so the sequence an admin
  *    sees is exactly what gets persisted.
  *
- * Blank rows are dropped rather than rejected — the same way empty terms already are —
+ * Blank rows are dropped rather than rejected, the same way empty terms already are,
  * so an untouched row can never fail server-side validation.
  */
 export function orderedFormArrays(fields: FormField[], docs: DocumentRequirement[]) {
@@ -199,7 +199,7 @@ export interface Country {
   webContent: CountryWebContent;
 }
 
-// Widened to plain string — these value sets are admin-configurable on the Visa Config page.
+// Widened to plain string, these value sets are admin-configurable on the Visa Config page.
 export type EntryType = string;
 export type VisaSubType = string;
 export type JurisdictionType = string;
@@ -233,7 +233,7 @@ export interface ReceiptConfig {
   logoUrl: string;
 }
 
-/** The house format every embassy mail starts from — one saved record, edited on the config page. */
+/** The house format every embassy mail starts from, one saved record, edited on the config page. */
 export interface EmbassyMailConfig {
   _id: string;
   subjectTemplate: string;
@@ -248,7 +248,7 @@ export interface EmbassyMailPlaceholder {
   description: string;
 }
 
-/** The address embassy mail actually goes out as — env-driven, shown read-only. */
+/** The address embassy mail actually goes out as, env-driven, shown read-only. */
 export interface EmbassyMailSender {
   name: string;
   email: string;
@@ -262,7 +262,7 @@ export interface EmbassyMailAttachment {
   size: number;
 }
 
-/** A mail that actually went out — the record kept against the application. */
+/** A mail that actually went out, the record kept against the application. */
 export interface EmbassyMail {
   _id: string;
   to: string;
@@ -284,7 +284,7 @@ export interface EmbassyMailDraftDocument {
 
 /** One form answer, offered to the composer as its own tickable line. */
 export interface EmbassyMailDraftField {
-  /** The original form key — what the composer tracks its selection by. */
+  /** The original form key, what the composer tracks its selection by. */
   key: string;
   /** "Adult 1", "Child 1", or empty for answers that belong to the trip as a whole. */
   group: string;
@@ -424,7 +424,7 @@ export interface CourierRequest {
   requestedAt: string | null;
   trackingNumber: string;
   phone: string;
-  /** The applicant's estimate of when the shipment lands — not a confirmed arrival. */
+  /** The applicant's estimate of when the shipment lands, not a confirmed arrival. */
   expectedDate: string;
   submittedAt: string | null;
   receivedAt: string | null;

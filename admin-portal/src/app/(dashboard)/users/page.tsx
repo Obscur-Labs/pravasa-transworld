@@ -180,7 +180,7 @@ export default function CustomersPage() {
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>
                   <TableCell className="text-muted-foreground">{u.phone}</TableCell>
                   {tab === 'corporate' && (
-                    <TableCell className="text-muted-foreground font-mono text-xs">{u.gstNumber || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground font-mono text-xs">{u.gstNumber || '-'}</TableCell>
                   )}
                   <TableCell className="text-muted-foreground">{formatDate(u.createdAt)}</TableCell>
                   <TableCell>

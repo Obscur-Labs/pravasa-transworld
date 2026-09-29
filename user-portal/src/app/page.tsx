@@ -10,20 +10,20 @@ import { ArrowRight } from 'lucide-react';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
 
 export const metadata: Metadata = {
-  title: 'Visa Services Online — Apply for Tourist, Student & Work Visas',
+  title: 'Visa Services Online: Apply for Tourist, Student & Work Visas',
   description:
-    'Apply for your visa online with Pravasa Transworld. Expert immigration assistance for 50+ countries — tourist, student, work, and business visas. Real-time tracking, fast processing, transparent pricing.',
+    'Apply for your visa online with Pravasa Transworld. Expert immigration assistance for 50+ countries: tourist, student, work, and business visas. Real-time tracking, fast processing, transparent pricing.',
   alternates: {
     canonical: BASE_URL,
   },
   openGraph: {
-    title: 'Pravasa Transworld — Apply for Your Visa Online',
+    title: 'Pravasa Transworld | Apply for Your Visa Online',
     description:
       'Immigration made simple. Apply for tourist, student, work, or business visas for 50+ countries. Track your application in real time.',
     url: BASE_URL,
   },
   twitter: {
-    title: 'Pravasa Transworld — Apply for Your Visa Online',
+    title: 'Pravasa Transworld | Apply for Your Visa Online',
     description:
       'Immigration made simple. Apply for tourist, student, work, or business visas for 50+ countries. Track your application in real time.',
   },

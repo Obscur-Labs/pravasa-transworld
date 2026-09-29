@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
 
   title: {
-    default: 'Pravasa Transworld — Professional Visa & Immigration Services',
+    default: 'Pravasa Transworld | Professional Visa & Immigration Services',
     template: '%s | Pravasa Transworld',
   },
 
@@ -67,14 +67,14 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: BASE_URL,
     siteName: 'Pravasa Transworld',
-    title: 'Pravasa Transworld — Professional Visa & Immigration Services',
+    title: 'Pravasa Transworld | Professional Visa & Immigration Services',
     description:
       'Expert visa consultancy for 50+ countries. Fast online applications, real-time tracking, and dedicated immigration support.',
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'Pravasa Transworld — Professional Visa & Immigration Services',
+    title: 'Pravasa Transworld | Professional Visa & Immigration Services',
     description:
       'Expert visa consultancy for 50+ countries. Fast online applications, real-time tracking, and dedicated immigration support.',
     creator: '@pravasatransworld',

@@ -42,7 +42,7 @@ export const restoreTrashItem = async (req: AdminRequest, res: Response): Promis
   // Re-insert the original document exactly as it was (preserving _id and timestamps).
   const existing = await Model.findById(item.originalId);
   if (existing) {
-    // Original id is somehow back already — just drop the trash record.
+    // Original id is somehow back already, just drop the trash record.
     await item.deleteOne();
     sendSuccess(res, null, 'Item already exists; removed from trash');
     return;

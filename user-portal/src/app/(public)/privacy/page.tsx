@@ -7,7 +7,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
-    'Learn how Pravasa Transworld collects, uses, and protects your personal data. Your privacy is our priority — read our full policy here.',
+    'Learn how Pravasa Transworld collects, uses, and protects your personal data. Your privacy is our priority. Read our full policy here.',
   alternates: { canonical: `${BASE_URL}/privacy` },
   openGraph: {
     title: 'Privacy Policy | Pravasa Transworld',

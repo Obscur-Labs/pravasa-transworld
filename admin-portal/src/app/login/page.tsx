@@ -174,7 +174,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-4">
-          Passwordless login — OTP delivered to registered admin email
+          Passwordless login: OTP delivered to registered admin email
         </p>
       </div>
     </div>

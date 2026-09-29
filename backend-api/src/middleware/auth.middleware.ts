@@ -32,7 +32,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
   }
 };
 
-// Like `protect`, but never blocks the request — used on public endpoints that adjust
+// Like `protect`, but never blocks the request, used on public endpoints that adjust
 // their response (e.g. corporate pricing) when the caller happens to be logged in.
 export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextFunction): Promise<void> => {
   const token = req.headers.authorization?.startsWith('Bearer ')
@@ -45,7 +45,7 @@ export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextF
       const user = await User.findById(decoded.id);
       if (user && user.isActive) req.user = user;
     } catch {
-      // Anonymous request — ignore invalid/expired tokens instead of blocking.
+      // Anonymous request, ignore invalid/expired tokens instead of blocking.
     }
   }
   next();

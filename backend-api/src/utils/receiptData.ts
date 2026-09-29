@@ -23,7 +23,7 @@ export async function getCompanyInfo(): Promise<CompanyInfo> {
   return { companyName, addressLine1, addressLine2, phone, fax, email, gstin, pan, stateName, stateCode, sacCode, logoUrl };
 }
 
-// Best-effort passport lookup — the field name is admin-configurable per visa type
+// Best-effort passport lookup, the field name is admin-configurable per visa type
 // (FormField.fieldName), so there's no guaranteed single key across every visa type.
 function findPassportNumber(formResponses: unknown): string {
   try {

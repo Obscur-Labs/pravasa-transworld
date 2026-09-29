@@ -25,7 +25,7 @@
     --ring: 198 65% 36%;
     --radius: 0.5rem;
 
-    /* Raw brand values, straight off the logo — for gradients and canvas work
+    /* Raw brand values, straight off the logo, for gradients and canvas work
        that cannot go through a Tailwind class. */
     --brand-navy: #0B2E3D;
     --brand-gold: #9F7437;

@@ -31,7 +31,7 @@ const footer = () => `
   </div>
 `;
 
-/** Extras only the embassy mail needs — the templated notifications never set these. */
+/** Extras only the embassy mail needs, the templated notifications never set these. */
 interface MailExtras {
   cc?: string[];
   replyTo?: string;

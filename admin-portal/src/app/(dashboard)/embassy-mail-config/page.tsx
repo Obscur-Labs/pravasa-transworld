@@ -161,7 +161,7 @@ export default function EmbassyMailConfigPage() {
                     className="mt-1 w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-[13px] font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Sent exactly as written — line breaks and spacing are preserved in the email.
+                    Sent exactly as written: line breaks and spacing are preserved in the email.
                   </p>
                 </div>
 

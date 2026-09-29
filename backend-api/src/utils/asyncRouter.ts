@@ -7,7 +7,7 @@ const METHODS = ['all', 'get', 'post', 'put', 'patch', 'delete', 'head', 'option
 
 /**
  * Express 4 does not forward rejected promises to `next`, so an async controller that
- * throws — a Mongoose ValidationError, a failed upload — becomes an unhandled rejection
+ * throws, a Mongoose ValidationError, a failed upload, becomes an unhandled rejection
  * and takes the whole process down. Wrapping routes them to the error handler instead.
  */
 function wrap(fn: AnyHandler): AnyHandler {

@@ -291,7 +291,7 @@ function drawColumnDividers(doc: PDFKit.PDFDocument, y: number, height: number) 
 // ── Visa Details summary PDF (public "download PDF" button, apply flow) ──────
 
 // One row of the "Information Required" table. Since fields and documents are a
-// single ordered list, both kinds appear here — `kind` tells the applicant whether
+// single ordered list, both kinds appear here, `kind` tells the applicant whether
 // to answer it on the form or bring a file.
 export interface VisaSummaryDocRow {
   kind: 'field' | 'document';
@@ -357,7 +357,7 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
   doc.fontSize(10).font('Helvetica').text('Visa Details', MARGIN, 46);
 
   doc.y = 95;
-  doc.fillColor('#061E27').font('Helvetica-Bold').fontSize(16).text(`${data.countryName} — ${data.visaName}`, MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN });
+  doc.fillColor('#061E27').font('Helvetica-Bold').fontSize(16).text(`${data.countryName}: ${data.visaName}`, MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN });
   doc.moveDown(0.8);
 
   // Key info grid
@@ -412,7 +412,7 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
       if (y + rowHeight > 780) { doc.addPage(); y = MARGIN; drawDocTableHeader(doc, y, headerH); y += headerH; }
 
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#061E27').text(row.name, DOC_COLS.name.x + 4, y + 6, { width: DOC_COLS.name.w - 8 });
-      doc.font('Helvetica').fillColor('#475569').text(row.description || '—', DOC_COLS.desc.x + 4, y + 6, { width: DOC_COLS.desc.w - 8 });
+      doc.font('Helvetica').fillColor('#475569').text(row.description || '-', DOC_COLS.desc.x + 4, y + 6, { width: DOC_COLS.desc.w - 8 });
       doc.fillColor('#475569').font('Helvetica')
         .text(row.kind === 'document' ? 'Upload' : 'Answer', DOC_COLS.provide.x, y + 6, { width: DOC_COLS.provide.w - 6, align: 'center' });
       doc.fillColor(row.required ? '#b91c1c' : '#64748b').font('Helvetica-Bold')
@@ -430,7 +430,7 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
     doc.y = y + 20;
   }
 
-  // Additional Notes — kept at the very bottom, mirroring the visa overview modal.
+  // Additional Notes, kept at the very bottom, mirroring the visa overview modal.
   if (data.additionalNotes?.trim()) {
     doc.font('Helvetica-Bold').fontSize(8);
     const noteHeight = doc.heightOfString(data.additionalNotes.trim(), { width: PAGE_RIGHT - MARGIN - 20 }) + 30;

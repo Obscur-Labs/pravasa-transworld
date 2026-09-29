@@ -30,7 +30,7 @@ const ALL: DocType[] = ['aadhar', 'pan', 'passport', 'photograph', 'bank_stateme
 const isPdf = (url: string) =>
   /\.pdf($|\?|#)/i.test(url) || /[?&]format=pdf(&|$)/i.test(url) || /\/raw\/(upload|download)/.test(url);
 
-/* Open-doc button — fetches a backend-signed URL first so the browser
+/* Open-doc button, fetches a backend-signed URL first so the browser
    never needs to send auth headers to Cloudinary directly.            */
 function OpenDocBtn({ id, className }: { id: string; className?: string }) {
   const [loading, setLoading] = useState(false);
@@ -115,7 +115,7 @@ function AadhaarUploader({ existingFront, existingBack, onDone }: { existingFron
       ) : done ? (
         <div className="w-full h-full flex flex-col items-center justify-center gap-2" style={{ background: grad }}>
           <CheckCircle2 className="w-10 h-10 text-white drop-shadow" />
-          <p className="text-white text-xs font-semibold drop-shadow">{label} — already uploaded</p>
+          <p className="text-white text-xs font-semibold drop-shadow">{label}: already uploaded</p>
         </div>
       ) : (
         <div onClick={onPick} className="w-full h-full flex flex-col items-center justify-center cursor-pointer group relative" style={{ background: grad }}>
@@ -257,7 +257,7 @@ function PassportUploader({ existing, onDone }: { existing: VaultDoc | null; onD
     <div className="flex flex-col items-center gap-5">
       <input ref={ref} type="file" className="hidden" accept="image/*,.pdf" onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); if (f.type.startsWith('image/')) setPrev(URL.createObjectURL(f)); } }} />
 
-      {/* Booklet — portrait */}
+      {/* Booklet, portrait */}
       <div style={{ perspective: '900px' }}>
         <div onClick={() => !existing && ref.current?.click()}
           className="relative overflow-hidden cursor-pointer group transition-transform duration-300"
@@ -518,7 +518,7 @@ function OtherDocUploader({ onRefresh }: { onRefresh: () => void }) {
         )}
       </div>
 
-      {/* A4 model — neutral grey */}
+      {/* A4 model, neutral grey */}
       <div style={{ perspective: '1200px' }}>
         <div onClick={() => ref.current?.click()}
           className="relative overflow-hidden cursor-pointer group transition-transform duration-300"
@@ -888,7 +888,7 @@ export default function DocumentVaultPage() {
       {/* header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Document Vault</h1>
-        <p className="text-slate-500 text-sm mt-1">Store your identity documents once — OCR auto-extracts fields for faster visa applications.</p>
+        <p className="text-slate-500 text-sm mt-1">Store your identity documents once. OCR auto-extracts fields for faster visa applications.</p>
       </div>
 
       {/* type selector */}
@@ -929,7 +929,7 @@ export default function DocumentVaultPage() {
           </button>
           <h3 className="font-bold text-slate-900 text-base mb-0.5">{CFG[active].label}</h3>
           <p className="text-slate-400 text-xs mb-7 flex items-center flex-wrap gap-2">
-            {active === 'other' ? 'Add as many documents as you need — each gets its own name.' : CFG[active].sublabel}
+            {active === 'other' ? 'Add as many documents as you need. Each gets its own name.' : CFG[active].sublabel}
             {CFG[active].ocr && <span className="inline-flex items-center gap-1 bg-brand-50 text-brand-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"><Scan className="w-2.5 h-2.5" />OCR auto-extract</span>}
             {active === 'other' && <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">Unlimited uploads</span>}
           </p>

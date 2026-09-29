@@ -43,7 +43,7 @@ const copyName = (source: string, existing: string[]): string => {
   }
 };
 
-/** Subdocument ids belong to the original — a duplicate gets fresh ones from Mongo. */
+/** Subdocument ids belong to the original, a duplicate gets fresh ones from Mongo. */
 const withoutIds = <T extends { _id?: string }>(rows: T[]) => rows.map(({ _id, ...rest }) => rest);
 
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
@@ -166,7 +166,7 @@ export default function CountryDetailPage() {
   const [presetName, setPresetName] = useState('');
   const [savingPreset, setSavingPreset] = useState(false);
 
-  // Jurisdiction / category / sub-type / entry option lists — managed on the Visa Config page.
+  // Jurisdiction / category / sub-type / entry option lists, managed on the Visa Config page.
   const [configOptions, setConfigOptions] = useState<VisaConfigOption[]>([]);
 
   const loadVisaTypes = () =>
@@ -188,7 +188,7 @@ export default function CountryDetailPage() {
   const countryInactive = !!country && !country.isActive;
 
   // Active options for a category, plus the currently-selected value even if it's since
-  // been deactivated — so editing an older visa type never silently resets the field.
+  // been deactivated, so editing an older visa type never silently resets the field.
   const optionsFor = (category: VisaConfigCategory, currentValue?: string) => {
     const active = configOptions
       .filter((o) => o.category === category && o.isActive)
@@ -281,7 +281,7 @@ export default function CountryDetailPage() {
   };
 
   /**
-   * Clones a visa type — pricing, form items, terms and all — under a "Copy" name, and
+   * Clones a visa type, pricing, form items, terms and all, under a "Copy" name, and
    * drops it directly below the original rather than at the end of the list.
    */
   const duplicateVisa = async (vt: VisaType) => {
@@ -422,7 +422,7 @@ export default function CountryDetailPage() {
     const total = normalized.formFields.length + normalized.documentRequirements.length;
     toast({
       title: `Applied preset "${preset.name}"`,
-      description: `${total} item${total === 1 ? '' : 's'} loaded — ${normalized.formFields.length} field(s), ${normalized.documentRequirements.length} document(s).`,
+      description: `${total} item${total === 1 ? '' : 's'} loaded: ${normalized.formFields.length} field(s), ${normalized.documentRequirements.length} document(s).`,
       variant: 'success',
     });
   };
@@ -456,7 +456,7 @@ export default function CountryDetailPage() {
     reloadPresets();
   };
 
-  // Clicking the chip's "x" only clears the current selection — it never deletes the
+  // Clicking the chip's "x" only clears the current selection, it never deletes the
   // saved preset. Deleting is a separate, deliberate action via the trash icon.
   const deselectPreset = (id: string) => {
     if (applyPresetId === id) setApplyPresetId('');
@@ -476,14 +476,14 @@ export default function CountryDetailPage() {
     }
   };
 
-  // Clears only the Fields/Documents sections of the current form — does not touch any saved preset.
+  // Clears only the Fields/Documents sections of the current form, does not touch any saved preset.
   const clearFormFields = () => {
     setForm((f) => ({ ...f, formFields: [], documentRequirements: [] }));
     setApplyPresetId('');
   };
 
   const openCreate = () => {
-    // Country is fixed to the page's country — pre-select it so it's never asked for.
+    // Country is fixed to the page's country, pre-select it so it's never asked for.
     setForm({ ...emptyForm(), country: countryId });
     setEditId(null);
     setApplyPresetId('');
@@ -525,13 +525,13 @@ export default function CountryDetailPage() {
     setShowForm(true);
   };
 
-  // GST is 18% of the service fee only — visa and VFS fees are never taxed. Matches checkout.
+  // GST is 18% of the service fee only, visa and VFS fees are never taxed. Matches checkout.
   const GST_RATE = 0.18;
   const num = (s: string) => Number(s || 0);
   const gstOnFee = (fee: number) => Math.round(fee * GST_RATE);
   // Live "customer pays" preview for the pricing card. Visa + VFS are shared by both
   // account types; only the service fee differs (and is the sole GST-taxed component), and
-  // a blank corporate service fee falls back to the individual one — same rule as backend.
+  // a blank corporate service fee falls back to the individual one, same rule as backend.
   const corpOrStd = (corp: string, std: string) => (corp !== '' ? num(corp) : num(std));
   const passThroughAdult = num(form.adultPrice) + num(form.adultVfsFee);
   const passThroughChild = num(form.childPrice) + num(form.childVfsFee);
@@ -545,7 +545,7 @@ export default function CountryDetailPage() {
   const corpFeeDiffers = form.corporateAdultServiceFee !== '' || form.corporateChildServiceFee !== '';
 
   // Plain function (not a component) so React keeps the same input instances between
-  // renders — a nested component here would remount and steal focus on every keystroke.
+  // renders, a nested component here would remount and steal focus on every keystroke.
   const priceInput = (name: PriceField, placeholder = '0') => (
     <div key={name} className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">₹</span>
@@ -619,7 +619,7 @@ export default function CountryDetailPage() {
         <ArrowLeft className="w-4 h-4" /> Back to Countries
       </Link>
 
-      {/* ── Country header — outer active/website toggles + basic-info edit + delete ── */}
+      {/* ── Country header, outer active/website toggles + basic-info edit + delete ── */}
       <Card className={`mb-6 ${countryInactive ? 'border-warning/40' : ''}`}>
         <CardContent className="p-5">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -747,10 +747,10 @@ export default function CountryDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <Label>Country</Label>
-                  {/* Fixed to this page's country — shown read-only rather than as a picker. */}
+                  {/* Fixed to this page's country, shown read-only rather than as a picker. */}
                   <div className="mt-1 h-10 px-3 flex items-center gap-2 rounded-lg border border-input bg-muted/40 text-sm text-foreground">
                     {country && <img src={`https://flagcdn.com/w20/${country.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />}
-                    <span className="truncate">{country?.name || '—'}</span>
+                    <span className="truncate">{country?.name || '-'}</span>
                   </div>
                 </div>
                 <div>
@@ -844,7 +844,7 @@ export default function CountryDetailPage() {
                   </div>
 
                   <div className="p-5 space-y-6">
-                    {/* Pass-through charges — one set of values, everyone pays them */}
+                    {/* Pass-through charges, one set of values, everyone pays them */}
                     <div>
                       <div className="flex items-baseline justify-between gap-3 mb-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Government &amp; VFS charges</p>
@@ -868,11 +868,11 @@ export default function CountryDetailPage() {
                       {infoErrors.adultPrice && <p className="text-xs text-destructive mt-2">{infoErrors.adultPrice}</p>}
                     </div>
 
-                    {/* Service fee — the only component that varies by account type */}
+                    {/* Service fee, the only component that varies by account type */}
                     <div className="pt-5 border-t border-border">
                       <div className="flex items-baseline justify-between gap-3 mb-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Service fee</p>
-                        <p className="text-xs text-muted-foreground">Optional — enter 0 to waive</p>
+                        <p className="text-xs text-muted-foreground">Optional. Enter 0 to waive</p>
                       </div>
                       <div className={PRICE_GRID}>
                         <span />
@@ -904,15 +904,15 @@ export default function CountryDetailPage() {
                         <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
 
                         <span className="text-sm text-foreground">Individual</span>
-                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivAdult > 0 ? formatCurrency(subIndivAdult) : '—'}</span>
-                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivChild > 0 ? formatCurrency(subIndivChild) : '—'}</span>
+                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivAdult > 0 ? formatCurrency(subIndivAdult) : '-'}</span>
+                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivChild > 0 ? formatCurrency(subIndivChild) : '-'}</span>
 
                         <span className="text-sm text-foreground flex items-center gap-1.5">
                           Corporate
                           {corpFeeDiffers && <span className="w-1.5 h-1.5 rounded-full bg-warning" title="A corporate service fee is set" />}
                         </span>
-                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpAdult > 0 ? formatCurrency(subCorpAdult) : '—'}</span>
-                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpChild > 0 ? formatCurrency(subCorpChild) : '—'}</span>
+                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpAdult > 0 ? formatCurrency(subCorpAdult) : '-'}</span>
+                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpChild > 0 ? formatCurrency(subCorpChild) : '-'}</span>
                       </div>
                     </div>
                   </div>
@@ -1067,7 +1067,7 @@ export default function CountryDetailPage() {
         <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
           <GripVertical className="w-3.5 h-3.5" />
           {canReorder
-            ? 'Drag a row to arrange the order applicants see — #1 is shown first.'
+            ? 'Drag a row to arrange the order applicants see. #1 is shown first.'
             : 'Clear the search and filters to rearrange the order.'}
         </p>
       )}
@@ -1092,7 +1092,7 @@ export default function CountryDetailPage() {
               visaPage.map((vt, pageIndex) => {
                 const i = visaOffset + pageIndex;
                 // A visa is effectively hidden from customers if the country is off,
-                // even when its own toggle is on — reflect that here.
+                // even when its own toggle is on, reflect that here.
                 const effectivelyOff = countryInactive || !vt.isActive;
                 const isDropTarget = canReorder && !!dragId && dropId === vt._id && dragId !== vt._id;
                 return (
@@ -1137,9 +1137,9 @@ export default function CountryDetailPage() {
                     {formatCurrency(stdAdultTotal(vt))}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs" title="Visa + VFS + service fee, incl. 18% GST">
-                    {vt.childPrice ? formatCurrency(stdChildTotal(vt)) : '—'}
+                    {vt.childPrice ? formatCurrency(stdChildTotal(vt)) : '-'}
                   </TableCell>
-                  {/* Corporate differs only when a corporate service fee is set — otherwise
+                  {/* Corporate differs only when a corporate service fee is set, otherwise
                       it matches the standard total, so it's shown muted. */}
                   <TableCell className="text-xs" title="Visa + VFS + corporate service fee, incl. 18% GST">
                     <span className={vt.corporateAdultServiceFee != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
@@ -1147,7 +1147,7 @@ export default function CountryDetailPage() {
                     </span>
                     <span className="text-muted-foreground/50"> / </span>
                     <span className={vt.corporateChildServiceFee != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
-                      {vt.childPrice ? formatCurrency(corpChildTotal(vt)) : '—'}
+                      {vt.childPrice ? formatCurrency(corpChildTotal(vt)) : '-'}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -1161,11 +1161,11 @@ export default function CountryDetailPage() {
                       {(vt.entry || []).map((e) => (
                         <span key={e} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{e}</span>
                       ))}
-                      {(!vt.entry || vt.entry.length === 0) && <span className="text-muted-foreground/50 text-xs">—</span>}
+                      {(!vt.entry || vt.entry.length === 0) && <span className="text-muted-foreground/50 text-xs">-</span>}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="text-xs capitalize text-foreground/80">{vt.visaCategory || '—'}</span>
+                    <span className="text-xs capitalize text-foreground/80">{vt.visaCategory || '-'}</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2.5">

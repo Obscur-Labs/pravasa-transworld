@@ -8,7 +8,7 @@ import { MessageCircle } from 'lucide-react';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
 
 export const metadata: Metadata = {
-  title: 'Contact Us — Talk to a Visa Expert',
+  title: 'Contact Us: Talk to a Visa Expert',
   description:
     'Get in touch with Pravasa Transworld for help with document checklists, visa eligibility, application status, and more.',
   alternates: {

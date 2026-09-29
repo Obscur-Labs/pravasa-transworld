@@ -204,7 +204,7 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
     }
   }
 
-  // Mongoose Map rejects keys containing "." — strip dots from all keys before DB write.
+  // Mongoose Map rejects keys containing ".", strip dots from all keys before DB write.
   const safeData = Object.fromEntries(
     Object.entries(extractedData).map(([k, v]) => [k.replace(/\./g, ''), v])
   );
@@ -229,7 +229,7 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
 
 /**
  * Reports back a shipment of original documents the admin asked for. Every field is
- * accepted on its own — an applicant who only has a consignment number, or only a
+ * accepted on its own, an applicant who only has a consignment number, or only a
  * contact number to reach them on, can still tell us what they know.
  */
 export const submitCourierDetails = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -253,7 +253,7 @@ export const submitCourierDetails = async (req: AuthRequest, res: Response): Pro
   const AdminNotification = (await import('../../models/AdminNotification')).default;
   const notif = await AdminNotification.create({
     title: 'Documents Couriered',
-    message: `${req.user!.name} couriered the documents for application ${application.referenceId}${tracking ? ` — consignment ${tracking}` : ''}${eta ? `, expected around ${eta}` : ''}.`,
+    message: `${req.user!.name} couriered the documents for application ${application.referenceId}${tracking ? `, consignment ${tracking}` : ''}${eta ? `, expected around ${eta}` : ''}.`,
     type: 'courier_shipped',
     application: application._id,
   });
@@ -273,14 +273,14 @@ export const getPublicCountries = async (_req: AuthRequest, res: Response): Prom
   sendSuccess(res, countries);
 };
 
-// All active countries — for logged-in users applying for a visa.
+// All active countries, for logged-in users applying for a visa.
 // showOnWebsite is irrelevant here; a country can be active for applications without being public.
 export const getActiveCountries = async (_req: AuthRequest, res: Response): Promise<void> => {
   const countries = await Country.find({ isActive: true }).sort({ name: 1 });
   sendSuccess(res, countries);
 };
 
-// Corporate pricing is only meant for logged-in corporate accounts — strip it from
+// Corporate pricing is only meant for logged-in corporate accounts, strip it from
 // responses to anonymous visitors and individual accounts on these public endpoints.
 // Includes retired override fields (corporate visa/VFS rates, legacy corporatePrice) so
 // stale values on older documents never leak either.
@@ -310,7 +310,7 @@ export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promi
     const requested = String(req.query.country);
     filter.country = activeCountryIds.map(String).includes(requested) ? requested : { $in: [] as unknown[] };
   }
-  // Same admin-arranged sequence the dashboard shows — see VisaType.order. `order` is
+  // Same admin-arranged sequence the dashboard shows, see VisaType.order. `order` is
   // scoped per country, so group by country first for the (unfiltered) all-countries case.
   const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ country: 1, order: 1, name: 1 }).lean();
   const includeCorporate = req.user?.accountType === 'corporate';
@@ -318,7 +318,7 @@ export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promi
 };
 
 // Public "Download PDF" button on the visa details view. Pricing is deliberately
-// left out — the PDF is an information sheet, not a quote.
+// left out, the PDF is an information sheet, not a quote.
 export const downloadVisaSummaryPdf = async (req: AuthRequest, res: Response): Promise<void> => {
   const visaType = await VisaType.findOne({ _id: req.params.id, isActive: true }).populate('country', 'name');
   if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
@@ -341,7 +341,7 @@ export const downloadVisaSummaryPdf = async (req: AuthRequest, res: Response): P
       visaSubTypeLabel: labelFor('visaSubType', visaType.visaSubType),
       visaCategoryLabel: labelFor('visaCategory', visaType.visaCategory),
       entryLabels: (visaType.entry || []).map((e) => labelFor('entryType', e) || e),
-      // Fields and documents are one authored sequence — the sheet lists them in that
+      // Fields and documents are one authored sequence, the sheet lists them in that
       // same order so it matches what the applicant will actually see on the form.
       documents: [
         ...(visaType.formFields || []).flatMap((f) => [

@@ -31,7 +31,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* The wordmark already says "Pravasa Transworld", so it carries the alt text
               and no repeated label sits beside it. */}
-          <Link href="/" className="flex items-center group" aria-label="Pravasa Transworld — home">
+          <Link href="/" className="flex items-center group" aria-label="Pravasa Transworld home">
             <img
               src="/logo.png"
               alt="Pravasa Transworld"

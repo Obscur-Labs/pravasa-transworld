@@ -4,7 +4,7 @@ const steps = [
   { icon: Globe2, title: 'Select Visa', desc: 'Choose your destination country and the visa type you need.' },
   { icon: Upload, title: 'Upload Documents', desc: 'Securely upload your required documents directly from your device.' },
   { icon: CheckCircle, title: 'Verification', desc: 'Our team reviews your documents and notifies you promptly.' },
-  { icon: CreditCard, title: 'Make Payment', desc: 'Pay securely after document approval — no upfront charges.' },
+  { icon: CreditCard, title: 'Make Payment', desc: 'Pay securely after document approval, no upfront charges.' },
   { icon: Package, title: 'Visa Delivered', desc: 'Download your visa or receive it directly to your dashboard.' },
 ];
 

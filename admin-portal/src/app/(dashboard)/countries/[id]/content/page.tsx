@@ -21,7 +21,7 @@ const emptyContent: CountryWebContent = {
   requirements: '', processingInfo: '', tips: '', faqs: [],
 };
 
-/* ─── Location badge config — deliberately categorical accents (not theme tokens),
+/* ─── Location badge config, deliberately categorical accents (not theme tokens),
    used as a color-coded legend mapping this form to zones on the live page. ─── */
 const LOC = {
   header:      { label: 'Page Header',        color: 'bg-violet-500/10 text-violet-600 border-violet-500/20' },
@@ -341,11 +341,11 @@ export default function CountryContentPage() {
           <div className="flex items-center gap-3">
             <img src={`https://flagcdn.com/w40/${country.flag}.png`} alt={country.name} className="w-10 h-7 object-cover rounded shadow-sm" />
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{country.name} — Website Content</h1>
+              <h1 className="text-2xl font-bold text-foreground">{country.name}: Website Content</h1>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <Globe className={`w-3.5 h-3.5 ${country.showOnWebsite ? 'text-violet-500' : 'text-muted-foreground/50'}`} />
                 <span className={`text-xs font-semibold ${country.showOnWebsite ? 'text-violet-600' : 'text-muted-foreground'}`}>
-                  {country.showOnWebsite ? 'Live on website' : 'Hidden — enable "Show on Website" on the Countries page'}
+                  {country.showOnWebsite ? 'Live on website' : 'Hidden. Enable "Show on Website" on the Countries page'}
                 </span>
               </div>
             </div>
@@ -415,7 +415,7 @@ export default function CountryContentPage() {
               </div>
               <div>
                 <Label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Key Highlights</Label>
-                <p className="text-[11px] text-muted-foreground mb-2">Shown as badge chips — e.g. "eVisa available", "10-year multiple entry"</p>
+                <p className="text-[11px] text-muted-foreground mb-2">Shown as badge chips, e.g. "eVisa available", "10-year multiple entry"</p>
                 {content.highlights.length > 0 && (
                   <ul className="space-y-1.5 mb-3">
                     {content.highlights.map((h, i) => (
@@ -460,7 +460,7 @@ export default function CountryContentPage() {
               value={content.requirements}
               onChange={(v) => setField('requirements', v)}
               ai={aiFor('requirements')}
-              placeholder="General visa requirements — documents needed, eligibility criteria..."
+              placeholder="General visa requirements: documents needed, eligibility criteria..."
               rows={5}
             />
           </Section>
@@ -494,7 +494,7 @@ export default function CountryContentPage() {
                 <p className="text-xs font-bold text-foreground/80 uppercase tracking-wider">Frequently Asked Questions</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   {(content.faqs || []).length === 0
-                    ? 'No FAQs yet — add as many as you need'
+                    ? 'No FAQs yet. Add as many as you need'
                     : `${(content.faqs || []).length} FAQ${(content.faqs || []).length !== 1 ? 's' : ''}`}
                 </p>
               </div>

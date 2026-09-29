@@ -37,7 +37,7 @@ app.use(cors({
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // ── HTTP Security Headers (Helmet) ──────────────────────────────────────────
-// Disabled contentSecurityPolicy for a JSON API — CSP is a browser/HTML concern.
+// Disabled contentSecurityPolicy for a JSON API, CSP is a browser/HTML concern.
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // ── Body Parsing ─────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ app.use((_req, res) => res.status(404).json({ success: false, message: 'Route no
 app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
   if (res.headersSent) return next(err);
 
-  // Mongoose schema validation — surface the specific field(s) that failed.
+  // Mongoose schema validation, surface the specific field(s) that failed.
   if (err?.name === 'ValidationError' && err.errors) {
     const errors = Object.values(err.errors).map((e: any) => e.message);
     return res.status(400).json({ success: false, message: errors[0] || 'Validation failed', errors });

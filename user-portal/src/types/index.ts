@@ -49,7 +49,7 @@ export interface Country {
   webContent?: CountryWebContent;
 }
 
-// Widened to plain string — these value sets are admin-configurable on the Visa Config page.
+// Widened to plain string, these value sets are admin-configurable on the Visa Config page.
 export type EntryType = string;
 export type VisaSubType = string;
 export type JurisdictionType = string;
@@ -138,7 +138,7 @@ export interface DocumentRequirement {
   applicantType?: ApplicantType;
   docType?: string;
   ocrEnabled?: boolean;
-  // Shares one sequence with FormField.order — see mergeFormItems().
+  // Shares one sequence with FormField.order, see mergeFormItems().
   order?: number;
 }
 
@@ -152,7 +152,7 @@ export type FormItem =
  *
  * `order` spans both arrays. When those orders are coherent (all distinct) they are
  * used as-is. Records written before documents had an `order` at all have every
- * document sitting at 0, which would interleave nonsensically — that duplication is
+ * document sitting at 0, which would interleave nonsensically, that duplication is
  * the tell, and such records fall back to "fields first, then documents" in stored
  * array order, exactly how they used to render. Opening and re-saving one in the
  * admin rewrites proper orders, so legacy data heals itself on first edit.
@@ -179,7 +179,7 @@ export interface CourierRequest {
   requestedAt: string | null;
   trackingNumber: string;
   phone: string;
-  /** The applicant's estimate of when the shipment lands — not a confirmed arrival. */
+  /** The applicant's estimate of when the shipment lands, not a confirmed arrival. */
   expectedDate: string;
   submittedAt: string | null;
   receivedAt: string | null;
@@ -235,7 +235,7 @@ export interface Notification {
   title: string;
   message: string;
   type: string;
-  /** Set when the notification is about a specific application — makes it clickable through to it. */
+  /** Set when the notification is about a specific application, makes it clickable through to it. */
   application?: string | null;
   read: boolean;
   createdAt: string;

@@ -17,7 +17,7 @@ router.get('/profile', profile.getProfile);
 router.put('/profile', profile.updateProfile);
 router.post('/profile/photo', upload.single('file'), profile.uploadProfilePhoto);
 
-// Countries (active, for application form — no showOnWebsite filter)
+// Countries (active, for application form, no showOnWebsite filter)
 router.get('/countries', apps.getActiveCountries as any);
 
 // Dashboard

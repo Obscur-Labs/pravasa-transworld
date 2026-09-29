@@ -181,7 +181,7 @@ export default function ApplicationDetailPage() {
     }
   }, [tabs.join(',')]);
 
-  // Uploads and answers in the order they were filled — passport details read by OCR
+  // Uploads and answers in the order they were filled, passport details read by OCR
   // appear under their scan only, never again as a separate answer.
   const reviewRows = useMemo(
     () => buildReviewRows(activeTravelerTab, application, documents),
@@ -246,7 +246,7 @@ export default function ApplicationDetailPage() {
         phone: courierPhone.trim(),
         expectedDate: courierExpected,
       });
-      toast({ title: 'Thanks — we have the details', description: 'We will confirm as soon as your documents arrive.', variant: 'success' });
+      toast({ title: 'Thanks, we have the details', description: 'We will confirm as soon as your documents arrive.', variant: 'success' });
       setEditingCourier(false);
       fetchData();
     } catch (err: any) {
@@ -348,7 +348,7 @@ export default function ApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Action needed — one or more documents came back rejected */}
+          {/* Action needed, one or more documents came back rejected */}
           {rejectedDocs.length > 0 && (
             <Card className="border-red-200 bg-red-50">
               <CardContent className="p-5">
@@ -359,7 +359,7 @@ export default function ApplicationDetailPage() {
                       {rejectedDocs.length === 1 ? 'One document needs to be sent again' : `${rejectedDocs.length} documents need to be sent again`}
                     </h3>
                     <p className="text-red-700 text-sm mb-3">
-                      Only these need re-uploading — everything else you submitted stays as it is.
+                      Only these need re-uploading. Everything else you submitted stays as it is.
                     </p>
                     <div className="space-y-2">
                       {rejectedDocs.map((doc) => (
@@ -586,7 +586,7 @@ export default function ApplicationDetailPage() {
             </Card>
           )}
 
-          {/* Payment receipt — stays available after the application moves past payment */}
+          {/* Payment receipt, stays available after the application moves past payment */}
           {receiptPaymentId && !['submitted', 'payment_pending', 'payment_completed'].includes(application.status) && (
             <Card>
               <CardContent className="p-5">
@@ -624,7 +624,7 @@ export default function ApplicationDetailPage() {
             </Card>
           )}
 
-          {/* Visa Submission — embassy details */}
+          {/* Visa Submission, embassy details */}
           {['visa_processing', 'embassy_review'].includes(application.status) &&
             (application.processingReferenceNumber || application.embassyName || application.submissionDate) && (
             <Card className="border-brand-200 bg-brand-50">
@@ -1088,7 +1088,7 @@ export default function ApplicationDetailPage() {
             </Card>
           )}
 
-          {/* General (non-traveller) form responses — e.g. travel dates */}
+          {/* General (non-traveller) form responses, e.g. travel dates */}
           {Object.keys(generalResponses).length > 0 && (
             <Card>
               <div className="p-5 border-b border-slate-100">

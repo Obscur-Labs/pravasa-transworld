@@ -1,20 +1,20 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-// Singleton — always exactly one document, upserted via findOneAndUpdate({}, ...).
+// Singleton, always exactly one document, upserted via findOneAndUpdate({}, ...).
 // Holds the house style for the covering mail an admin sends to an embassy or agency
 // when forwarding an application. Placeholders ({{referenceId}}, {{formData}}, …) are
 // filled in when the composer opens; see utils/embassyMailTemplate.
 export interface IEmbassyMailConfig extends Document {
   subjectTemplate: string;
   bodyTemplate: string;
-  /** Always copied in — your own processing desk, usually. Comma-separated. */
+  /** Always copied in, your own processing desk, usually. Comma-separated. */
   defaultCc: string;
   /** Where the embassy's reply should land, if not the sending address. */
   replyTo: string;
 }
 
 export const DEFAULT_SUBJECT_TEMPLATE =
-  'Visa Application {{referenceId}} — {{visaType}} for {{country}}';
+  'Visa Application {{referenceId}}: {{visaType}} for {{country}}';
 
 export const DEFAULT_BODY_TEMPLATE = `Dear Sir / Madam,
 

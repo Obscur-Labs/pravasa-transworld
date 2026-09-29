@@ -32,7 +32,7 @@ const benefits = [
   {
     icon: Clock,
     title: 'Pay After Approval',
-    desc: 'No upfront fees — payment is only collected after your documents are approved.',
+    desc: 'No upfront fees. Payment is only collected after your documents are approved.',
     gradient: 'from-brand-50 to-indigo-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },

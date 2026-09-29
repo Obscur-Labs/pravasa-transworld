@@ -77,7 +77,7 @@ export default function AdminDashboard() {
         <Card className="lg:col-span-2">
           <div className="p-5 border-b border-border flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold text-sm text-foreground">Applications — last 14 days</h2>
+            <h2 className="font-semibold text-sm text-foreground">Applications, last 14 days</h2>
           </div>
           <CardContent className="p-5">
             {loading ? (

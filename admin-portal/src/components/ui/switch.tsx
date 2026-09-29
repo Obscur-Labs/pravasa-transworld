@@ -4,7 +4,7 @@ interface SwitchProps {
   disabled?: boolean;
   /** Accent when on. 'success' (default) for active/enabled toggles, 'violet' for secondary ones (e.g. website visibility). */
   tone?: 'success' | 'violet';
-  /** Native tooltip — handy for explaining why a toggle is disabled. */
+  /** Native tooltip, handy for explaining why a toggle is disabled. */
   title?: string;
 }
 

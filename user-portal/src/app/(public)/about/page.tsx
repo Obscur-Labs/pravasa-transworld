@@ -13,9 +13,9 @@ import PromoPopup from '@/components/landing/PromoPopup';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
 
 export const metadata: Metadata = {
-  title: 'About Us — Immigration Made Simple',
+  title: 'About Us: Immigration Made Simple',
   description:
-    'Learn how Pravasa Transworld simplifies visa applications for 50+ countries — our process, benefits, and what travelers say about us.',
+    'Learn how Pravasa Transworld simplifies visa applications for 50+ countries: our process, benefits, and what travelers say about us.',
   alternates: {
     canonical: `${BASE_URL}/about`,
   },

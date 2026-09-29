@@ -188,7 +188,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           {/* The wordmark carries the name, so no text label repeats it. */}
-          <Link href="/" className="inline-flex mb-6" aria-label="Pravasa Transworld — home">
+          <Link href="/" className="inline-flex mb-6" aria-label="Pravasa Transworld home">
             <img
               src="/logo.png"
               alt="Pravasa Transworld"

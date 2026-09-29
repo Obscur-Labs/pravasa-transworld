@@ -15,13 +15,13 @@ import { toast } from '@/components/ui/use-toast';
 import { getVisaConfig, createVisaConfigOption, updateVisaConfigOption, deleteVisaConfigOption } from '@/lib/api';
 import type { VisaConfigOption, VisaConfigCategory } from '@/types';
 
-// Data-driven tab list — adding a new configurable option list later (e.g. a "process
+// Data-driven tab list, adding a new configurable option list later (e.g. a "process
 // type") only needs one more entry here plus matching backend category, not new UI code.
 const CATEGORIES: { key: VisaConfigCategory; label: string; description: string }[] = [
-  { key: 'jurisdiction', label: 'Jurisdictions', description: 'Where the visa is processed — shown on the Visa Types form.' },
-  { key: 'visaCategory', label: 'Visa Categories', description: 'The purpose of the visa — Tourist, Business, Student, etc.' },
+  { key: 'jurisdiction', label: 'Jurisdictions', description: 'Where the visa is processed: shown on the Visa Types form.' },
+  { key: 'visaCategory', label: 'Visa Categories', description: 'The purpose of the visa: Tourist, Business, Student, etc.' },
   { key: 'visaSubType', label: 'Visa Sub-Types', description: 'E-Visa vs Sticker Visa, and any future sub-types.' },
-  { key: 'entryType', label: 'Entry Types', description: 'Single, multiple, double entry — or any custom entry type.' },
+  { key: 'entryType', label: 'Entry Types', description: 'Single, multiple, double entry, or any custom entry type.' },
 ];
 
 export default function VisaConfigPage() {
@@ -73,7 +73,7 @@ export default function VisaConfigPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader
         title="Visa Config"
-        description="Manage the option lists used across Visa Types — jurisdictions, categories, sub-types, and entry types."
+        description="Manage the option lists used across Visa Types: jurisdictions, categories, sub-types, and entry types."
       />
 
       {loading ? (
@@ -107,7 +107,7 @@ export default function VisaConfigPage() {
         title="Delete this option?"
         description={
           deleteTarget
-            ? `"${deleteTarget.label}" will be permanently removed. If it's used by any visa type, deletion will be blocked — deactivate it instead.`
+            ? `"${deleteTarget.label}" will be permanently removed. If it's used by any visa type, deletion will be blocked; deactivate it instead.`
             : undefined
         }
         confirmLabel="Delete"

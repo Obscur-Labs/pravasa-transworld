@@ -6,7 +6,7 @@ interface StatTileProps {
   label: string;
   value: React.ReactNode;
   icon: LucideIcon;
-  /** Fixed Tailwind classes, e.g. "text-primary bg-primary/10" — never build class names dynamically from data. */
+  /** Fixed Tailwind classes, e.g. "text-primary bg-primary/10", never build class names dynamically from data. */
   tone: string;
   loading?: boolean;
 }

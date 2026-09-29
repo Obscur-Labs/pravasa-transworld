@@ -53,13 +53,13 @@ const PAYMENT_BADGE: Record<PaymentStatus, { label: string; variant: 'success' |
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = { upi: 'UPI', cash: 'Cash', manual_override: 'Manual', online: 'Card (legacy)' };
 
-// Common reasons, one click away — most rejections are one of these.
+// Common reasons, one click away, most rejections are one of these.
 const QUICK_REJECT_REASONS = [
   'Image is blurred or unreadable',
   'Wrong document uploaded',
   'Document is expired',
   'Details do not match the application',
-  'Page is cropped — full document required',
+  'Page is cropped; full document required',
 ];
 
 export default function AdminApplicationDetailPage() {
@@ -115,7 +115,7 @@ export default function AdminApplicationDetailPage() {
   useEffect(() => { fetchData(); }, [id]);
 
   // One tab per traveller. Applications submitted before traveller prefixes existed
-  // have none — they get a single unlabelled tab holding everything.
+  // have none, they get a single unlabelled tab holding everything.
   const tabs = useMemo(() => {
     const found = travelerTabs(application, documents);
     return found.length > 0 ? found : [''];
@@ -324,7 +324,7 @@ export default function AdminApplicationDetailPage() {
   const pendingDocs = documents.filter((d) => d.status === 'pending');
   const rejectedDocs = documents.filter((d) => d.status === 'rejected');
 
-  // The applicant's estimate has come and gone with nothing logged as received — worth
+  // The applicant's estimate has come and gone with nothing logged as received, worth
   // flagging so a lost consignment gets chased instead of quietly sitting there. Both
   // sides are YYYY-MM-DD, so compare as text: parsing them as dates would put the stored
   // value at UTC midnight and the local day boundary elsewhere, flagging a day early.
@@ -410,7 +410,7 @@ export default function AdminApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Submitted Form — uploads and answers replayed in the order they were filled */}
+          {/* Submitted Form, uploads and answers replayed in the order they were filled */}
           {(documents.length > 0 || Object.keys(application.formResponses).length > 0) && (
             <Card>
               <div className="p-5 border-b border-border flex items-center justify-between flex-wrap gap-2">
@@ -545,7 +545,7 @@ export default function AdminApplicationDetailPage() {
                         </div>
                       </div>
 
-                      {/* OCR values are shown here, at the scan they came from — the applicant's
+                      {/* OCR values are shown here, at the scan they came from, the applicant's
                           answers list never repeats them. */}
                       {doc.extractedData && Object.keys(doc.extractedData).length > 0 && (
                         <div className="mx-3 mb-3 p-3 bg-muted/50 rounded-lg border border-border">
@@ -653,7 +653,7 @@ export default function AdminApplicationDetailPage() {
                 </div>
               )}
 
-              {/* Visa Submission — embassy details entered during processing, shared with the applicant */}
+              {/* Visa Submission, embassy details entered during processing, shared with the applicant */}
               {application.status === 'visa_processing' && (
                 <div className="p-3 bg-accent rounded-xl border border-primary/20 space-y-3">
                   <h4 className="text-xs font-bold text-primary uppercase tracking-wide">Visa Submission</h4>
@@ -854,7 +854,7 @@ export default function AdminApplicationDetailPage() {
             </Card>
           )}
 
-          {/* Payment attempts — a declined checkout is why an application stalls at payment */}
+          {/* Payment attempts, a declined checkout is why an application stalls at payment */}
           {payments.length > 0 && (
             <Card>
               <div className="p-4 border-b border-border">
@@ -976,7 +976,7 @@ export default function AdminApplicationDetailPage() {
                           <p className="text-[10px] font-bold text-primary uppercase tracking-wide">Expected arrival</p>
                           <p className="text-sm font-semibold text-foreground">{formatDate(application.courier.expectedDate)}</p>
                           {courierOverdue && (
-                            <p className="text-[11px] text-warning font-medium mt-0.5">Past the expected date — not marked received yet.</p>
+                            <p className="text-[11px] text-warning font-medium mt-0.5">Past the expected date, not marked received yet.</p>
                           )}
                         </div>
                       )}

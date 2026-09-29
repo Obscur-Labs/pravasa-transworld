@@ -10,7 +10,7 @@ import type { Country } from '@/types';
  * The destination list is fetched in the browser, never on the server.
  *
  * It used to be passed down from the page as a server-rendered prop, which meant Next
- * baked the country list into static HTML at build time — a country switched on in the
+ * baked the country list into static HTML at build time, a country switched on in the
  * admin only appeared after the next deploy. Fetching here keeps the page itself static
  * and instant while the list is always whatever the API says right now.
  */
@@ -55,7 +55,7 @@ export default function DestinationsExplorer() {
             <span className="text-brand-600">Travelling Next?</span>
           </h1>
           <p className="text-slate-500 font-medium max-w-xl mb-8 text-[15px] leading-relaxed">
-            Apply for your visa online with expert immigration assistance. Explore every country we support —
+            Apply for your visa online with expert immigration assistance. Explore every country we support:
             requirements, processing times, pricing, and how to apply.
           </p>
 

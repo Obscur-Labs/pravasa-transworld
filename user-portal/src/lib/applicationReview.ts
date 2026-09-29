@@ -3,7 +3,7 @@ import type { Application, Document, DocumentRequirement } from '@/types';
 
 /**
  * Replays a submitted application as the single ordered list the applicant actually
- * filled — uploads and answers interleaved in authored order (see mergeFormItems)
+ * filled, uploads and answers interleaved in authored order (see mergeFormItems)
  * rather than split into a documents list and a separate answers list that repeat
  * the same passport details twice.
  */
@@ -14,7 +14,7 @@ export type ReviewRow =
 
 const TRAVELER_RE = /^(Adult \d+|Child \d+)\s*[-–—]\s*/i;
 
-/** "Adult 1 — Full Name" → "Adult 1"; empty for application-wide keys. */
+/** "Adult 1, Full Name" → "Adult 1"; empty for application-wide keys. */
 export function travelerOf(key: string): string {
   const m = key.match(TRAVELER_RE);
   return m ? m[1] : '';
@@ -72,7 +72,7 @@ export function generalAnswers(application: Application | null): [string, string
 
 /**
  * Builds the ordered list for one traveller. Pass '' for older applications whose
- * documents and answers carry no traveller prefix — everything then lands in that
+ * documents and answers carry no traveller prefix, everything then lands in that
  * single list.
  */
 export function buildReviewRows(

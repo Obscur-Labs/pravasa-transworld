@@ -30,7 +30,7 @@ export default function NotificationsPage() {
     setNotifications((prev) => prev.map((n) => n._id === id ? { ...n, read: true } : n));
   };
 
-  // A rejected document has to be re-uploaded on the application page — take the user
+  // A rejected document has to be re-uploaded on the application page, take the user
   // straight there rather than leaving them to hunt for it.
   const handleOpen = (n: Notification) => {
     if (!n.read) handleMarkRead(n._id);

@@ -5,7 +5,7 @@ import type { Application, Document, DocumentRequirement } from '@/types';
  * Rebuilds the applicant's submitted form as a single ordered review list.
  *
  * Uploads and answers are authored as one interleaved sequence (see mergeFormItems),
- * and the applicant filled them in that order — so the reviewer reads them back in
+ * and the applicant filled them in that order, so the reviewer reads them back in
  * that same order instead of hunting across a documents list and a separate answers
  * list for the same person.
  */
@@ -16,7 +16,7 @@ export type ReviewRow =
 
 const TRAVELER_RE = /^(Adult \d+|Child \d+)\s*[-–—]\s*/i;
 
-/** "Adult 1 — Full Name" → "Adult 1"; empty for application-wide keys. */
+/** "Adult 1, Full Name" → "Adult 1"; empty for application-wide keys. */
 export function travelerOf(key: string): string {
   const m = key.match(TRAVELER_RE);
   return m ? m[1] : '';
@@ -73,7 +73,7 @@ export function generalAnswers(application: Application | null): [string, string
 
 /**
  * Builds the ordered review list for one traveller. Pass '' for legacy applications
- * whose documents and answers carry no traveller prefix — everything then lands in
+ * whose documents and answers carry no traveller prefix, everything then lands in
  * that single list.
  */
 export function buildReviewRows(

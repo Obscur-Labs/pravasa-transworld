@@ -200,7 +200,7 @@ export const sendApplicationEmbassyMail = async (req: AdminRequest, res: Respons
       buffer = await fetchAsset(doc.url, doc.publicId);
     } catch (err) {
       console.error(`[EMBASSY_MAIL] Could not download "${doc.requirementName}"`, err);
-      sendError(res, `Could not download "${doc.requirementName}". Nothing was sent — please retry.`, 502);
+      sendError(res, `Could not download "${doc.requirementName}". Nothing was sent. Please retry.`, 502);
       return;
     }
 

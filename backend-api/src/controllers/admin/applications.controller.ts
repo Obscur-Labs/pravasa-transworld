@@ -65,7 +65,7 @@ export const getApplication = async (req: AdminRequest, res: Response): Promise<
 
   const documents = await Document.find({ application: application._id });
   const visaFile = await VisaFile.findOne({ application: application._id });
-  // Attempts, not just successes — a failed checkout is the reason an application sits
+  // Attempts, not just successes, a failed checkout is the reason an application sits
   // at payment_pending, and the reviewer needs to see it without leaving the page.
   const payments = await Payment.find({ application: application._id }).sort({ createdAt: -1 });
   // What has already been forwarded to the embassy, so a second send is a decision
@@ -140,7 +140,7 @@ export const reviewDocument = async (req: AdminRequest, res: Response): Promise<
   const application = await Application.findById(req.params.id);
   if (application) {
     // A rejection is a request for a new file, so the applicant needs the upload window
-    // open again — an application already waved through to 'documents_approved' goes back
+    // open again, an application already waved through to 'documents_approved' goes back
     // under review until the replacement arrives.
     if (status === 'rejected' && application.status === 'documents_approved') {
       application.status = 'documents_under_review';
@@ -149,9 +149,9 @@ export const reviewDocument = async (req: AdminRequest, res: Response): Promise<
 
     const notif = await Notification.create({
       user: application.user,
-      title: status === 'rejected' ? 'Document Rejected — Re-upload Needed' : 'Document Reviewed',
+      title: status === 'rejected' ? 'Document Rejected: Re-upload Needed' : 'Document Reviewed',
       message: status === 'rejected'
-        ? `Your document "${doc.requirementName}" was rejected: ${rejectionReason}. Open the application to upload a replacement — only this document needs to be sent again.`
+        ? `Your document "${doc.requirementName}" was rejected: ${rejectionReason}. Open the application to upload a replacement. Only this document needs to be sent again.`
         : `Your document "${doc.requirementName}" has been reviewed.`,
       type: status === 'rejected' ? 'document_rejected' : 'general',
       application: application._id,
@@ -183,7 +183,7 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
 
   await Document.updateMany({ application: application._id, status: 'pending' }, { status: 'approved', reviewedAt: new Date() });
 
-  // A rejected document is still waiting on a replacement — approving the rest must not
+  // A rejected document is still waiting on a replacement, approving the rest must not
   // close the applicant's upload window behind it.
   const stillRejected = await Document.countDocuments({ application: application._id, status: 'rejected' });
   if (stillRejected > 0) {
@@ -285,7 +285,7 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
 };
 
 // Ask the applicant to ship original documents (or withdraw the request). Nothing about
-// this gates the application — it runs alongside whatever stage the application is at.
+// this gates the application, it runs alongside whatever stage the application is at.
 export const requestCourier = async (req: AdminRequest, res: Response): Promise<void> => {
   const { requested, instructions, address } = req.body || {};
 
@@ -301,7 +301,7 @@ export const requestCourier = async (req: AdminRequest, res: Response): Promise<
     // so a later request starts clean rather than showing a stale consignment.
     application.courier = { ...EMPTY_COURIER };
     await application.save();
-    logActivity(req, 'update', 'Application', `${application.referenceId} — courier request withdrawn`);
+    logActivity(req, 'update', 'Application', `${application.referenceId}: courier request withdrawn`);
     sendSuccess(res, application, 'Courier request withdrawn');
     return;
   }
@@ -312,7 +312,7 @@ export const requestCourier = async (req: AdminRequest, res: Response): Promise<
   application.courier.requestedAt = new Date();
   await application.save();
 
-  logActivity(req, 'update', 'Application', `${application.referenceId} — documents requested by courier`);
+  logActivity(req, 'update', 'Application', `${application.referenceId}: documents requested by courier`);
 
   const notif = await Notification.create({
     user: application.user,
@@ -346,7 +346,7 @@ export const markCourierReceived = async (req: AdminRequest, res: Response): Pro
   application.courier.receivedAt = new Date();
   await application.save();
 
-  logActivity(req, 'update', 'Application', `${application.referenceId} — courier documents received`);
+  logActivity(req, 'update', 'Application', `${application.referenceId}: courier documents received`);
 
   const notif = await Notification.create({
     user: application.user,

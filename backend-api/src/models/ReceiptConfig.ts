@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-// Singleton — always exactly one document, upserted via findOneAndUpdate({}, ...).
+// Singleton, always exactly one document, upserted via findOneAndUpdate({}, ...).
 // Holds the seller-side details printed on every generated receipt/tax invoice.
 export interface IReceiptConfig extends Document {
   companyName: string;

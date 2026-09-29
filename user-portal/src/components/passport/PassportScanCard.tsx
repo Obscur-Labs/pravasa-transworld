@@ -104,7 +104,7 @@ function ImageViewerModal({ src, title, onClose }: { src: string; title: string;
       style={{ position: 'fixed', left: pos.x, top: pos.y, width: size.w, height: size.h, zIndex: 9999 }}
       className="rounded-xl shadow-2xl border border-slate-300/80 bg-white flex flex-col overflow-hidden select-none"
     >
-      {/* Header — drag handle */}
+      {/* Header, drag handle */}
       <div
         className="flex items-center justify-between px-3 py-2.5 flex-shrink-0 cursor-move"
         style={{ background: isFront ? 'linear-gradient(135deg,#0f2d6b,#1a3a8f)' : 'linear-gradient(135deg,#111e42,#1a2a5c)' }}
@@ -154,7 +154,7 @@ function ImageViewerModal({ src, title, onClose }: { src: string; title: string;
         <span className="ml-auto text-[9px] text-slate-500">scroll to zoom</span>
       </div>
 
-      {/* Image — scrollable when zoomed in */}
+      {/* Image, scrollable when zoomed in */}
       <div
         ref={imgContainerRef}
         className="flex-1 overflow-auto bg-slate-900 flex items-center justify-center"
@@ -274,7 +274,7 @@ function SideCard({ side, file, preview, scanning, dragging, onPick, onDrop, onD
                 <FileText className="w-5 h-5 text-green-600" />
               </div>
               <p className="text-[11px] font-semibold text-green-700 max-w-[140px] truncate">{file!.name}</p>
-              <p className="text-[10px] text-green-500">PDF — fill the details manually</p>
+              <p className="text-[10px] text-green-500">PDF: fill the details manually</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 text-center">
@@ -411,7 +411,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
       <input
         value={values[k] || ''}
         onChange={(e) => setField(k, e.target.value)}
-        placeholder={scanning ? 'Reading…' : '—'}
+        placeholder={scanning ? 'Reading…' : '-'}
         className="mt-0.5 w-full h-8 px-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
       />
     </div>
@@ -425,7 +425,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900">{requirementName}<span className="text-red-500 ml-1">*</span></p>
-          <p className="text-xs text-slate-400 mt-0.5">Upload each side — the details are read automatically and shown beside the image. Review and edit anything that looks off.</p>
+          <p className="text-xs text-slate-400 mt-0.5">Upload each side. The details are read automatically and shown beside the image. Review and edit anything that looks off.</p>
         </div>
       </div>
 
@@ -443,7 +443,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
           {frontFile ? (
             <div className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-slate-700">Passport Details — Front</p>
+                <p className="text-xs font-bold text-slate-700">Passport Details (Front)</p>
                 <span className="text-[10px] text-slate-400">{frontFilled}/{PASSPORT_FRONT_FIELDS.length} filled</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5">
@@ -470,7 +470,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
           {backFile ? (
             <div className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-slate-700">Passport Details — Back</p>
+                <p className="text-xs font-bold text-slate-700">Passport Details (Back)</p>
                 <span className="text-[10px] text-slate-400">{backFilled}/{PASSPORT_BACK_FIELDS.length} filled</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5">
@@ -482,7 +482,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
                   value={values['Address'] || ''}
                   onChange={(e) => setField('Address', e.target.value)}
                   rows={2}
-                  placeholder={scanning ? 'Reading…' : '—'}
+                  placeholder={scanning ? 'Reading…' : '-'}
                   className="mt-0.5 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                 />
               </div>

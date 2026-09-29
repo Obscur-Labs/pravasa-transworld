@@ -130,7 +130,7 @@ function FAQAccordion({ faqs }: { faqs: { question: string; answer: string }[] }
                 }`} />
               </button>
 
-              {/* Answer — smooth height with max-height trick */}
+              {/* Answer, smooth height with max-height trick */}
               <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="px-6 pb-5 pl-[3.75rem]">
                   <p className="text-sm text-slate-600 leading-relaxed">{faq.answer}</p>
@@ -151,10 +151,10 @@ function VisaInfoGrid({ vt }: { vt: VisaType }) {
   const { labelFor } = useVisaConfigLabels();
   const items = [
     { label: 'Visa Type', value: labelFor('visaSubType', vt.visaSubType) },
-    { label: 'Length of Stay', value: vt.stayDuration || '—' },
-    { label: 'Entry', value: vt.entry?.map((e) => labelFor('entryType', e)).join(' / ') || '—' },
-    { label: 'Validity', value: vt.validity || '—' },
-    { label: 'Processing', value: vt.processingTime || '—' },
+    { label: 'Length of Stay', value: vt.stayDuration || '-' },
+    { label: 'Entry', value: vt.entry?.map((e) => labelFor('entryType', e)).join(' / ') || '-' },
+    { label: 'Validity', value: vt.validity || '-' },
+    { label: 'Processing', value: vt.processingTime || '-' },
   ];
 
   return (
@@ -235,7 +235,7 @@ export default function CountryDetailPage() {
   const faqs = wc?.faqs ?? [];
 
   // Visa fee + VFS fee + service fee, with 18% GST on the service fee only (visa + VFS are
-  // untaxed) — matches what is charged at checkout.
+  // untaxed), matches what is charged at checkout.
   const adultTotal = vt ? vt.adultPrice + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0) + Math.round((vt.adultServiceFee || 0) * 0.18) : 0;
   const childTotal = vt ? (vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0) + Math.round((vt.childServiceFee || 0) * 0.18) : 0;
 

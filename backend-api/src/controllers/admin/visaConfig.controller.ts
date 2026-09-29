@@ -63,7 +63,7 @@ export const updateVisaConfigOption = async (req: AdminRequest, res: Response): 
   const option = await VisaConfigOption.findById(req.params.id);
   if (!option) { sendError(res, 'Option not found', 404); return; }
 
-  // `category` and `value` are intentionally not editable here — existing VisaType
+  // `category` and `value` are intentionally not editable here, existing VisaType
   // documents reference `value` by string, so changing it would silently orphan them.
   if (label !== undefined) option.label = String(label).trim();
   if (order !== undefined) option.order = Number(order);

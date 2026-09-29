@@ -262,7 +262,7 @@ export default function CustomerProfilePage() {
                       </div>
                     </TableCell>
                     <TableCell className="font-semibold text-foreground">
-                      {app.paymentAmount ? formatCurrency(app.paymentAmount) : '—'}
+                      {app.paymentAmount ? formatCurrency(app.paymentAmount) : '-'}
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusVariant(app.status) as any} className="text-xs whitespace-nowrap">

@@ -16,7 +16,7 @@ export default function NotificationDropdown() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
-  // A rejected document has to be re-uploaded on the application page — take the user
+  // A rejected document has to be re-uploaded on the application page, take the user
   // straight there rather than leaving them to hunt for it.
   const handleClick = (notif: { _id: string; read: boolean; application?: string | null }) => {
     if (!notif.read) markAsRead(notif._id);

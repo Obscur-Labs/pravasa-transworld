@@ -19,7 +19,7 @@ export function useVisaConfigLabels() {
   }, []);
 
   const labelFor = (category: string, value: string | undefined, fallback?: string): string => {
-    if (!value) return fallback ?? '—';
+    if (!value) return fallback ?? '-';
     const found = options.find((o) => o.category === category && o.value === value);
     return found?.label ?? fallback ?? value;
   };

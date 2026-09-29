@@ -1,8 +1,8 @@
-# Pravasa Transworld Platform — Deep Technical Context
+# Pravasa Transworld Platform: Deep Technical Context
 
 ## Overview
 
-Pravasa Transworld is a full-stack, multi-tenant Visa CRM (Customer Relationship Management) platform designed for immigration service agencies. It manages the complete lifecycle of a visa application — from initial submission through embassy review to final delivery — with separate surfaces for applicants and administrators.
+Pravasa Transworld is a full-stack, multi-tenant Visa CRM (Customer Relationship Management) platform designed for immigration service agencies. It manages the complete lifecycle of a visa application, from initial submission through embassy review to final delivery, with separate surfaces for applicants and administrators.
 
 ---
 
@@ -12,8 +12,8 @@ Pravasa Transworld is a full-stack, multi-tenant Visa CRM (Customer Relationship
 VisaServicePlatform/
 ├── package.json              # npm workspaces root
 ├── backend-api/              # Express + TypeScript REST API  (port 5000)
-├── user-portal/              # Next.js 15 — public site + applicant dashboard (port 3000)
-├── admin-portal/             # Next.js 15 — admin console (port 3001)
+├── user-portal/              # Next.js 15, public site + applicant dashboard (port 3000)
+├── admin-portal/             # Next.js 15, admin console (port 3001)
 └── shared/                   # Shared TypeScript types (consumed by both portals)
 ```
 
@@ -62,7 +62,7 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | POST | `/verify-otp` | Validate OTP, return JWT + user object |
 | POST | `/admin/login` | Email + password login for admins, return JWT |
 
-#### User Routes (`/api/user`) — requires `protect` middleware
+#### User Routes (`/api/user`): requires `protect` middleware
 | Method | Path | Description |
 |---|---|---|
 | GET | `/profile` | Get authenticated user's profile |
@@ -85,7 +85,7 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | DELETE | `/notifications/:id` | Delete single notification |
 | DELETE | `/notifications/all` | Delete all notifications |
 
-#### Admin Routes (`/api/admin`) — requires `adminProtect` middleware
+#### Admin Routes (`/api/admin`): requires `adminProtect` middleware
 | Method | Path | Description |
 |---|---|---|
 | GET | `/dashboard` | Aggregate stats: active, pending, approved, rejected, total |
@@ -131,10 +131,10 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | DELETE | `/notifications/all` | Delete all admin notifications |
 | DELETE | `/notifications/:id` | Delete single admin notification |
 
-#### User Routes (`/api/user`) — requires `protect` middleware (JWT)
+#### User Routes (`/api/user`): requires `protect` middleware (JWT)
 | Method | Path | Description |
 |---|---|---|
-| GET | `/countries` | All `isActive: true` countries — **no** `showOnWebsite` filter. Used by Apply for Visa form so staff can process all active countries regardless of public visibility. |
+| GET | `/countries` | All `isActive: true` countries, **no** `showOnWebsite` filter. Used by Apply for Visa form so staff can process all active countries regardless of public visibility. |
 | GET | `/dashboard` | User dashboard stats |
 | GET/POST | `/applications` | List / create applications |
 | GET | `/applications/:id` | Application detail |
@@ -155,23 +155,23 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | GET/PUT | `/profile` | Get / update profile |
 | POST | `/profile/photo` | Upload profile photo |
 | POST | `/ocr/passport` | OCR scan a passport image |
-| POST | `/promo/validate` | Validate a promo code — checks promoApplicable, active/expiry/limit, returns discount preview |
+| POST | `/promo/validate` | Validate a promo code, checks promoApplicable, active/expiry/limit, returns discount preview |
 
 #### Public Routes (`/api/public`)
 Unauthenticated routes for the landing page, country pages, and contact form.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/countries` | `isActive: true` **AND** `showOnWebsite: true` — for the public website only |
+| GET | `/countries` | `isActive: true` **AND** `showOnWebsite: true`: for the public website only |
 | GET | `/countries/:slug` | Country detail + active visa types (by slug) |
 | GET | `/visa-types` | Active visa types (optional `?country=id` filter) |
 | POST | `/contact` | Submit contact form lead |
 | GET | `/promos` | Active + `showOnWebsite: true` promo codes (for homepage popup) |
 
-> **Key distinction — `showOnWebsite` vs `isActive`:**
+> **Key distinction, `showOnWebsite` vs `isActive`:**
 > - `isActive` controls whether a country is usable **anywhere** (apply form, admin, public).
 > - `showOnWebsite` is an extra gate for the **public marketing website only** (`/countries` page, landing slider).
-> - A country can be `Active + Hidden` — fully operational for logged-in applications, just not advertised publicly.
+> - A country can be `Active + Hidden`: fully operational for logged-in applications, just not advertised publicly.
 
 ---
 
@@ -188,13 +188,13 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   profilePhoto: string        // Cloudinary URL, default ''
   profilePhotoPublicId: string // Cloudinary public ID for deletion, default ''
   isActive: boolean           // default true
-  promoApplicable: boolean    // default true — admin can disable to block promo access per-user
+  promoApplicable: boolean    // default true, admin can disable to block promo access per-user
   createdAt: Date
   updatedAt: Date
 }
 ```
 
-> **Admin-managed customer profiles:** besides self-registration, admins can create, edit, and delete customers of both account types from the admin portal (`POST/PUT/DELETE /admin/users`). Corporate profiles require a `gstNumber`; switching a customer back to individual clears it. Deletion is soft — the customer document is snapshotted into the Trash collection (`entityType: 'user'`) and can be restored with the same `_id`, so their applications and vault documents re-link automatically.
+> **Admin-managed customer profiles:** besides self-registration, admins can create, edit, and delete customers of both account types from the admin portal (`POST/PUT/DELETE /admin/users`). Corporate profiles require a `gstNumber`; switching a customer back to individual clears it. Deletion is soft, the customer document is snapshotted into the Trash collection (`entityType: 'user'`) and can be restored with the same `_id`, so their applications and vault documents re-link automatically.
 
 ### Admin
 ```typescript
@@ -223,7 +223,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
 {
   name: string                // unique
   flag: string                // country code for flagcdn.com (e.g. 'in', 'us')
-  code: string                // optional ISO alpha-3 code (e.g. 'IND', 'USA') — used in application reference IDs
+  code: string                // optional ISO alpha-3 code (e.g. 'IND', 'USA'), used in application reference IDs
   description: string
   isActive: boolean
   showOnWebsite: boolean      // whether this country appears on the public website
@@ -248,7 +248,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   name: string
   description: string
   // Per-traveler pricing components. Total charged = (visa + VFS + service) × pax + 18% GST.
-  // Visa and VFS fees are pass-through charges — identical for individual and corporate.
+  // Visa and VFS fees are pass-through charges, identical for individual and corporate.
   // Only the service fee (our margin) has a corporate override.
   adultPrice: number          // adult visa fee (mandatory)
   childPrice: number          // child visa fee
@@ -256,7 +256,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   childVfsFee: number         // child VFS fee / pax
   adultServiceFee: number     // adult service fee / pax (optional; individual rate)
   childServiceFee: number     // child service fee / pax (individual rate)
-  corporateAdultServiceFee?: number   // corporate service-fee override — used only when set;
+  corporateAdultServiceFee?: number   // corporate service-fee override, used only when set;
   corporateChildServiceFee?: number   // 0 explicitly waives it, unset = same as individual
   price: number               // legacy mirror of adultPrice (listing "from" price)
   processingTime: string
@@ -273,7 +273,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
 }
 ```
 
-> **Pricing & GST rule:** GST is a fixed **18%** applied on top of every fee component (`utils/pricing.ts` → `GST_RATE`, `computeSubtotal`, `computeGst`, `computePaymentAmount`). Visa and VFS fees are mandatory components; the service fee is optional. **Visa and VFS fees are the same for individual and corporate accounts (pass-through government/VFS charges); only the service fee varies by account type**, so it is the sole corporate override — a corporate service fee of 0 waives it, unset charges the standard (individual) service fee. All user-facing displayed totals are GST-inclusive; the full component breakdown appears only in the receipt PDF and in the checkout's hover (i) tooltip. Frontend checkout math mirrors the backend exactly (order-level subtotal, GST rounded once).
+> **Pricing & GST rule:** GST is a fixed **18%** applied on top of every fee component (`utils/pricing.ts` → `GST_RATE`, `computeSubtotal`, `computeGst`, `computePaymentAmount`). Visa and VFS fees are mandatory components; the service fee is optional. **Visa and VFS fees are the same for individual and corporate accounts (pass-through government/VFS charges); only the service fee varies by account type**, so it is the sole corporate override, a corporate service fee of 0 waives it, unset charges the standard (individual) service fee. All user-facing displayed totals are GST-inclusive; the full component breakdown appears only in the receipt PDF and in the checkout's hover (i) tooltip. Frontend checkout math mirrors the backend exactly (order-level subtotal, GST rounded once).
 
 **VisaTerm** (embedded sub-document):
 ```typescript
@@ -338,7 +338,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
 }
 ```
 
-**referenceId generation** — done in `createApplication` controller:
+**referenceId generation**: done in `createApplication` controller:
 1. Fetch the Country document linked to the visa type
 2. Use `country.code` if set, otherwise derive 3 letters from `country.name`
 3. Pick a random 4-digit number (1000–9999) and check uniqueness; retry up to 10 times
@@ -429,8 +429,8 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   description: string         // user-visible description shown in popup and checkout
   discountType: 'percentage' | 'fixed'
   discountValue: number       // % for percentage, flat amount for fixed
-  isActive: boolean           // default true — only active codes can be applied
-  showOnWebsite: boolean      // default false — triggers homepage popup after 5s when true
+  isActive: boolean           // default true, only active codes can be applied
+  showOnWebsite: boolean      // default false, triggers homepage popup after 5s when true
   expiresAt?: Date            // optional expiry; expired codes are rejected at validation
   usageLimit?: number         // optional max uses; undefined = unlimited
   usageCount: number          // auto-incremented on successful payment
@@ -456,9 +456,9 @@ Unauthenticated routes for the landing page, country pages, and contact form.
 - `finalAmount = max(0, orderAmount - discount)`
 
 **Promo lifecycle:**
-1. `POST /user/promo/validate` — validates code, checks promoApplicable, active/expired/limit, returns discount preview
-2. `POST /user/applications/:id/payment/order` — accepts optional `promoCode` in body, re-validates, creates Razorpay order with discounted amount, stores `promoCode` + `discountApplied` in pending Payment record
-3. `POST /user/applications/:id/payment/verify` — on successful payment, calls `PromoCode.findByIdAndUpdate` to increment `usageCount` and push to `usedBy[]`
+1. `POST /user/promo/validate`: validates code, checks promoApplicable, active/expired/limit, returns discount preview
+2. `POST /user/applications/:id/payment/order`: accepts optional `promoCode` in body, re-validates, creates Razorpay order with discounted amount, stores `promoCode` + `discountApplied` in pending Payment record
+3. `POST /user/applications/:id/payment/verify`: on successful payment, calls `PromoCode.findByIdAndUpdate` to increment `usageCount` and push to `usedBy[]`
 
 ---
 
@@ -483,7 +483,7 @@ All 10 statuses are represented by the `ApplicationStatus` union type, shared ac
 
 **Business rules:**
 - Payment UI is only unlocked after status reaches `documents_approved`
-- `paymentAmount` is locked at application creation — corporate users get the corporate service fee if set
+- `paymentAmount` is locked at application creation, corporate users get the corporate service fee if set
 - Visa file upload by admin moves status to `visa_delivered`
 - `visa_rejected` is a terminal dead-end; no recovery path in V1
 
@@ -493,8 +493,8 @@ All 10 statuses are represented by the `ApplicationStatus` union type, shared ac
 
 ### User Auth (Passwordless OTP)
 Two separate OTP flows:
-1. **Register / re-auth** — `POST /api/auth/send-otp` — upserts the User document (creates on first visit, updates name/phone on repeat)
-2. **Returning login** — `POST /api/auth/send-login-otp` — only accepts an existing user's email, does not create or modify the user record
+1. **Register / re-auth**: `POST /api/auth/send-otp`: upserts the User document (creates on first visit, updates name/phone on repeat)
+2. **Returning login**: `POST /api/auth/send-login-otp`: only accepts an existing user's email, does not create or modify the user record
 
 Both flows:
 - Generate a 6-digit OTP, store hashed in OTP collection, expire in 10 min
@@ -508,8 +508,8 @@ Both flows:
 4. JWT issued (`role: 'admin'`, 7-day expiry)
 
 ### Middleware
-- `protect` — validates JWT, fetches full User document from DB, attaches as `req.user`; rejects non-user roles
-- `adminProtect` — validates JWT, attaches `req.admin`; rejects non-admin roles
+- `protect`: validates JWT, fetches full User document from DB, attaches as `req.user`; rejects non-user roles
+- `adminProtect`: validates JWT, attaches `req.admin`; rejects non-admin roles
 
 ---
 
@@ -541,9 +541,9 @@ All uploads are user-scoped with the following folder structure:
 | Visa PDFs (admin upload) | configured separately |
 
 Functions:
-- `uploadToCloudinary(buffer, folder, resourceType)` — streams buffer via upload_stream
-- `deleteFromCloudinary(publicId)` — removes file
-- `getSignedUrl(storedUrl, publicId, expiresInSeconds)` — creates a time-limited signed delivery URL (used for vault document viewing)
+- `uploadToCloudinary(buffer, folder, resourceType)`: streams buffer via upload_stream
+- `deleteFromCloudinary(publicId)`: removes file
+- `getSignedUrl(storedUrl, publicId, expiresInSeconds)`: creates a time-limited signed delivery URL (used for vault document viewing)
 
 When a user replaces their profile photo, the old Cloudinary asset is deleted before uploading the new one.
 
@@ -603,12 +603,12 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 
 ## Frontend Portals
 
-### User Portal (`user-portal/`) — Next.js 15 App Router, port 3000
+### User Portal (`user-portal/`): Next.js 15 App Router, port 3000
 
 **Route groups:**
-- `(auth)` — `/login`, `/register`
-- `(public)` — `/about`, `/contact`, `/privacy`, `/terms`, `/countries`, `/countries/[slug]`
-- `(dashboard)` — all authenticated pages
+- `(auth)`: `/login`, `/register`
+- `(public)`: `/about`, `/contact`, `/privacy`, `/terms`, `/countries`, `/countries/[slug]`
+- `(dashboard)`: all authenticated pages
 
 **Public Country Pages (no login required):**
 | Route | Description |
@@ -619,20 +619,20 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 **FAQ Accordion (user portal):**
 - Numbered circle per question (turns solid blue when open)
 - Question text turns blue when open; answer indented below the number
-- Smooth `max-height` CSS transition — no JS animation library
+- Smooth `max-height` CSS transition, no JS animation library
 - Header shows count: "N questions answered"
 - Renders all FAQs; no limit
 
 **Landing page components:**
-- `CountriesSlider` — `GET /public/countries` (showOnWebsite only). Cards link to `/countries/[slug]`. "Browse All Destinations" → `/countries`.
-- `CountriesSection` — same API + fallback to hardcoded list if empty.
-- `PromoPopup` — client component. Fetches `GET /public/promos` on mount; if any active `showOnWebsite` promos exist, shows a sliding bottom-right popup after 5 seconds with code + copy button. Dismissed for the session via `sessionStorage`. Multiple promos show dot navigation.
+- `CountriesSlider`: `GET /public/countries` (showOnWebsite only). Cards link to `/countries/[slug]`. "Browse All Destinations" → `/countries`.
+- `CountriesSection`: same API + fallback to hardcoded list if empty.
+- `PromoPopup`: client component. Fetches `GET /public/promos` on mount; if any active `showOnWebsite` promos exist, shows a sliding bottom-right popup after 5 seconds with code + copy button. Dismissed for the session via `sessionStorage`. Multiple promos show dot navigation.
 
 **Dashboard pages:**
 | Route | Description |
 |---|---|
 | `/dashboard` | Stats + recent applications |
-| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter). Step 2 shows visa cards with GST-inclusive rates and a visa overview modal (details, documents, Additional Notes at the bottom, copy-all + summary-PDF buttons). Step 3 renders one upload slot per document requirement per traveller. Field/doc visibility controlled by `applicantType` (adult/child/both); OCR runs server-side on upload for passport docTypes. Step 4 (Review & Pay) shows per-traveller pre-GST lines, an explicit GST (18%) line, and a GST-inclusive total; an **(i) icon reveals the full fee breakdown on hover** (Visa Fee, VFS Fee/pax, Service Fee/pax, GST). Promo code input for users with `promoApplicable: true`; validated discounts apply to the GST-inclusive total and are passed to the payment order. If the visa type defines **Terms**, a consent-checkbox card renders at the bottom (below the Razorpay notice) — mandatory terms show a red asterisk and disable the Pay button until ticked, and the accepted wording is sent with the application. |
+| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter). Step 2 shows visa cards with GST-inclusive rates and a visa overview modal (details, documents, Additional Notes at the bottom, copy-all + summary-PDF buttons). Step 3 renders one upload slot per document requirement per traveller. Field/doc visibility controlled by `applicantType` (adult/child/both); OCR runs server-side on upload for passport docTypes. Step 4 (Review & Pay) shows per-traveller pre-GST lines, an explicit GST (18%) line, and a GST-inclusive total; an **(i) icon reveals the full fee breakdown on hover** (Visa Fee, VFS Fee/pax, Service Fee/pax, GST). Promo code input for users with `promoApplicable: true`; validated discounts apply to the GST-inclusive total and are passed to the payment order. If the visa type defines **Terms**, a consent-checkbox card renders at the bottom (below the Razorpay notice), mandatory terms show a red asterisk and disable the Pay button until ticked, and the accepted wording is sent with the application. |
 | `/applications` | Application list |
 | `/applications/[id]` | Application detail with document upload, Razorpay payment, and **Download Receipt** (shown right after payment and in all later statuses) |
 | `/my-visas` | Approved/delivered visas |
@@ -663,35 +663,35 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 **KYC gate:** Dashboard blocked until Aadhaar (front + back) and PAN are uploaded to vault.
 
 **Key components:**
-- `DashboardSidebar` — collapsible desktop sidebar; `mobile` prop enables overlay drawer mode
-- `NotificationDropdown` — bell with unread badge, sorted list, "View all" footer link
-- `StatusTimeline` — visual 10-stage pipeline tracker
-- `KYCModal` — document upload gate
+- `DashboardSidebar`: collapsible desktop sidebar; `mobile` prop enables overlay drawer mode
+- `NotificationDropdown`: bell with unread badge, sorted list, "View all" footer link
+- `StatusTimeline`: visual 10-stage pipeline tracker
+- `KYCModal`: document upload gate
 
 **Env:** `NEXT_PUBLIC_API_URL=http://localhost:5000/api`
 
-### Admin Portal (`admin-portal/`) — Next.js 15 App Router, port 3001
+### Admin Portal (`admin-portal/`): Next.js 15 App Router, port 3001
 
 **Auth redirect:** Login and register pages check `localStorage` for the token on mount. If found, `router.replace('/dashboard')` immediately (no flash of form). Admin portal checks `adminToken`; user portal checks `token`.
 
 **Routes:**
-- `/login` — email + password form
-- `/dashboard` — live stats
-- `/applications` — list with filters; `/applications/[id]` — full detail, document review, approval
-- `/processing` — Kanban board
-- `/countries` — country management: name, flag, ISO code, Active toggle (green), "Show on Website" toggle (violet), "Edit Content" button
-- `/countries/[id]/content` — country web content editor. Two-column layout: left = form (photos, hero tagline, overview, highlights chips, requirements, processing info, tips, unlimited FAQs); right = sticky "What users see" page map (color-coded zones showing where each field renders on the public page) + live Content Status checklist (green/grey dots per field). Each form section has a colored location badge (violet = header, orange = slider, blue = overview, teal = requirements, amber = tips, rose = FAQs).
-- `/visa-types` — visa type management. The add/edit dialog is a **5-step wizard**: **Information** (country, name, description, visa details) → **Pricing** → **Form** (presets + dynamic fields & document requirements) → **Additional Notes** → **Terms**. Footer Back/Continue walk the steps; validation errors jump to the tab that owns them (missing visa fee → Pricing, missing country/name/processing time → Information), and each tab shows a green tick when its required fields are satisfied. The **Pricing** tab is split by who the charge belongs to: one *Government & VFS charges* grid (Adult/Child Visa Fee + VFS Fee, entered once — same for everyone) and one *Service fee* grid with Individual and Corporate rows (Adult/Child each), where a blank corporate cell inherits the individual fee and 0 waives it; a live "Customer pays (incl. 18% GST)" grid previews both account types. The **Terms** tab (`components/shared/terms-editor.tsx`) builds the per-visa consent checkboxes (free-text wording, Mandatory toggle, Default-selected toggle). List toolbar has name/description search, country + category + status filters, a sort dropdown (name A–Z/Z–A, price low↔high, newest/oldest), and a clear-filters shortcut; the table's Corporate column highlights in amber only when a corporate service fee is set.
-- `/users` — customer management with full CRUD for both Individual and Corporate profiles. Tabbed list (Individual / Corporate) with search and stat tiles; "Add Customer" button and per-row Edit/Delete actions. Create/edit share one dialog (`components/shared/customer-form-dialog.tsx`) with an Individual/Corporate segmented control — corporate selection reveals a required, auto-uppercased GST field — plus Active and Promo Eligible switches. Inline Promo Eligible/Blocked toggle per row (calls `PATCH /admin/users/:id/promo-applicable`). Delete confirms, then moves the customer to trash.
-- `/users/[id]` — customer profile page: header with type badge, GST, contact info, and Edit/Delete buttons; stat tiles (applications, approved, rejected, total spend); document vault with ZIP download; application history table
-- `/promo-codes` — full CRUD for promo codes (code, description, discount type/value, active toggle, show-on-website toggle, expiry date, usage limit, trash). Right-slide history drawer shows per-use breakdown (user, email, discount applied, date, application reference)
-- `/leads` — contact form submissions
-- `/notifications` — admin notifications
+- `/login`: email + password form
+- `/dashboard`: live stats
+- `/applications`: list with filters; `/applications/[id]`: full detail, document review, approval
+- `/processing`: Kanban board
+- `/countries`: country management: name, flag, ISO code, Active toggle (green), "Show on Website" toggle (violet), "Edit Content" button
+- `/countries/[id]/content`: country web content editor. Two-column layout: left = form (photos, hero tagline, overview, highlights chips, requirements, processing info, tips, unlimited FAQs); right = sticky "What users see" page map (color-coded zones showing where each field renders on the public page) + live Content Status checklist (green/grey dots per field). Each form section has a colored location badge (violet = header, orange = slider, blue = overview, teal = requirements, amber = tips, rose = FAQs).
+- `/visa-types`: visa type management. The add/edit dialog is a **5-step wizard**: **Information** (country, name, description, visa details) → **Pricing** → **Form** (presets + dynamic fields & document requirements) → **Additional Notes** → **Terms**. Footer Back/Continue walk the steps; validation errors jump to the tab that owns them (missing visa fee → Pricing, missing country/name/processing time → Information), and each tab shows a green tick when its required fields are satisfied. The **Pricing** tab is split by who the charge belongs to: one *Government & VFS charges* grid (Adult/Child Visa Fee + VFS Fee, entered once, same for everyone) and one *Service fee* grid with Individual and Corporate rows (Adult/Child each), where a blank corporate cell inherits the individual fee and 0 waives it; a live "Customer pays (incl. 18% GST)" grid previews both account types. The **Terms** tab (`components/shared/terms-editor.tsx`) builds the per-visa consent checkboxes (free-text wording, Mandatory toggle, Default-selected toggle). List toolbar has name/description search, country + category + status filters, a sort dropdown (name A–Z/Z–A, price low↔high, newest/oldest), and a clear-filters shortcut; the table's Corporate column highlights in amber only when a corporate service fee is set.
+- `/users`: customer management with full CRUD for both Individual and Corporate profiles. Tabbed list (Individual / Corporate) with search and stat tiles; "Add Customer" button and per-row Edit/Delete actions. Create/edit share one dialog (`components/shared/customer-form-dialog.tsx`) with an Individual/Corporate segmented control, corporate selection reveals a required, auto-uppercased GST field, plus Active and Promo Eligible switches. Inline Promo Eligible/Blocked toggle per row (calls `PATCH /admin/users/:id/promo-applicable`). Delete confirms, then moves the customer to trash.
+- `/users/[id]`: customer profile page: header with type badge, GST, contact info, and Edit/Delete buttons; stat tiles (applications, approved, rejected, total spend); document vault with ZIP download; application history table
+- `/promo-codes`: full CRUD for promo codes (code, description, discount type/value, active toggle, show-on-website toggle, expiry date, usage limit, trash). Right-slide history drawer shows per-use breakdown (user, email, discount applied, date, application reference)
+- `/leads`: contact form submissions
+- `/notifications`: admin notifications
 
 **Key capabilities:**
-- No-code dynamic form builder — admin configures `formFields` per visa type
+- No-code dynamic form builder, admin configures `formFields` per visa type
 - Per-traveler fee components (visa/VFS shared, service fee with a corporate override) per visa type
-- Per-visa Terms & Conditions builder — consent checkboxes shown to the applicant before payment
+- Per-visa Terms & Conditions builder, consent checkboxes shown to the applicant before payment
 - Per-document review with approve/reject + reason
 - Bulk document approval
 - Manual payment override
@@ -734,9 +734,9 @@ ADMIN_URL=http://localhost:3001
 ## Default Seed Data
 
 Running `npm run seed` creates:
-- **1 Super Admin** — `admin@pravasatransworld.com` / `Admin@123`
-- **8 Countries** — with flags and descriptions
-- **3 Visa Types** — across different countries, with sample form fields and document requirements
+- **1 Super Admin**: `admin@pravasatransworld.com` / `Admin@123`
+- **8 Countries**: with flags and descriptions
+- **3 Visa Types**: across different countries, with sample form fields and document requirements
 
 ---
 
@@ -749,13 +749,13 @@ Running `npm run seed` creates:
 | Separate admin portal (port 3001) | Hard separation of concerns; admin never touches user portal code |
 | Shared `types/` package | Single source of truth for API contracts across portals |
 | Dynamic form builder | Agencies can configure visa-specific fields without code changes |
-| Pricing snapshot at creation time | `paymentAmount` + per-traveler fee components + `gstAmount` are locked when the application is created — no price drift on receipts if the admin edits visa type fees later |
+| Pricing snapshot at creation time | `paymentAmount` + per-traveler fee components + `gstAmount` are locked when the application is created, no price drift on receipts if the admin edits visa type fees later |
 | GST added on top (fixed 18%) | Single `GST_RATE` constant mirrored in backend and frontend; totals displayed everywhere are GST-inclusive, component breakdown reserved for the receipt PDF and the checkout hover tooltip |
 | Only the service fee varies by account type | Visa and VFS fees are pass-through government/VFS charges (same for everyone), so they're stored once; the service fee is our margin and is the sole corporate override. Cuts the corporate fields from six to two and lets the Pricing tab show both account types on one screen |
-| Terms snapshotted onto the application | `acceptedTerms` stores the exact wording ticked at submission, so the record of what was agreed survives later edits to the visa type's terms — same reasoning as the pricing snapshot. Required terms are enforced server-side, not just via the disabled button |
-| User-scoped Cloudinary folders | `users/{id}/documents`, `vault`, `profile` — isolates each user's assets, simplifies auditing and deletion |
+| Terms snapshotted onto the application | `acceptedTerms` stores the exact wording ticked at submission, so the record of what was agreed survives later edits to the visa type's terms, same reasoning as the pricing snapshot. Required terms are enforced server-side, not just via the disabled button |
+| User-scoped Cloudinary folders | `users/{id}/documents`, `vault`, `profile`: isolates each user's assets, simplifies auditing and deletion |
 | Application reference format `PRS-{CC}-{NNNN}` | Human-readable, country-identifiable, short enough for receipts and support tickets |
 | Sidebar hidden on mobile | Small screens can't accommodate a persistent left sidebar; top navbar + drawer is standard mobile UX |
 | Notifications removed from sidebar nav | Bell icon in header gives instant access; sidebar space reserved for primary workflow navigation |
-| Payment gated on doc approval | Prevents payment before admin validates documents — reduces refund risk |
+| Payment gated on doc approval | Prevents payment before admin validates documents, reduces refund risk |
 | 10-stage linear status flow | Mirrors real-world embassy processing pipeline; easy to audit |

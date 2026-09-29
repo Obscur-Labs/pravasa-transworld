@@ -137,7 +137,7 @@ export default function PromoCodesPage() {
 
   const handleToggleWebsite = async (p: PromoCode) => {
     // Turning one promo's website visibility on turns every other one off server-side,
-    // so a single-row optimistic patch isn't enough — reload the whole list instead.
+    // so a single-row optimistic patch isn't enough, reload the whole list instead.
     try {
       await togglePromoWebsite(p._id);
       load();

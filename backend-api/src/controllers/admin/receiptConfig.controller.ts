@@ -27,7 +27,7 @@ export const updateReceiptConfig = async (req: AdminRequest, res: Response): Pro
 };
 
 // Generates a receipt from synthetic data (no real payment involved) so an admin can
-// preview the printed layout — one demo covers the corporate/tax-invoice format, since
+// preview the printed layout, one demo covers the corporate/tax-invoice format, since
 // it's the superset of what an individual receipt shows.
 export const downloadDemoReceipt = async (_req: AdminRequest, res: Response): Promise<void> => {
   const company = await getCompanyInfo();

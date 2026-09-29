@@ -81,7 +81,7 @@ export default function PaymentHistoryPage() {
           <div className="bg-white rounded-xl border border-slate-200 p-5">
             <p className="text-xs text-slate-400 mb-1">Last Payment</p>
             <p className="text-2xl font-bold text-slate-900">
-              {payments[0] ? formatDate(payments[0].paidAt || payments[0].createdAt) : '—'}
+              {payments[0] ? formatDate(payments[0].paidAt || payments[0].createdAt) : '-'}
             </p>
           </div>
         </div>

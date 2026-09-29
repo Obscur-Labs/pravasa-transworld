@@ -1,6 +1,6 @@
 import { IVisaType } from '../models/VisaType';
 
-// GST is a fixed 18% and applies ONLY to the service fee — our own margin. Visa fees
+// GST is a fixed 18% and applies ONLY to the service fee, our own margin. Visa fees
 // and VFS fees are pass-through government/VFS charges and are never taxed, in any case.
 export const GST_RATE = 0.18;
 
@@ -23,7 +23,7 @@ type PricingFields = Pick<
 // Per-traveler pricing = visa fee + VFS fee + service fee. Falls back to legacy single
 // price for older visa types.
 //
-// The visa fee and VFS fee are pass-through government/VFS charges — identical for
+// The visa fee and VFS fee are pass-through government/VFS charges, identical for
 // individual and corporate accounts. Only the service fee (our own margin) varies by
 // account type, so it is the sole corporate override. A corporate service fee of 0
 // explicitly waives it; leaving it unset charges the standard service fee.
@@ -48,7 +48,7 @@ export function computeSubtotal(breakdown: PriceBreakdown, numAdults: number, nu
   );
 }
 
-// Total service fee across all travelers — the only GST-taxable component.
+// Total service fee across all travelers, the only GST-taxable component.
 export function computeServiceFeeTotal(breakdown: PriceBreakdown, numAdults: number, numChildren: number): number {
   return numAdults * breakdown.adultFee + numChildren * breakdown.childFee;
 }

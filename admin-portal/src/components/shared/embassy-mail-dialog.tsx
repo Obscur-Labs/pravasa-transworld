@@ -56,7 +56,7 @@ interface EmbassyMailDialogProps {
  * Composes the covering mail that forwards an application to an embassy or agency.
  *
  * The draft arrives already written from the saved format (Embassy Mail Config) with
- * this application's trip details filled in — the admin's job is to check it, pick which
+ * this application's trip details filled in, the admin's job is to check it, pick which
  * form details and documents ride along, and confirm. Everything stays editable right up
  * to the send, because one mission always wants something phrased its own way.
  *
@@ -80,7 +80,7 @@ export function EmbassyMailDialog({
   const [selected, setSelected] = useState<string[]>([]);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
 
-  // Reload every time it opens — documents get approved and templates get edited
+  // Reload every time it opens, documents get approved and templates get edited
   // between one send and the next.
   useEffect(() => {
     if (!open) return;
@@ -103,7 +103,7 @@ export function EmbassyMailDialog({
       .finally(() => setLoading(false));
   }, [open, applicationId]);
 
-  // Ticking a detail rewrites the message from the saved format — until the admin types
+  // Ticking a detail rewrites the message from the saved format, until the admin types
   // in it, after which the wording is theirs and we warn rather than overwrite.
   useEffect(() => {
     if (!draft || bodyEdited) return;
@@ -141,7 +141,7 @@ export function EmbassyMailDialog({
     } catch (err: any) {
       toast({
         title: 'Mail not sent',
-        description: err.response?.data?.message || 'Something went wrong — nothing was delivered.',
+        description: err.response?.data?.message || 'Something went wrong. Nothing was delivered.',
         variant: 'destructive',
       });
       setConfirming(false);
@@ -157,7 +157,7 @@ export function EmbassyMailDialog({
 
   // The message was written listing the documents that were ticked when it loaded. Once
   // that set changes, the list in the text no longer matches what will actually be
-  // attached — the body is the admin's to fix, so say so rather than rewriting it.
+  // attached, the body is the admin's to fix, so say so rather than rewriting it.
   const initialSelection = (draft?.documents || []).filter((d) => d.selected).map((d) => d._id);
   const selectionChanged =
     initialSelection.length !== selected.length || initialSelection.some((id) => !selected.includes(id));
@@ -171,7 +171,7 @@ export function EmbassyMailDialog({
             Send to Embassy / Agency
           </DialogTitle>
           <DialogDescription>
-            Application <span className="font-mono">{applicationRef}</span> — drafted from your saved format.
+            Application <span className="font-mono">{applicationRef}</span>, drafted from your saved format.
           </DialogDescription>
         </DialogHeader>
 
@@ -227,7 +227,7 @@ export function EmbassyMailDialog({
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-[13px] font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Sent exactly as written — line breaks and spacing are preserved.
+                  Sent exactly as written: line breaks and spacing are preserved.
                   {!bodyEdited && (draft?.formFields.length || 0) > 0
                     ? ' Rewritten as you tick details below, until you edit it yourself.'
                     : ''}
@@ -271,7 +271,7 @@ export function EmbassyMailDialog({
                           />
                           <span className="text-sm text-foreground flex-1 min-w-0 truncate">{field.label}</span>
                           <span className="text-xs text-muted-foreground max-w-[45%] truncate">
-                            {field.value || '—'}
+                            {field.value || '-'}
                           </span>
                         </label>
                       </Fragment>
@@ -285,7 +285,7 @@ export function EmbassyMailDialog({
                   {staleBody && (
                     <p className="text-xs text-warning mt-2 flex items-start gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
-                      You edited the message, so it is no longer rewritten automatically — this
+                      You edited the message, so it is no longer rewritten automatically; this
                       selection does not change what it says. Edit the message to match.
                     </p>
                   )}
@@ -328,7 +328,7 @@ export function EmbassyMailDialog({
                 {selectionChanged && (
                   <p className="text-xs text-warning mt-2 flex items-start gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
-                    You changed the selection — the document list written in the message above no longer
+                    You changed the selection, so the document list written in the message above no longer
                     matches it. Edit the message if the embassy should see the correct list.
                   </p>
                 )}
@@ -336,7 +336,7 @@ export function EmbassyMailDialog({
                 {rejectedSelected > 0 && (
                   <p className="text-xs text-destructive mt-2 flex items-start gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
-                    {rejectedSelected} rejected document(s) are selected — the embassy will receive the version you turned down.
+                    {rejectedSelected} rejected document(s) are selected. The embassy will receive the version you turned down.
                   </p>
                 )}
               </div>

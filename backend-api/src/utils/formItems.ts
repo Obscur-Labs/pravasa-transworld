@@ -34,7 +34,7 @@ export function normalizeFormItems<T extends { formFields?: any[]; documentRequi
   const docs = (hasDocs ? body.documentRequirements! : []).filter((d) => str(d?.name));
 
   // `order` spans both arrays. Coherent orders (all distinct) are authoritative.
-  // Records written before documents had an `order` have every document at 0 — that
+  // Records written before documents had an `order` have every document at 0, that
   // duplication is the tell, and they fall back to "fields first, then documents" in
   // stored array order, exactly how they used to render. Mirrors mergeFormItems()
   // in both portals, so a plain open-and-save in the admin heals old data.

@@ -5,7 +5,7 @@ import { IDocument } from '../models/Document';
  * Fills the saved embassy-mail template with one application's data.
  *
  * The result is plain text and lands in the composer for the admin to edit before
- * sending, so everything here is written to be readable as-is — the mail that goes out
+ * sending, so everything here is written to be readable as-is, the mail that goes out
  * is exactly the text they approved, rendered with its line breaks preserved.
  *
  * Unknown placeholders are deliberately left untouched: a typo like {{referenceID}}
@@ -45,7 +45,7 @@ export const PLACEHOLDERS: Placeholder[] = [
 
 const TRAVELER_RE = /^(Adult \d+|Child \d+)\s*[-–—]\s*/i;
 
-/** "Adult 1 — Full Name" → "Adult 1"; empty for answers that belong to the trip. */
+/** "Adult 1, Full Name" → "Adult 1"; empty for answers that belong to the trip. */
 function travelerOf(key: string): string {
   const m = key.match(TRAVELER_RE);
   return m ? m[1] : '';
@@ -64,7 +64,7 @@ function sortTravelers(a: string, b: string): number {
 
 /** One answer from the form, offered to the composer as its own tickable line. */
 export interface FormDetail {
-  /** The original formResponses key — what the composer ticks and untickss by. */
+  /** The original formResponses key, what the composer ticks and untickss by. */
   key: string;
   /** "Adult 1", "Child 1", or empty for answers that belong to the trip as a whole. */
   group: string;

@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 // Deliberately a flat, category-discriminated lookup table (not one schema per list) so
-// adding a new configurable list later (e.g. a "process type") needs no schema change —
+// adding a new configurable list later (e.g. a "process type") needs no schema change,
 // just a new category string and a tab in the admin UI.
 export type VisaConfigCategory = 'jurisdiction' | 'visaCategory' | 'visaSubType' | 'entryType';
 

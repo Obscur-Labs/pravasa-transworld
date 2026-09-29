@@ -59,7 +59,7 @@ export interface IVisaTerm {
   order: number;
 }
 
-// Widened to plain string — these value sets are now admin-configurable via VisaConfigOption
+// Widened to plain string, these value sets are now admin-configurable via VisaConfigOption
 // (see visaConfig.controller.ts), not fixed at build time.
 export type EntryType = string;
 export type VisaSubType = string;
@@ -73,9 +73,9 @@ export interface IVisaType extends Document {
   description: string;
   price: number;
   // Per-traveler pricing: visa fee (base) + VFS fee + service fee, GST (18%) applied on top.
-  // Visa and VFS fees are pass-through charges — identical for individual and corporate
+  // Visa and VFS fees are pass-through charges, identical for individual and corporate
   // accounts. The service fee is our own margin, so it is the only component that varies
-  // by account type (and is optional — often waived for corporate).
+  // by account type (and is optional, often waived for corporate).
   adultPrice: number;
   childPrice: number;
   adultVfsFee: number;

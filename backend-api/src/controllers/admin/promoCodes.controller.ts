@@ -4,7 +4,7 @@ import PromoCode from '../../models/PromoCode';
 import { sendSuccess, sendError } from '../../utils/response';
 import { logActivity } from '../../utils/activityLog';
 
-// Only one promo code may be shown on the website at a time — turning one on
+// Only one promo code may be shown on the website at a time, turning one on
 // silently turns every other one off.
 const enforceSingleWebsitePromo = async (exceptId: unknown): Promise<void> => {
   await PromoCode.updateMany({ _id: { $ne: exceptId }, showOnWebsite: true }, { showOnWebsite: false });

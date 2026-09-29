@@ -62,7 +62,7 @@ router.route('/visa-config/:id').put(visaConfig.updateVisaConfigOption).delete(v
 router.route('/receipt-config').get(receiptConfig.getReceiptConfig).put(receiptConfig.updateReceiptConfig);
 router.get('/receipt-config/demo', receiptConfig.downloadDemoReceipt);
 
-// Embassy Mail Config — the default format every embassy mail starts from
+// Embassy Mail Config, the default format every embassy mail starts from
 router.route('/embassy-mail-config').get(embassyMail.getEmbassyMailConfig).put(embassyMail.updateEmbassyMailConfig);
 
 // Trash

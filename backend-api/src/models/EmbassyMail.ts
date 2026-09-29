@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 // One record per mail actually accepted by the provider, so "did we forward this to the
 // embassy, and what exactly did we send?" is answerable from the application itself.
-// Written after a successful send only — a failed send leaves no row.
+// Written after a successful send only, a failed send leaves no row.
 export interface IEmbassyMailAttachment {
   /** The Document it came from, or null once that document is deleted. */
   document: mongoose.Types.ObjectId | null;

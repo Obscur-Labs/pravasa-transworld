@@ -40,7 +40,7 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
 
 // Some missions want original papers in hand rather than scans. When the admin asks
 // for them, the applicant ships the documents and reports the consignment back. The
-// whole exchange sits outside the main flow — nothing here ever blocks an application.
+// whole exchange sits outside the main flow, nothing here ever blocks an application.
 export interface ICourierRequest {
   requested: boolean;
   instructions: string;
@@ -49,7 +49,7 @@ export interface ICourierRequest {
   trackingNumber: string;
   phone: string;
   // When the applicant expects the shipment to land, so the office knows what to watch
-  // for. Their estimate, not a commitment — receivedAt is what actually happened.
+  // for. Their estimate, not a commitment, receivedAt is what actually happened.
   expectedDate: string;
   submittedAt: Date | null;
   receivedAt: Date | null;
@@ -92,7 +92,7 @@ export interface IApplication extends Document {
   updatedAt: Date;
 }
 
-/** A cleared courier exchange — also the shape applications created before this existed get. */
+/** A cleared courier exchange, also the shape applications created before this existed get. */
 export const EMPTY_COURIER: ICourierRequest = {
   requested: false, instructions: '', address: '', requestedAt: null,
   trackingNumber: '', phone: '', expectedDate: '', submittedAt: null, receivedAt: null,

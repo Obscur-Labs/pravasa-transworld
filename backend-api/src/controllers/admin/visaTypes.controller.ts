@@ -89,7 +89,7 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
   if (body.childVfsFee !== undefined) body.childVfsFee = Number(body.childVfsFee || 0);
   if (body.adultServiceFee !== undefined) body.adultServiceFee = Number(body.adultServiceFee || 0);
   if (body.childServiceFee !== undefined) body.childServiceFee = Number(body.childServiceFee || 0);
-  // Blanking a corporate service fee must remove it, not leave the old value in place —
+  // Blanking a corporate service fee must remove it, not leave the old value in place,
   // Mongoose skips `undefined` in an update, so clearing needs an explicit $unset.
   const unset: Record<string, ''> = {};
   for (const field of ['corporateAdultServiceFee', 'corporateChildServiceFee'] as const) {

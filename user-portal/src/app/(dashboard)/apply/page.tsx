@@ -33,7 +33,7 @@ type Traveler = { key: string; label: string; type: 'adult' | 'child' };
 const STEPS = ['Country', 'Visa Type', 'Applicant Details', 'Review & Pay'];
 const DRAFT_KEY = 'visa_app_draft';
 const ACCEPTED = '.jpg,.jpeg,.png,.pdf';
-// Fixed 18% GST applied to the service fee only (visa + VFS are untaxed) — mirrors backend.
+// Fixed 18% GST applied to the service fee only (visa + VFS are untaxed), mirrors backend.
 const GST_RATE = 0.18;
 
 function formatBytes(bytes: number) {
@@ -44,7 +44,7 @@ function formatBytes(bytes: number) {
 
 
 const isPassportReq = (name: string) => name.toLowerCase().includes('passport');
-// Only the explicit 'passport' docType renders the 2-slot front+back uploader — a
+// Only the explicit 'passport' docType renders the 2-slot front+back uploader, a
 // document merely named "passport ..." (e.g. an extra/external page) should not be
 // swept into the pair card, it just needs a single simple upload.
 const isPassportPair = (req: DocumentRequirement) => req.docType === 'passport';
@@ -101,7 +101,7 @@ const questionsForTraveler = (fields: FormField[], tr: Traveler, formData: Recor
 const docsForTraveler = (docs: DocumentRequirement[], tr: Traveler) =>
   docs.filter((d) => appliesToTraveler(d.applicantType, tr.type));
 
-// Questions and document uploads are one list for the applicant — the admin authors
+// Questions and document uploads are one list for the applicant, the admin authors
 // them in a single sequence, so they render interleaved in exactly that order.
 const itemsForTraveler = (fields: FormField[], docs: DocumentRequirement[], tr: Traveler): FormItem[] =>
   mergeFormItems(fieldsForTraveler(fields, tr), docsForTraveler(docs, tr));
@@ -312,7 +312,7 @@ function VisaOverviewModal({
 
   const fullText = (() => {
     const lines: string[] = [];
-    lines.push(`${visa.name} — ${country.name}`);
+    lines.push(`${visa.name}, ${country.name}`);
     if (visa.description) lines.push(visa.description);
     lines.push('');
     lines.push('VISA DETAILS');
@@ -502,7 +502,7 @@ function VisaOverviewModal({
             </div>
           )}
 
-          {/* Information Required — fields and documents, in authored order */}
+          {/* Information Required, fields and documents, in authored order */}
           {overviewItems.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -557,7 +557,7 @@ function VisaOverviewModal({
             </div>
           )}
 
-          {/* Additional Notes — kept at the bottom of the modal */}
+          {/* Additional Notes, kept at the bottom of the modal */}
           {visa.additionalNotes?.trim() && (
             <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5">
               <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1.5">Additional Notes</p>
@@ -762,7 +762,7 @@ export default function ApplyPage() {
         if (typeof d.children === 'number') setChildren(d.children);
 
         // Visa type data (pricing, labels, sub-type, active status) is admin-controlled
-        // and can change after a draft was saved — never restore it from the cached
+        // and can change after a draft was saved, never restore it from the cached
         // snapshot, always re-fetch fresh and re-match the previously selected visa by id.
         if (d.selectedCountry?._id) {
           getPublicVisaTypes(d.selectedCountry._id).then((r) => {
@@ -782,7 +782,7 @@ export default function ApplyPage() {
 
   useEffect(() => {
     if (!draftRestored || !selectedCountry) return;
-    // visaTypes is intentionally excluded — it's always re-fetched fresh on restore (see above),
+    // visaTypes is intentionally excluded, it's always re-fetched fresh on restore (see above),
     // never trusted from this cache, since pricing/labels are admin-controlled and can change.
     const draft = { step, selectedCountry, selectedVisa, formData, passportValues, travelStartDate, travelEndDate, adults, children };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -873,7 +873,7 @@ export default function ApplyPage() {
       for (const tr of travelers) {
         for (const f of questionsForTraveler(sortedFields, tr, formData)) {
           const val = formData[`${tr.key}__${f.fieldName}`];
-          const key = `${tr.label} — ${f.label || f.fieldName}`.replace(/\./g, ' ');
+          const key = `${tr.label} - ${f.label || f.fieldName}`.replace(/\./g, ' ');
           if (val && String(val).trim()) responses[key] = String(val);
         }
       }
@@ -883,7 +883,7 @@ export default function ApplyPage() {
         const pv = passportValues[tr.key];
         if (!pv) continue;
         for (const [k, v] of Object.entries(pv)) {
-          if (v && v.trim()) responses[`${tr.label} — ${k}`.replace(/\./g, ' ').replace(/\s+/g, ' ').trim()] = v.trim();
+          if (v && v.trim()) responses[`${tr.label} - ${k}`.replace(/\./g, ' ').replace(/\s+/g, ' ').trim()] = v.trim();
         }
       }
       if (travelStartDate) responses['Travel Start Date'] = travelStartDate;
@@ -1178,7 +1178,7 @@ export default function ApplyPage() {
         )}
       </div>
       <p className="text-slate-500 text-sm mb-8">
-        {step > 1 || selectedCountry ? 'Your progress has been saved — continue where you left off.' : 'Complete the steps below to submit your application.'}
+        {step > 1 || selectedCountry ? 'Your progress has been saved. Continue where you left off.' : 'Complete the steps below to submit your application.'}
       </p>
 
       {/* Step Indicator */}
@@ -1540,7 +1540,7 @@ export default function ApplyPage() {
                 </div>
               </div>
 
-              {/* Promo Code — only for promoApplicable users */}
+              {/* Promo Code, only for promoApplicable users */}
               {user?.promoApplicable !== false && (
                 <div className="border border-violet-200 bg-violet-50 rounded-xl p-4">
                   <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide mb-2 flex items-center gap-1">
@@ -1554,7 +1554,7 @@ export default function ApplyPage() {
                           <span className="font-mono tracking-widest">{promoResult.code}</span> applied!
                         </p>
                         <p className="text-xs text-green-600 mt-0.5">
-                          You save {promoResult.discountType === 'percentage' ? `${promoResult.discountValue}%` : formatCurrency(promoResult.discountValue)} — {formatCurrency(promoResult.discount)} off
+                          You save {promoResult.discountType === 'percentage' ? `${promoResult.discountValue}%` : formatCurrency(promoResult.discountValue)} ({formatCurrency(promoResult.discount)} off)
                         </p>
                       </div>
                       <button onClick={removePromo} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
@@ -1607,7 +1607,7 @@ export default function ApplyPage() {
                   <div className="bg-brand-50 border border-brand-200 rounded-xl p-4">
                     <div className="flex items-center gap-1.5 mb-3">
                       <p className="text-xs text-brand-600 font-semibold uppercase tracking-wide">Payment Summary</p>
-                      {/* Hover (i) — full fee breakdown */}
+                      {/* Hover (i), full fee breakdown */}
                       <span className="relative group inline-flex">
                         <Info className="w-3.5 h-3.5 text-brand-500 cursor-help" />
                         <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20">
@@ -1679,7 +1679,7 @@ export default function ApplyPage() {
                 </p>
               </div>
 
-              {/* Terms configured by the admin for this visa type — mandatory ones gate submission. */}
+              {/* Terms configured by the admin for this visa type, mandatory ones gate submission. */}
               {visaTerms.length > 0 && (
                 <div className="border border-slate-200 rounded-xl p-4">
                   <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-3">Terms &amp; Conditions</p>

@@ -37,7 +37,7 @@ async function callGroqVision(imageBuffer: Buffer, prompt: string, temperature =
   const response = await withGroq('GROQ_VISION_API_KEY', (groq) => groq.chat.completions.create({
     model: VISION_MODEL,
     // Reasoning models burn the token budget on <think> traces and then wrap
-    // the answer in prose — turn both off so we get bare JSON back.
+    // the answer in prose, turn both off so we get bare JSON back.
     reasoning_effort: 'none',
     response_format: { type: 'json_object' },
     messages: [
@@ -138,9 +138,9 @@ export async function extractFromDocument(buffer: Buffer): Promise<ExtractedDocu
 
 const PASSPORT_FRONT_PROMPT = `You are an expert passport OCR system specialising in Indian passports.
 
-STRICT NAME EXTRACTION RULES — read carefully before extracting any name field:
+STRICT NAME EXTRACTION RULES: read carefully before extracting any name field:
 - Indian passports print all names in CAPITAL LETTERS in English (Latin script).
-- Extract ONLY the English printed text. Completely ignore any Hindi/Devanagari script — it appears next to or below the English name and must NOT be included.
+- Extract ONLY the English printed text. Completely ignore any Hindi/Devanagari script; it appears next to or below the English name and must NOT be included.
 - Names contain ONLY the letters A–Z and spaces. No numbers, no punctuation, no country codes, no gender codes (M/F).
 - Short name parts are real names and must be kept in full: OM, SAI, RAM, DEV, JAI, ALI and similar.
 - If you see stray 1–2 letter uppercase tokens after a name (e.g. "SHARMA FA", "KUMAR AS") that come from the Hindi text beside it, strip them, return only "SHARMA" / "KUMAR". Use MRZ line 1 to tell a real name part from such a fragment: real name parts appear in the MRZ.
@@ -148,33 +148,33 @@ STRICT NAME EXTRACTION RULES — read carefully before extracting any name field
 
 Extract the following from the FRONT page and return ONLY a JSON object (no explanation):
 {
-  "passportNo": "one letter followed by exactly 7 digits as printed (e.g. A1234567) — verify against MRZ line 2",
+  "passportNo": "one letter followed by exactly 7 digits as printed (e.g. A1234567); verify against MRZ line 2",
   "surname": "family name in CAPITAL LETTERS, English only, letters and spaces only",
   "givenNames": "given/first/middle name(s) in CAPITAL LETTERS, English only, letters and spaces only",
   "nationality": "as printed in English (e.g. INDIAN)",
-  "dateOfBirth": "DD/MM/YYYY — verify against MRZ",
+  "dateOfBirth": "DD/MM/YYYY; verify against MRZ",
   "sex": "MALE or FEMALE",
-  "placeOfBirth": "city and state of birth in CAPITAL LETTERS, separated by a comma (e.g. MUMBAI, MAHARASHTRA) — include both the city and the state/district as printed",
+  "placeOfBirth": "city and state of birth in CAPITAL LETTERS, separated by a comma (e.g. MUMBAI, MAHARASHTRA); include both the city and the state/district as printed",
   "placeOfIssue": "city name in CAPITAL LETTERS",
   "dateOfIssue": "DD/MM/YYYY",
-  "dateOfExpiry": "DD/MM/YYYY — verify against MRZ",
+  "dateOfExpiry": "DD/MM/YYYY; verify against MRZ",
   "mrzLine1": "the first MRZ line exactly as printed, including every < character (e.g. P<INDSHARMA<<RAHUL<KUMAR<<<<)",
   "rawText": "all readable English text including both MRZ lines"
 }`;
 
 const PASSPORT_BACK_PROMPT = `You are an expert passport OCR system specialising in Indian passports.
 
-STRICT NAME EXTRACTION RULES — read carefully before extracting any name field:
+STRICT NAME EXTRACTION RULES: read carefully before extracting any name field:
 - Indian passports print all names in CAPITAL LETTERS in English (Latin script).
-- Extract ONLY the English printed text. Completely ignore any Hindi/Devanagari script that appears near the name — do NOT include it.
+- Extract ONLY the English printed text. Completely ignore any Hindi/Devanagari script that appears near the name; do NOT include it.
 - Names contain ONLY the letters A–Z and spaces. No numbers, no codes, no abbreviations.
-- If you see stray 1–2 letter uppercase tokens after a name (e.g. "DEVI FA", "LAL AS") those are romanised Hindi fragments — strip them entirely.
+- If you see stray 1–2 letter uppercase tokens after a name (e.g. "DEVI FA", "LAL AS") those are romanised Hindi fragments, strip them entirely.
 
 Extract the following from the BACK page and return ONLY a JSON object (no explanation):
 {
-  "fatherName": "father/legal guardian full name — CAPITAL LETTERS, English only, letters and spaces only",
-  "motherName": "mother full name — CAPITAL LETTERS, English only, letters and spaces only",
-  "spouseName": "spouse name if present — CAPITAL LETTERS, English only, letters and spaces only; omit if not present",
+  "fatherName": "father/legal guardian full name, CAPITAL LETTERS, English only, letters and spaces only",
+  "motherName": "mother full name, CAPITAL LETTERS, English only, letters and spaces only",
+  "spouseName": "spouse name if present, CAPITAL LETTERS, English only, letters and spaces only; omit if not present",
   "address": "full residential address exactly as printed in English, in CAPITAL LETTERS",
   "rawText": "all readable English text from this page"
 }`;

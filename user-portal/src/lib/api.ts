@@ -46,10 +46,10 @@ export const submitContactLead = (data: { name: string; email: string; phone?: s
   api.post('/public/contact', data);
 export const getPublicVisaConfig = () => api.get('/public/visa-config');
 
-// User — Countries (all active, for the apply form — ignores showOnWebsite)
+// User, Countries (all active, for the apply form, ignores showOnWebsite)
 export const getActiveCountries = () => api.get('/user/countries');
 
-// User — Applications
+// User, Applications
 export const getDashboard = () => api.get('/user/dashboard');
 export const getApplications = () => api.get('/user/applications');
 export const createApplication = (data: { visaTypeId: string; formResponses: Record<string, string>; adults?: number; children?: number; travelDate?: string; acceptedTerms?: string[] }) =>
@@ -69,19 +69,19 @@ export const submitUpiPayment = (id: string, data: { paymentId: string; utr: str
 export const submitCourierDetails = (id: string, data: { trackingNumber: string; phone: string; expectedDate: string }) =>
   api.put(`/user/applications/${id}/courier`, data);
 
-// User — Document Vault
+// User, Document Vault
 export const getVaultDocuments = () => api.get('/user/vault');
 export const getVaultDocumentUrl = (id: string) => api.get(`/user/vault/${id}/url`);
 export const uploadVaultDocument = (formData: FormData) =>
   api.post('/user/vault', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 export const deleteVaultDocument = (id: string) => api.delete(`/user/vault/${id}`);
 
-// User — Payments
+// User, Payments
 export const getUserPayments = () => api.get('/user/payments');
 export const downloadReceipt = (id: string) =>
   api.get(`/user/payments/${id}/receipt`, { responseType: 'blob' });
 
-// User — Profile
+// User, Profile
 export const getUserProfile = () => api.get('/user/profile');
 export const updateProfile = (data: { name?: string; phone?: string; gstNumber?: string }) =>
   api.put('/user/profile', data);
