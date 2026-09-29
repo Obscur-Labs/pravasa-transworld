@@ -8,10 +8,11 @@ import { OptionListEditor } from './option-list-editor';
 import { ApplicantTypeSelector } from './applicant-type-selector';
 import { DOC_TYPE_OPTIONS, hasOptions, mergeFormItems, toFieldName } from '@/types';
 import type { FormField, FormItem, DocumentRequirement, DocumentType, FieldType, SubField } from '@/types';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea'];
 const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
-const selectClass = 'mt-0.5 w-full h-8 px-2 rounded-lg border border-input bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring';
+const selectClass = 'mt-0.5 h-8 px-2 text-xs';
 
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult', subFields: [] });
 const emptySubField = (): SubField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', showWhen: [] });
@@ -76,9 +77,9 @@ function SubFieldEditor({ parent, sub, onChange, onRemove }: {
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Type</label>
-          <select value={sub.type} onChange={(e) => set({ type: e.target.value as FieldType })} className={selectClass}>
+          <NativeSelect value={sub.type} onChange={(e) => set({ type: e.target.value as FieldType })} className={selectClass}>
             {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          </NativeSelect>
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Placeholder</label>
@@ -233,9 +234,9 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Type</label>
-                    <select value={item.field.type} onChange={(e) => updateField(i, 'type', e.target.value)} className={selectClass}>
+                    <NativeSelect value={item.field.type} onChange={(e) => updateField(i, 'type', e.target.value)} className={selectClass}>
                       {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Placeholder</label>
@@ -278,9 +279,9 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
                   <div>
                     <label className="text-xs text-muted-foreground">Type</label>
-                    <select value={item.doc.docType || 'custom'} onChange={(e) => updateDocType(i, e.target.value as DocumentType)} className={selectClass}>
+                    <NativeSelect value={item.doc.docType || 'custom'} onChange={(e) => updateDocType(i, e.target.value as DocumentType)} className={selectClass}>
                       {DOC_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Name</label>

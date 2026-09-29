@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getEmbassyMailDraft, sendEmbassyMail } from '@/lib/api';
 import type { EmbassyMailDraft, EmbassyMailDraftField } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
 
 /**
  * Mirrors the server's renderer so the message can be rewritten as details are ticked
@@ -219,12 +220,12 @@ export function EmbassyMailDialog({
 
               <div>
                 <Label htmlFor="embassy-body">Message</Label>
-                <textarea
+                <Textarea
                   id="embassy-body"
                   rows={16}
                   value={body}
                   onChange={(e) => { setBody(e.target.value); setBodyEdited(true); setConfirming(false); }}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-[13px] font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                  className="mt-1 text-[13px] font-mono leading-relaxed resize-y"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Sent exactly as written: line breaks and spacing are preserved.

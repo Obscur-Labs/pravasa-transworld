@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getPaymentConfig, updatePaymentConfig } from '@/lib/api';
 import type { PaymentConfig } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
 
 type FormState = Omit<PaymentConfig, '_id'>;
 
@@ -121,12 +122,12 @@ export default function PaymentConfigPage() {
                 <div className="space-y-2.5">
                   {form.terms.map((term, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <textarea
+                      <Textarea
                         rows={2}
                         value={term}
                         onChange={(e) => setTerm(i, e.target.value)}
                         aria-label={`Confirmation ${i + 1}`}
-                        className="flex-1 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                        className="flex-1"
                       />
                       <Button variant="ghost" size="icon" aria-label={`Remove confirmation ${i + 1}`}
                         onClick={() => setForm({ ...form, terms: form.terms.filter((_, j) => j !== i) })}>

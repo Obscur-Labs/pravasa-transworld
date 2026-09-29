@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { getPublicCountryBySlug } from '@/lib/api';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
+import { useHasSession } from '@/lib/useHasSession';
 import type { Country, VisaType } from '@/types';
 import {
   ArrowRight, ChevronRight, ChevronLeft, Clock, Shield, Globe, CreditCard,
@@ -181,6 +182,7 @@ function VisaInfoGrid({ vt }: { vt: VisaType }) {
 /* ─── Main Page ─── */
 export default function CountryDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const hasSession = useHasSession();
   const [data, setData] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -435,7 +437,7 @@ export default function CountryDetailPage() {
             {/* Apply CTA */}
             <div className="space-y-3">
               <Link
-                href="/register"
+                href={hasSession ? '/apply' : '/register'}
                 className="flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-extrabold text-sm px-5 py-3.5 rounded-2xl w-full transition-all shadow-lg shadow-brand-600/20"
               >
                 Start Application <ArrowRight className="w-4 h-4" />
@@ -447,10 +449,10 @@ export default function CountryDetailPage() {
             </div>
 
             {/* Already have account */}
-            <p className="text-center text-xs text-slate-400 font-medium">
+            {!hasSession && <p className="text-center text-xs text-slate-400 font-medium">
               Already have an account?{' '}
               <Link href="/login" className="text-brand-600 font-semibold hover:underline">Sign in</Link>
-            </p>
+            </p>}
           </div>
 
         </div>
@@ -460,7 +462,7 @@ export default function CountryDetailPage() {
           <Link href="/countries" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 font-semibold text-sm transition-colors">
             <ArrowLeft className="w-4 h-4" /> All Destinations
           </Link>
-          <Link href="/register" className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors">
+          <Link href={hasSession ? '/apply' : '/register'} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors">
             Apply for {country.name} Visa <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

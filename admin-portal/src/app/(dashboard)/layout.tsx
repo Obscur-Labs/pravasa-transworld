@@ -21,6 +21,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const openPalette = useCommandPaletteStore((s) => s.setOpen);
+  // The palette opens on either key; show the one this keyboard has.
+  const [shortcut, setShortcut] = useState('Ctrl K');
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.userAgent)) setShortcut('⌘K');
+  }, []);
 
   useEffect(() => {
     if (_hasHydrated && !isAuthenticated) router.push('/login');
@@ -95,7 +100,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <Search className="w-3.5 h-3.5" />
               <span className="flex-1 text-left">Search...</span>
-              <kbd className="text-[10px] font-mono bg-background border border-border rounded px-1.5 py-0.5">⌘K</kbd>
+              <kbd className="text-[10px] font-mono bg-background border border-border rounded px-1.5 py-0.5">{shortcut}</kbd>
             </button>
 
             <div className="flex items-center gap-1">

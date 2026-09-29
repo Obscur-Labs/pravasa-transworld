@@ -1,13 +1,15 @@
 ﻿'use client';
 import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
+import { LayoutDashboard, Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import InstallAppButton from '@/components/pwa/InstallAppButton';
+import { useHasSession } from '@/lib/useHasSession';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const hasSession = useHasSession();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -58,26 +60,37 @@ export default function Navbar() {
               iconOnly
               className="p-2 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="text-slate-600 hover:text-brand-600 hover:bg-slate-50 font-semibold border-0"
-            >
-              <Link href="/login">Sign In</Link>
-            </Button>
-            <Button
-              size="sm"
-              asChild
-              className="bg-gold-600 hover:bg-gold-700 text-white shadow-md shadow-gold-600/20 border-0 font-semibold"
-            >
-              <Link href="/register">Get Started</Link>
-            </Button>
+            {hasSession ? (
+              <Button size="sm" asChild className="bg-gold-600 hover:bg-gold-700 text-white shadow-md shadow-gold-600/20 border-0 font-semibold">
+                <Link href="/dashboard"><LayoutDashboard className="w-4 h-4 mr-1.5" aria-hidden />Go to Dashboard</Link>
+              </Button>
+            ) : (
+              // Kept invisible (not removed) until the session check runs, so the header doesn't jump.
+              <div className={`flex items-center gap-2 ${hasSession === null ? 'invisible' : ''}`}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className="text-slate-600 hover:text-brand-600 hover:bg-slate-50 font-semibold border-0"
+                >
+                  <Link href="/login">Sign In</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  asChild
+                  className="bg-gold-600 hover:bg-gold-700 text-white shadow-md shadow-gold-600/20 border-0 font-semibold"
+                >
+                  <Link href="/register">Get Started</Link>
+                </Button>
+              </div>
+            )}
           </div>
 
           <button
             className="md:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
             onClick={() => setOpen(!open)}
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
           >
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -101,12 +114,20 @@ export default function Navbar() {
               label="Install the App"
               className="w-full flex items-center justify-center gap-2 rounded-md border border-brand-200 bg-brand-50 py-2 text-sm font-semibold text-brand-800 hover:bg-brand-100 transition-colors"
             />
-            <Button variant="outline" size="sm" className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold" asChild>
-              <Link href="/login">Sign In</Link>
-            </Button>
-            <Button size="sm" className="w-full bg-gold-600 hover:bg-gold-700 text-white font-semibold" asChild>
-              <Link href="/register">Get Started</Link>
-            </Button>
+            {hasSession ? (
+              <Button size="sm" className="w-full bg-gold-600 hover:bg-gold-700 text-white font-semibold" asChild>
+                <Link href="/dashboard"><LayoutDashboard className="w-4 h-4 mr-1.5" aria-hidden />Go to Dashboard</Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold" asChild>
+                  <Link href="/login">Sign In</Link>
+                </Button>
+                <Button size="sm" className="w-full bg-gold-600 hover:bg-gold-700 text-white font-semibold" asChild>
+                  <Link href="/register">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}

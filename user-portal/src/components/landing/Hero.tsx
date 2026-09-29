@@ -3,8 +3,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Shield, Clock, Star, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useHasSession } from '@/lib/useHasSession';
 
 export default function Hero() {
+  const hasSession = useHasSession();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const visaTemplates = [
@@ -86,7 +88,7 @@ export default function Hero() {
                 asChild
                 className="group bg-brand-600 hover:bg-brand-700 text-white shadow-xl shadow-brand-600/10 hover:shadow-brand-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border-0 text-base font-semibold"
               >
-                <Link href="/login">
+                <Link href={hasSession ? '/apply' : '/login'}>
                   Apply For Visa
                   <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>

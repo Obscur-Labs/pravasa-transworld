@@ -16,11 +16,12 @@ function NavLink({ href, label, icon: Icon, active, onNavigate }: NavItem & { ac
     <Link
       href={href}
       onClick={onNavigate}
+      aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-lg border-l-2 pl-[10px] pr-3 py-2.5 text-sm font-medium transition-colors',
+        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active
-          ? 'border-primary bg-accent text-primary'
-          : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+          ? 'bg-accent font-semibold text-primary'
+          : 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
       <Icon className="h-4 w-4 flex-shrink-0" />

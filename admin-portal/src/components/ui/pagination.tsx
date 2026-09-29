@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStoredPrefs } from '@/lib/useStoredPrefs';
+import { NativeSelect } from '@/components/ui/native-select';
 
 /** 0 means show everything on one page. */
 export const PAGE_SIZES = [10, 25, 50, 100, 0] as const;
@@ -64,13 +65,13 @@ export function Pagination({ page, pageSize, total, onPageChange, onPageSizeChan
         <span className="tabular-nums">{from}-{to} of {total}</span>
         <label className="flex items-center gap-2">
           <span className="hidden sm:inline">Rows</span>
-          <select
+          <NativeSelect
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="h-8 px-2 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="h-8 w-auto px-2"
           >
             {PAGE_SIZES.map((size) => <option key={size} value={size}>{size || 'All'}</option>)}
-          </select>
+          </NativeSelect>
         </label>
       </div>
 

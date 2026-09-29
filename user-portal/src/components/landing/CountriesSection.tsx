@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { getPublicCountries } from '@/lib/api';
 import type { Country } from '@/types';
+import { useHasSession } from '@/lib/useHasSession';
 
 const FALLBACK_COUNTRIES: Country[] = [
   { _id: 'ca', name: 'Canada', flag: 'ca', description: 'Tourist, Student & Work visas', slug: undefined },
@@ -18,6 +19,7 @@ const FALLBACK_COUNTRIES: Country[] = [
 ];
 
 export default function CountriesSection() {
+  const hasSession = useHasSession();
   const [countries, setCountries] = useState<Country[]>([]);
 
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function CountriesSection() {
             asChild
             className="group bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white shadow-xl shadow-brand-500/10 hover:shadow-brand-500/20 hover:scale-105 transition-all duration-300 border-0"
           >
-            <Link href="/login">
+            <Link href={hasSession ? '/apply' : '/login'}>
               Apply Now
               <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>

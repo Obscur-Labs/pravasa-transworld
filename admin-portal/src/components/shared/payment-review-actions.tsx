@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from '@/components/ui/use-toast';
 import { approvePayment, rejectPayment } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 // The usual reasons a UPI submission can't be matched, one click away.
 const QUICK_REASONS = [
@@ -97,13 +98,13 @@ export function PaymentReviewActions({ paymentId, amount, utr, onDone, size = 's
               </button>
             ))}
           </div>
-          <textarea
+          <Textarea
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason shown to the customer"
             aria-label="Rejection reason"
-            className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            
           />
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>

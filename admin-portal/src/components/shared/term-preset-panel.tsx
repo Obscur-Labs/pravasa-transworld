@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
 import { createTermPreset, getTermPresets } from '@/lib/api';
 import type { TermPreset, VisaTerm } from '@/types';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -64,7 +65,7 @@ export function TermPresetPanel({ terms, onChange }: { terms: VisaTerm[]; onChan
         </Link>
       </div>
       <div className="flex flex-col sm:flex-row gap-2">
-        <select
+        <NativeSelect
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
           className="flex-1 h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -73,7 +74,7 @@ export function TermPresetPanel({ terms, onChange }: { terms: VisaTerm[]; onChan
           {presets.map((p) => (
             <option key={p._id} value={p._id}>{p.name} ({p.terms.length} term{p.terms.length === 1 ? '' : 's'})</option>
           ))}
-        </select>
+        </NativeSelect>
         <Button type="button" variant="outline" disabled={!selectedId} onClick={applyPreset}>
           <Plus className="w-3.5 h-3.5 mr-1" /> Add terms
         </Button>

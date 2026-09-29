@@ -12,6 +12,7 @@ import { getApplications } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import type { Application, ApplicationStatus } from '@/types';
 import { STATUS_LABELS, ALL_STATUSES } from '@/types';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const statusVariant = (s: string) => {
   if (s === 'visa_approved' || s === 'visa_delivered') return 'success';
@@ -72,16 +73,16 @@ export default function ApplicationsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
-          <select
+          <NativeSelect
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 rounded-lg border border-input bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+            className="h-9 w-auto"
           >
             <option value="">All Statuses</option>
             {ALL_STATUSES.map((s) => (
               <option key={s} value={s}>{STATUS_LABELS[s]}</option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 

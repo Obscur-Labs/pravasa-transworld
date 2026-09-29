@@ -2,6 +2,7 @@
 import { Plus, X, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { VisaTerm } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
 
 export const emptyTerm = (): VisaTerm => ({ text: '', required: true, defaultChecked: false, order: 0 });
 
@@ -46,8 +47,8 @@ export function TermsEditor({ terms, onChange }: TermsEditorProps) {
             <div key={i} className="rounded-xl border border-border bg-muted/30 p-3">
               <div className="flex items-start gap-2">
                 <span className="w-6 pt-2 text-xs font-semibold tabular-nums text-muted-foreground flex-shrink-0 text-center">{i + 1}</span>
-                <textarea
-                  className="flex-1 min-h-[64px] rounded-lg border border-input bg-card text-foreground text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                <Textarea
+                  className="flex-1 min-h-[64px] resize-y"
                   placeholder="e.g. I confirm my passport is valid for at least 6 months from the date of travel."
                   value={term.text}
                   onChange={(e) => update(i, { text: e.target.value })}

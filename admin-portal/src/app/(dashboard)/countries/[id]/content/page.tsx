@@ -15,30 +15,29 @@ import { toast } from '@/components/ui/use-toast';
 import { getCountries, updateCountryWebContent, uploadCountryImage, removeCountryImage } from '@/lib/api';
 import { AiGenerateButton, type AiPurpose } from '@/components/shared/ai-generate-button';
 import type { Country, CountryWebContent, CountryFaq } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
 
 const emptyContent: CountryWebContent = {
   heroTagline: '', overview: '', highlights: [],
   requirements: '', processingInfo: '', tips: '', faqs: [],
 };
 
-/* ─── Location badge config, deliberately categorical accents (not theme tokens),
-   used as a color-coded legend mapping this form to zones on the live page. ─── */
+/* Where each form section appears on the live country page. */
 const LOC = {
-  header:      { label: 'Page Header',        color: 'bg-violet-500/10 text-violet-600 border-violet-500/20' },
-  slider:      { label: 'Photo Slider',        color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
-  overview:    { label: 'Overview Card',       color: 'bg-primary/10 text-primary border-primary/20' },
-  requirements:{ label: 'Requirements Card',   color: 'bg-teal-500/10 text-teal-600 border-teal-500/20' },
-  processing:  { label: 'Processing Card',     color: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20' },
-  tips:        { label: 'Tips Card',           color: 'bg-warning/10 text-warning border-warning/20' },
-  faq:         { label: 'FAQ Accordion',       color: 'bg-rose-500/10 text-rose-600 border-rose-500/20' },
+  header: 'Page Header',
+  slider: 'Photo Slider',
+  overview: 'Overview Card',
+  requirements: 'Requirements Card',
+  processing: 'Processing Card',
+  tips: 'Tips Card',
+  faq: 'FAQ Accordion',
 } as const;
 
 function LocationBadge({ loc }: { loc: keyof typeof LOC }) {
-  const { label, color } = LOC[loc];
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${color}`}>
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-primary/10 text-primary border-primary/20">
       <MapPin className="w-2.5 h-2.5" />
-      {label}
+      {LOC[loc]}
     </span>
   );
 }
@@ -68,12 +67,12 @@ function TA({ value, onChange, placeholder, rows = 4, ai }: {
 }) {
   return (
     <div className="relative">
-      <textarea
+      <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={rows}
-        className={`w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none transition-colors ${ai ? 'pr-12' : ''}`}
+        className={ai ? 'pr-12' : undefined}
       />
       {ai && <div className="absolute right-2 top-2">{ai}</div>}
     </div>
@@ -85,15 +84,15 @@ function PageMap() {
   const zones = [
     {
       label: 'Page Header',
-      color: 'bg-violet-500/10 border-violet-500/20 text-violet-600',
-      dot: 'bg-violet-500',
+      color: 'bg-primary/5 border-primary/20 text-primary',
+      dot: 'bg-primary',
       fields: ['Country name + flag', 'Hero Tagline', 'Highlights (chips)'],
       auto: false,
     },
     {
       label: 'Photo Slider',
-      color: 'bg-orange-500/10 border-orange-500/20 text-orange-600',
-      dot: 'bg-orange-500',
+      color: 'bg-primary/5 border-primary/20 text-primary',
+      dot: 'bg-primary',
       fields: ['Photos you upload'],
       auto: false,
     },
@@ -113,8 +112,8 @@ function PageMap() {
     },
     {
       label: 'Requirements Card',
-      color: 'bg-teal-500/10 border-teal-500/20 text-teal-600',
-      dot: 'bg-teal-500',
+      color: 'bg-primary/5 border-primary/20 text-primary',
+      dot: 'bg-primary',
       fields: ['Visa requirements text'],
       auto: false,
     },
@@ -127,8 +126,8 @@ function PageMap() {
     },
     {
       label: 'FAQ Accordion',
-      color: 'bg-rose-500/10 border-rose-500/20 text-rose-600',
-      dot: 'bg-rose-500',
+      color: 'bg-primary/5 border-primary/20 text-primary',
+      dot: 'bg-primary',
       fields: ['All your FAQs'],
       auto: false,
     },
@@ -302,7 +301,7 @@ export default function CountryContentPage() {
 
   if (loading) {
     return (
-      <div className="p-6 pb-16 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
         <Skeleton className="h-4 w-36 mb-4" />
         <div className="flex items-center gap-3 mb-7">
           <Skeleton className="w-10 h-7 rounded" />
@@ -331,7 +330,7 @@ export default function CountryContentPage() {
   }
 
   return (
-    <div className="p-6 pb-16 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       {/* ── Page Header ── */}
       <div className="mb-7">
         <Link href="/countries" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
@@ -389,7 +388,7 @@ export default function CountryContentPage() {
               type="button" variant="outline"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImage}
-              className="gap-2 w-full border-dashed border-border hover:border-orange-400 hover:text-orange-600 text-muted-foreground"
+              className="gap-2 w-full border-dashed border-border hover:border-primary/40 hover:text-primary text-muted-foreground"
             >
               {uploadingImage
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
@@ -419,7 +418,7 @@ export default function CountryContentPage() {
                 {content.highlights.length > 0 && (
                   <ul className="space-y-1.5 mb-3">
                     {content.highlights.map((h, i) => (
-                      <li key={i} className="flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-lg px-3 py-2">
+                      <li key={i} className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
                         <span className="text-sm text-foreground/90 flex-1">{h}</span>
                         <button onClick={() => removeHighlight(i)} className="text-muted-foreground hover:text-destructive transition-colors">
                           <X className="w-3.5 h-3.5" />
@@ -500,7 +499,7 @@ export default function CountryContentPage() {
               </div>
               <div className="flex items-center gap-2">
                 {(content.faqs || []).length > 0 && (
-                  <span className="text-xs bg-rose-500/10 text-rose-600 font-bold px-2 py-0.5 rounded-full border border-rose-500/20">
+                  <span className="text-xs bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full border border-primary/20">
                     {(content.faqs || []).length}
                   </span>
                 )}
@@ -510,10 +509,10 @@ export default function CountryContentPage() {
             <CardContent className="p-5">
               <div className="space-y-3 mb-4">
                 {(content.faqs || []).map((faq, i) => (
-                  <div key={i} className="rounded-xl border border-rose-500/20 bg-rose-500/5 overflow-hidden">
-                    <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-card border-b border-rose-500/20">
+                  <div key={i} className="rounded-xl border border-border bg-muted/30 overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-card border-b border-border">
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-extrabold flex items-center justify-center flex-shrink-0">
+                        <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold flex items-center justify-center flex-shrink-0">
                           {i + 1}
                         </span>
                         <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Question {i + 1}</span>
@@ -550,14 +549,14 @@ export default function CountryContentPage() {
               </div>
 
               {(content.faqs || []).length === 0 && (
-                <div className="rounded-xl border border-dashed border-rose-500/20 bg-rose-500/5 py-8 text-center mb-4">
-                  <HelpCircle className="w-8 h-8 text-rose-500/30 mx-auto mb-2" />
+                <div className="rounded-xl border border-dashed border-border bg-muted/30 py-8 text-center mb-4">
+                  <HelpCircle className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
                   <p className="text-xs text-muted-foreground font-medium">No FAQs added yet.</p>
                   <p className="text-xs text-muted-foreground/70 mt-0.5">Add as many questions and answers as you need.</p>
                 </div>
               )}
 
-              <Button type="button" variant="outline" onClick={addFaq} className="gap-2 w-full border-dashed border-rose-500/20 hover:border-rose-400 hover:text-rose-600 text-muted-foreground">
+              <Button type="button" variant="outline" onClick={addFaq} className="gap-2 w-full border-dashed border-border hover:border-primary/40 hover:text-primary text-muted-foreground">
                 <Plus className="w-4 h-4" /> Add FAQ
               </Button>
             </CardContent>

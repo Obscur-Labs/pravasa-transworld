@@ -23,6 +23,8 @@ import { formatDate, formatCurrency } from '@/lib/utils';
 import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import type { Application, Document, EmbassyMail, Payment, PaymentStatus, VisaFile } from '@/types';
 import { STATUS_LABELS, SELECTABLE_STATUSES } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
+import { NativeSelect } from '@/components/ui/native-select';
 
 // ── 4-step simplified status ──
 const SIMPLIFIED_STEPS = [
@@ -581,12 +583,12 @@ export default function AdminApplicationDetailPage() {
                               </button>
                             ))}
                           </div>
-                          <textarea
+                          <Textarea
                             value={rejectReason}
                             onChange={(e) => setRejectReason(e.target.value)}
                             rows={2}
                             placeholder="Add or edit the reason…"
-                            className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                            
                           />
                           <div className="flex items-center gap-2">
                             <Button size="sm" variant="destructive" disabled={!rejectReason.trim() || processing}
@@ -745,21 +747,21 @@ export default function AdminApplicationDetailPage() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Update Status</p>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground block mb-1">Status</label>
-                  <select
+                  <NativeSelect
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full h-9 px-2 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-9 px-2"
                   >
                     {statusOptions.map((s) => (
                       <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 {newStatus === 'visa_rejected' && (
                   <div>
                     <label className="text-xs font-medium text-muted-foreground block mb-1">Rejection Reason</label>
-                    <textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={2}
-                      className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+                    <Textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={2}
+                       />
                   </div>
                 )}
                 {newStatus === 'visa_processing' && application.status !== 'visa_processing' && (
@@ -769,8 +771,8 @@ export default function AdminApplicationDetailPage() {
                 )}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground block mb-1">Admin Notes (internal)</label>
-                  <textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={2}
-                    className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+                  <Textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={2}
+                     />
                 </div>
                 <Button className="w-full" onClick={handleStatusUpdate} disabled={processing}>
                   {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update Status'}
@@ -833,8 +835,8 @@ export default function AdminApplicationDetailPage() {
                 <p className="text-xs text-warning/80 mt-0.5">Mark as paid if user paid in cash</p>
               </div>
               <CardContent className="p-4 space-y-3">
-                <textarea id="cashNote" rows={2} placeholder="Note (e.g. 'Cash received at office')"
-                  className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-warning resize-none" />
+                <Textarea id="cashNote" rows={2} placeholder="Note (e.g. 'Cash received at office')"
+                   />
                 <Button className="w-full bg-warning text-warning-foreground hover:bg-warning/90"
                   onClick={async () => {
                     const note = (document.getElementById('cashNote') as HTMLTextAreaElement)?.value;
@@ -912,22 +914,22 @@ export default function AdminApplicationDetailPage() {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground block mb-1">What to send</label>
-                    <textarea
+                    <Textarea
                       value={courierInstructions}
                       onChange={(e) => setCourierInstructions(e.target.value)}
                       rows={2}
                       placeholder="e.g. Original passport and two photographs"
-                      className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                      
                     />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground block mb-1">Send to</label>
-                    <textarea
+                    <Textarea
                       value={courierAddress}
                       onChange={(e) => setCourierAddress(e.target.value)}
                       rows={3}
                       placeholder="Office address the documents should reach"
-                      className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                      
                     />
                   </div>
                   <div className="flex items-center gap-2">

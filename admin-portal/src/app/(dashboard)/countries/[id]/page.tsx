@@ -28,6 +28,8 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import { orderedFormArrays } from '@/types';
 import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory, VisaTerm } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
+import { NativeSelect } from '@/components/ui/native-select';
 
 /**
  * Names a duplicate: "Tourist Visa" → "Tourist Visa Copy", then "… Copy 2", "… Copy 3"
@@ -791,19 +793,19 @@ export default function CountryDetailPage() {
 
                 <div>
                   <Label>Visa Type</Label>
-                  <select value={form.visaSubType} onChange={(e) => setForm({ ...form, visaSubType: e.target.value })}
-                    className="mt-1 w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <NativeSelect value={form.visaSubType} onChange={(e) => setForm({ ...form, visaSubType: e.target.value })}
+                    className="mt-1">
                     {optionsFor('visaSubType', form.visaSubType).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
 
                 <div>
                   <Label>Entry</Label>
-                  <select value={form.entry[0] || ''} onChange={(e) => setForm({ ...form, entry: e.target.value ? [e.target.value as EntryType] : [] })}
-                    className="mt-1 w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <NativeSelect value={form.entry[0] || ''} onChange={(e) => setForm({ ...form, entry: e.target.value ? [e.target.value as EntryType] : [] })}
+                    className="mt-1">
                     <option value="">Select entry…</option>
                     {optionsFor('entryType', form.entry[0]).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
 
                 <div>
@@ -816,18 +818,18 @@ export default function CountryDetailPage() {
 
                 <div>
                   <Label>Jurisdiction</Label>
-                  <select value={form.jurisdiction} onChange={(e) => setForm({ ...form, jurisdiction: e.target.value })}
-                    className="mt-1 w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <NativeSelect value={form.jurisdiction} onChange={(e) => setForm({ ...form, jurisdiction: e.target.value })}
+                    className="mt-1">
                     {optionsFor('jurisdiction', form.jurisdiction).map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
 
                 <div>
                   <Label>Visa Category</Label>
-                  <select value={form.visaCategory} onChange={(e) => setForm({ ...form, visaCategory: e.target.value })}
-                    className="mt-1 w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <NativeSelect value={form.visaCategory} onChange={(e) => setForm({ ...form, visaCategory: e.target.value })}
+                    className="mt-1">
                     {optionsFor('visaCategory', form.visaCategory).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
               </div>
@@ -929,11 +931,11 @@ export default function CountryDetailPage() {
                 <p className="text-xs text-violet-600/70">Apply a saved application form in one click, or save the current one as a reusable preset.</p>
 
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <select value={applyPresetId} onChange={(e) => setApplyPresetId(e.target.value)}
-                    className="h-9 px-3 rounded-lg border border-violet-500/20 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-violet-500 flex-1">
+                  <NativeSelect value={applyPresetId} onChange={(e) => setApplyPresetId(e.target.value)}
+                    className="h-9 flex-1">
                     <option value="">Select a preset to apply…</option>
                     {presets.map((p) => { const n = (p.formFields?.length || 0) + (p.documentRequirements?.length || 0); return <option key={p._id} value={p._id}>{p.name} ({n} item{n === 1 ? '' : 's'})</option>; })}
-                  </select>
+                  </NativeSelect>
                   <Button type="button" variant="outline" disabled={!applyPresetId} onClick={applyPreset}>
                     <Check className="w-3.5 h-3.5 mr-1" /> Apply Preset
                   </Button>
@@ -975,8 +977,8 @@ export default function CountryDetailPage() {
               <div className={activeTab === 'notes' ? 'space-y-2' : 'hidden'}>
                 <Label>Additional Notes</Label>
                 <div className="relative mt-1">
-                  <textarea
-                    className="w-full min-h-[240px] rounded-lg border border-input bg-card text-foreground text-sm p-3 pr-12 focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                  <Textarea
+                    className="min-h-[240px] pr-12 resize-y"
                     placeholder="Anything worth telling the applicant about this visa…"
                     value={form.additionalNotes}
                     onChange={(e) => setForm({ ...form, additionalNotes: e.target.value })}
@@ -1032,18 +1034,18 @@ export default function CountryDetailPage() {
             className="pl-9 h-9 w-56"
           />
         </div>
-        <select value={filterCategory} onChange={(e) => updateListPrefs({ filterCategory: e.target.value })} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <NativeSelect value={filterCategory} onChange={(e) => updateListPrefs({ filterCategory: e.target.value })} className="h-9 w-auto">
           <option value="">All Categories</option>
           {optionsFor('visaCategory').map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <select value={filterStatus} onChange={(e) => updateListPrefs({ filterStatus: e.target.value as typeof filterStatus })} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        </NativeSelect>
+        <NativeSelect value={filterStatus} onChange={(e) => updateListPrefs({ filterStatus: e.target.value as typeof filterStatus })} className="h-9 w-auto">
           <option value="">All Statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
-        </select>
+        </NativeSelect>
         <div className="flex items-center gap-2 ml-auto">
           <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-          <select value={sortBy} onChange={(e) => updateListPrefs({ sortBy: e.target.value as typeof sortBy })} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <NativeSelect value={sortBy} onChange={(e) => updateListPrefs({ sortBy: e.target.value as typeof sortBy })} className="h-9 w-auto">
             <option value="custom">Custom order (drag)</option>
             <option value="name-asc">Name (A–Z)</option>
             <option value="name-desc">Name (Z–A)</option>
@@ -1051,7 +1053,7 @@ export default function CountryDetailPage() {
             <option value="price-desc">Price (high to low)</option>
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
-          </select>
+          </NativeSelect>
         </div>
         {(search || filterCategory || filterStatus) && (
           <button

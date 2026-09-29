@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ALL_STATUSES, STATUS_LABELS } from '@/types';
 import type { Application, ApplicationStatus } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
 
 export interface StageChange {
   app: Application;
@@ -144,13 +145,13 @@ export function StageChangeDialog({ change, onCancel, onConfirm }: {
           {isReject && (
             <div className="space-y-1.5">
               <Label htmlFor="stage-reason">Rejection reason <span className="text-destructive">*</span></Label>
-              <textarea
+              <Textarea
                 id="stage-reason"
                 rows={3}
                 value={form.rejectionReason}
                 onChange={set('rejectionReason')}
                 placeholder="Shown to the applicant"
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                
               />
             </div>
           )}
