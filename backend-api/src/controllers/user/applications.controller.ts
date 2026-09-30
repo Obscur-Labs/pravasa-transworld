@@ -12,7 +12,7 @@ import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { extractPassport } from '../../services/ocr.service';
 import { generateVisaSummaryPDF } from '../../services/pdf.service';
 import { sendSuccess, sendError } from '../../utils/response';
-import { computeVisaPricing, computeSubtotal, computeGst } from '../../utils/pricing';
+import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf, type PricingTier } from '../../utils/pricing';
 
 export const getDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user!._id;
@@ -72,11 +72,11 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   }
   if (!referenceId) referenceId = `PRS-${rawCode}-${Date.now().toString().slice(-4)}`;
 
-  const isCorporate = req.user!.accountType === 'corporate';
+  const pricingTier = pricingTierOf(req.user);
   const numAdults = Math.max(1, Number(adults) || 1);
   const numChildren = Math.max(0, Number(children) || 0);
 
-  const breakdown = computeVisaPricing(visaType, isCorporate);
+  const breakdown = computeVisaPricing(visaType, pricingTier);
   const { adultBase, adultVfs, adultFee, childBase, childVfs, childFee } = breakdown;
   const subtotal = computeSubtotal(breakdown, numAdults, numChildren);
   const gstAmount = computeGst(breakdown, numAdults, numChildren);
@@ -93,6 +93,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     travelDate: travelDate || (formResponses?.travelDate ?? ''),
     paymentAmount,
     adultBase, adultVfs, adultFee, childBase, childVfs, childFee, gstAmount,
+    pricingTier,
     acceptedTerms: acceptedSnapshot,
     referenceId,
   });
@@ -149,10 +150,16 @@ export const getApplication = async (req: AuthRequest, res: Response): Promise<v
     // Latest attempt only: enough to show "being verified" or why the last one was rejected.
     Payment.findOne({ application: application._id })
       .sort({ createdAt: -1 })
-      .select('amount method status utr rejectedUtr submittedAt failureReason failedAt paidAt createdAt'),
+      .select('amount method status utr rejectedUtr proofUrl proofPublicId submittedAt failureReason failedAt paidAt createdAt'),
     loadPaymentConfig(),
   ]);
-  sendSuccess(res, { application, documents, visaFile, payment, verificationHours: paymentConfig.verificationHours });
+  // The populated visa type carries every price override; keep only this customer's own.
+  const app = application.toJSON() as Record<string, any>;
+  if (app.visaType && typeof app.visaType === 'object') app.visaType = sanitizeVisaType(app.visaType, pricingTierOf(req.user));
+  sendSuccess(res, {
+    application: app, documents, visaFile, payment,
+    verificationHours: paymentConfig.verificationHours,
+  });
 };
 
 // Stages during which an applicant may still add or swap documents.
@@ -280,15 +287,39 @@ export const getActiveCountries = async (_req: AuthRequest, res: Response): Prom
   sendSuccess(res, countries);
 };
 
-// Corporate pricing is only meant for logged-in corporate accounts, strip it from
-// responses to anonymous visitors and individual accounts on these public endpoints.
-// Includes retired override fields (corporate visa/VFS rates, legacy corporatePrice) so
-// stale values on older documents never leak either.
-const CORPORATE_PRICE_FIELDS = ['corporateAdultServiceFee', 'corporateChildServiceFee', 'corporateAdultPrice', 'corporateChildPrice', 'corporateAdultVfsFee', 'corporateChildVfsFee', 'corporatePrice'];
-function sanitizeVisaType(visaType: Record<string, unknown>, includeCorporate: boolean) {
-  if (includeCorporate) return visaType;
-  const sanitized = { ...visaType };
-  for (const field of CORPORATE_PRICE_FIELDS) delete sanitized[field];
+const B2B_PRICE_FIELDS = ['b2bAdultPrice', 'b2bChildPrice', 'b2bAdultVfsFee', 'b2bChildVfsFee', 'b2bAdultServiceFee', 'b2bChildServiceFee'];
+const OVERRIDE_PRICE_FIELDS = [
+  ...B2B_PRICE_FIELDS,
+  'corporateAdultServiceFee', 'corporateChildServiceFee',
+  // Retired overrides, dropped so stale values on older documents never leak.
+  'corporateAdultPrice', 'corporateChildPrice', 'corporateAdultVfsFee', 'corporateChildVfsFee', 'corporatePrice',
+];
+
+/**
+ * Each account sees only its own prices. Individuals and visitors get no overrides;
+ * corporate accounts get the corporate service fee. B2B agents get their B2B prices
+ * written into the ordinary fields (visa/VFS into the standard ones, service fee into the
+ * corporate ones), so the site prices them correctly without the B2B tier being exposed.
+ */
+function sanitizeVisaType(visaType: Record<string, unknown>, tier: PricingTier) {
+  const v = visaType as Record<string, any>;
+  const sanitized: Record<string, any> = { ...v };
+  for (const field of OVERRIDE_PRICE_FIELDS) delete sanitized[field];
+  if (tier === 'individual') return sanitized;
+
+  const b2b = tier === 'b2b_agent';
+  const use = (b2bValue: unknown, fallback: unknown) => (b2b && b2bValue != null ? b2bValue : fallback);
+  if (b2b) {
+    sanitized.adultPrice = use(v.b2bAdultPrice, v.adultPrice);
+    sanitized.price = sanitized.adultPrice || v.price;
+    sanitized.childPrice = use(v.b2bChildPrice, v.childPrice);
+    sanitized.adultVfsFee = use(v.b2bAdultVfsFee, v.adultVfsFee);
+    sanitized.childVfsFee = use(v.b2bChildVfsFee, v.childVfsFee);
+  }
+  const adultFee = use(v.b2bAdultServiceFee, v.corporateAdultServiceFee);
+  const childFee = use(v.b2bChildServiceFee, v.corporateChildServiceFee);
+  if (adultFee != null) sanitized.corporateAdultServiceFee = adultFee;
+  if (childFee != null) sanitized.corporateChildServiceFee = childFee;
   return sanitized;
 }
 
@@ -296,8 +327,8 @@ export const getPublicCountryBySlug = async (req: AuthRequest, res: Response): P
   const country = await Country.findOne({ slug: req.params.slug, isActive: true, showOnWebsite: true });
   if (!country) { sendError(res, 'Country not found', 404); return; }
   const visaTypes = await VisaType.find({ country: country._id, isActive: true }).sort({ order: 1, name: 1 }).lean();
-  const includeCorporate = req.user?.accountType === 'corporate';
-  sendSuccess(res, { country, visaTypes: visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)) });
+  const tier = pricingTierOf(req.user);
+  sendSuccess(res, { country, visaTypes: visaTypes.map((vt) => sanitizeVisaType(vt, tier)) });
 };
 
 export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -313,8 +344,7 @@ export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promi
   // Same admin-arranged sequence the dashboard shows, see VisaType.order. `order` is
   // scoped per country, so group by country first for the (unfiltered) all-countries case.
   const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ country: 1, order: 1, name: 1 }).lean();
-  const includeCorporate = req.user?.accountType === 'corporate';
-  sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)));
+  sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, pricingTierOf(req.user))));
 };
 
 // Public "Download PDF" button on the visa details view. Pricing is deliberately

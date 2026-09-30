@@ -83,6 +83,8 @@ export interface IApplication extends Document {
   // 18% GST on the pre-GST subtotal, included in paymentAmount. 0 on legacy applications
   // created before GST was added on top (their paymentAmount has no GST component).
   gstAmount: number;
+  // Which price list the applicant was charged from, fixed at submission. Admin-only.
+  pricingTier: 'individual' | 'corporate' | 'b2b_agent';
   // Snapshot of the visa terms the applicant ticked at submission, so the record of
   // what was agreed to survives later edits to the visa type's terms.
   acceptedTerms: { text: string; required: boolean }[];
@@ -142,6 +144,8 @@ const ApplicationSchema = new Schema<IApplication>(
     childVfs: { type: Number, default: 0 },
     childFee: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0 },
+    // select: false keeps it out of every customer response; admin reads ask for +pricingTier.
+    pricingTier: { type: String, enum: ['individual', 'corporate', 'b2b_agent'], default: 'individual', select: false },
     acceptedTerms: [{ text: { type: String }, required: { type: Boolean, default: false }, _id: false }],
     courier: { type: CourierSchema, default: () => ({}) },
     referenceId: { type: String, unique: true },

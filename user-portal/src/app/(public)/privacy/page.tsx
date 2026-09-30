@@ -29,8 +29,8 @@ export default function PrivacyPage() {
             ['How We Use Your Information', 'Your information is used solely to process your visa applications, communicate updates, and improve our services. We do not sell your data to third parties.'],
             ['Data Security', 'All documents and personal data are encrypted in transit and at rest using industry-standard encryption. We use Cloudinary for secure document storage.'],
             ['Data Retention', 'We retain your data for as long as necessary to fulfill your application and comply with legal obligations. You may request deletion of your account and data at any time.'],
-            ['Your Rights', 'You have the right to access, correct, or delete your personal information. Contact us at privacy@pravasatransworld.com for any privacy-related requests.'],
-            ['Contact', 'For privacy concerns, contact our Data Protection Officer at privacy@pravasatransworld.com.'],
+            ['Your Rights', 'You have the right to access, correct, or delete your personal information. Contact us at support.pravasatransworld@gmail.com for any privacy-related requests.'],
+            ['Contact', 'For privacy concerns, contact our Data Protection Officer at support.pravasatransworld@gmail.com.'],
           ].map(([title, text]) => (
             <div key={title}>
               <h2 className="text-xl font-bold text-slate-900 mb-2">{title}</h2>

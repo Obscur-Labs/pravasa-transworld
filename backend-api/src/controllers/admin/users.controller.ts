@@ -8,6 +8,9 @@ import { sendSuccess, sendError } from '../../utils/response';
 import { logActivity } from '../../utils/activityLog';
 import { moveToTrash } from '../../utils/trash';
 
+// Admin-only sub-type of a corporate account; anything unexpected is treated as plain corporate.
+const toCorporateType = (v: unknown): 'corporate' | 'b2b_agent' => (v === 'b2b_agent' ? 'b2b_agent' : 'corporate');
+
 export const getUserVaultDocuments = async (req: AdminRequest, res: Response): Promise<void> => {
   const docs = await DocumentVault.find({ user: req.params.userId }).sort({ createdAt: -1 });
   sendSuccess(res, docs);
@@ -51,7 +54,7 @@ export const downloadUserVaultZip = async (req: AdminRequest, res: Response): Pr
 };
 
 export const createUser = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { name, email, phone, accountType, gstNumber, isActive, promoApplicable } = req.body;
+  const { name, email, phone, accountType, gstNumber, isActive, promoApplicable, corporateType } = req.body;
   if (!name || !email || !phone) {
     sendError(res, 'name, email, and phone are required', 400);
     return;
@@ -73,6 +76,7 @@ export const createUser = async (req: AdminRequest, res: Response): Promise<void
     phone: String(phone).trim(),
     accountType: type,
     gstNumber: type === 'corporate' ? String(gstNumber).trim() : undefined,
+    corporateType: type === 'corporate' ? toCorporateType(corporateType) : 'corporate',
     isActive: isActive !== false,
     promoApplicable: promoApplicable !== false,
   });
@@ -81,7 +85,7 @@ export const createUser = async (req: AdminRequest, res: Response): Promise<void
 };
 
 export const updateUser = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { name, email, phone, accountType, gstNumber, isActive, promoApplicable } = req.body;
+  const { name, email, phone, accountType, gstNumber, isActive, promoApplicable, corporateType } = req.body;
   const user = await User.findById(req.params.userId);
   if (!user) { sendError(res, 'Customer not found', 404); return; }
 
@@ -108,7 +112,8 @@ export const updateUser = async (req: AdminRequest, res: Response): Promise<void
     sendError(res, 'GST number is required for corporate accounts', 400);
     return;
   }
-  if (user.accountType === 'individual') user.gstNumber = undefined;
+  if (corporateType !== undefined) user.corporateType = toCorporateType(corporateType);
+  if (user.accountType === 'individual') { user.gstNumber = undefined; user.corporateType = 'corporate'; }
   if (isActive !== undefined) user.isActive = isActive === true;
   if (promoApplicable !== undefined) user.promoApplicable = promoApplicable === true;
 

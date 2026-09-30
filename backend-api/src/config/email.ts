@@ -1,10 +1,9 @@
-import * as Brevo from '@getbrevo/brevo';
+import { BrevoClient } from '@getbrevo/brevo';
 
-export const emailApi = new Brevo.TransactionalEmailsApi();
-emailApi.setApiKey(
-  Brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY!
-);
+export const brevo = new BrevoClient({ apiKey: process.env.BREVO_API_KEY || '' });
+
+/** Brevo's own error text, falling back to the generic message. */
+export const brevoErrorDetail = (err: any) => err?.body?.message ?? err?.message ?? err;
 
 // Two senders, because the two kinds of mail are not the same kind of message.
 //
@@ -35,12 +34,10 @@ export async function verifyMailConnection(): Promise<void> {
   );
 
   try {
-    const accountApi = new Brevo.AccountApi();
-    accountApi.setApiKey(Brevo.AccountApiApiKeys.apiKey, process.env.BREVO_API_KEY!);
-    const { body } = await accountApi.getAccount();
-    console.log(`[EMAIL] Brevo connected, account: ${body.email} | plan: ${body.plan?.[0]?.type}`);
+    const account = await brevo.account.getAccount();
+    console.log(`[EMAIL] Brevo connected, account: ${account.email} | plan: ${account.plan?.[0]?.type}`);
   } catch (err: any) {
-    console.error('[EMAIL] Brevo API verification FAILED:', err?.message ?? err);
+    console.error('[EMAIL] Brevo API verification FAILED:', brevoErrorDetail(err));
     console.error('[EMAIL] Check BREVO_API_KEY in your env.');
     return;
   }
@@ -49,10 +46,7 @@ export async function verifyMailConnection(): Promise<void> {
   // later, at the sending stage, so nothing in the request path can catch this. Every mail
   // then vanishes with no error anywhere but the Brevo event log. Check it once at boot.
   try {
-    const sendersApi = new Brevo.SendersApi();
-    sendersApi.setApiKey(Brevo.SendersApiApiKeys.apiKey, process.env.BREVO_API_KEY!);
-    const { body } = await sendersApi.getSenders();
-    const senders = body.senders || [];
+    const { senders = [] } = await brevo.senders.getSenders();
     const known = senders.map((s) => s.email).join(', ') || '(none)';
 
     const checks: { label: string; envVar: string; address: string }[] = [
@@ -75,6 +69,6 @@ export async function verifyMailConnection(): Promise<void> {
       }
     }
   } catch (err: any) {
-    console.error('[EMAIL] Could not check verified senders:', err?.response?.body?.message ?? err?.message ?? err);
+    console.error('[EMAIL] Could not check verified senders:', brevoErrorDetail(err));
   }
 }

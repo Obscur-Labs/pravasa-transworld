@@ -14,5 +14,8 @@
     "build:user": "npm run build --workspace=user-portal",
     "build:admin": "npm run build --workspace=admin-portal",
     "seed": "npm run seed --workspace=backend-api"
+  },
+  "overrides": {
+    "glob": "^13.0.6"
   }
 }

@@ -229,7 +229,7 @@ export const sendApplicationEmbassyMail = async (req: AdminRequest, res: Respons
       companyName: company.companyName,
     });
   } catch (err: any) {
-    const detail = err?.response?.body?.message ?? err?.message ?? 'Unknown error';
+    const detail = err?.body?.message ?? err?.message ?? 'Unknown error';
     sendError(res, `The mail could not be sent: ${detail}`, 502);
     return;
   }

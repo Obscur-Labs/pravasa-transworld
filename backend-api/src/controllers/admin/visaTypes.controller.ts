@@ -35,10 +35,15 @@ export const getVisaType = async (req: AdminRequest, res: Response): Promise<voi
 const optNum = (v: unknown): number | undefined =>
   v === undefined || v === null || v === '' ? undefined : Number(v);
 
+// Optional overrides: blank means "use the standard price", 0 is a real (waived) price.
+const OPTIONAL_PRICE_FIELDS = [
+  'corporateAdultServiceFee', 'corporateChildServiceFee',
+  'b2bAdultPrice', 'b2bChildPrice', 'b2bAdultVfsFee', 'b2bChildVfsFee', 'b2bAdultServiceFee', 'b2bChildServiceFee',
+] as const;
+
 export const createVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
   const {
     country, name, description, adultPrice, childPrice, adultVfsFee, childVfsFee, adultServiceFee, childServiceFee,
-    corporateAdultServiceFee, corporateChildServiceFee,
     processingTime, terms, entry, visaSubType, stayDuration,
     jurisdiction, visaCategory, process, validity, additionalNotes,
   } = req.body;
@@ -66,8 +71,7 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
     childVfsFee: Number(childVfsFee || 0),
     adultServiceFee: Number(adultServiceFee || 0),
     childServiceFee: Number(childServiceFee || 0),
-    corporateAdultServiceFee: optNum(corporateAdultServiceFee),
-    corporateChildServiceFee: optNum(corporateChildServiceFee),
+    ...Object.fromEntries(OPTIONAL_PRICE_FIELDS.map((f) => [f, optNum(req.body[f])])),
     processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
     terms: (terms || []).map((t: any, i: number) => ({ ...t, order: i })),
     jurisdiction, visaCategory, process, validity, additionalNotes: additionalNotes || '',
@@ -89,10 +93,10 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
   if (body.childVfsFee !== undefined) body.childVfsFee = Number(body.childVfsFee || 0);
   if (body.adultServiceFee !== undefined) body.adultServiceFee = Number(body.adultServiceFee || 0);
   if (body.childServiceFee !== undefined) body.childServiceFee = Number(body.childServiceFee || 0);
-  // Blanking a corporate service fee must remove it, not leave the old value in place,
-  // Mongoose skips `undefined` in an update, so clearing needs an explicit $unset.
+  // Blanking an override must remove it, not leave the old value in place. Mongoose skips
+  // `undefined` in an update, so clearing needs an explicit $unset.
   const unset: Record<string, ''> = {};
-  for (const field of ['corporateAdultServiceFee', 'corporateChildServiceFee'] as const) {
+  for (const field of OPTIONAL_PRICE_FIELDS) {
     if (body[field] === undefined) continue;
     const value = optNum(body[field]);
     if (value === undefined) { delete body[field]; unset[field] = ''; } else { body[field] = value; }

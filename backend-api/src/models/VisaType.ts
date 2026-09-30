@@ -84,6 +84,15 @@ export interface IVisaType extends Document {
   childServiceFee: number;
   corporateAdultServiceFee?: number;
   corporateChildServiceFee?: number;
+  // Full separate price list for B2B agents (a corporate sub-type). Each unset component
+  // falls back to the standard one (the service fee to the corporate fee first).
+  // Admin-only: never sent to other customers.
+  b2bAdultPrice?: number;
+  b2bChildPrice?: number;
+  b2bAdultVfsFee?: number;
+  b2bChildVfsFee?: number;
+  b2bAdultServiceFee?: number;
+  b2bChildServiceFee?: number;
   processingTime: string;
   validity: string;
   entry: EntryType[];
@@ -159,6 +168,12 @@ const VisaTypeSchema = new Schema<IVisaType>(
     childServiceFee: { type: Number, default: 0, min: 0 },
     corporateAdultServiceFee: { type: Number, min: 0 },
     corporateChildServiceFee: { type: Number, min: 0 },
+    b2bAdultPrice: { type: Number, min: 0 },
+    b2bChildPrice: { type: Number, min: 0 },
+    b2bAdultVfsFee: { type: Number, min: 0 },
+    b2bChildVfsFee: { type: Number, min: 0 },
+    b2bAdultServiceFee: { type: Number, min: 0 },
+    b2bChildServiceFee: { type: Number, min: 0 },
     processingTime: { type: String, required: true, default: '' },
     validity: { type: String, default: '' },
     entry: [{ type: String }],

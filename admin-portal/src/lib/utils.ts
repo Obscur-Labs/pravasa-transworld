@@ -31,3 +31,7 @@ export function deadlineLabel(deadline: string | Date, now = Date.now()): { labe
   if (diffMin < 0) return { label: `Overdue by ${span}`, overdue: true, urgent: true };
   return { label: `${span} left`, overdue: false, urgent: diffMin <= 120 };
 }
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  upi: 'UPI', bank_transfer: 'Bank transfer', cash: 'Cash', manual_override: 'Manual', online: 'Card (legacy)',
+};

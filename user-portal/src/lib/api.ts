@@ -62,10 +62,21 @@ export const addDocumentFromVault = (id: string, data: { vaultDocId: string; req
 // Live passport OCR (no persistence) used to pre-fill the editable review form.
 export const scanPassport = (formData: FormData) =>
   api.post('/user/ocr/passport', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-export const startUpiPayment = (id: string, promoCode?: string) =>
-  api.post(`/user/applications/${id}/payment/upi`, promoCode ? { promoCode } : {});
-export const submitUpiPayment = (id: string, data: { paymentId: string; utr: string; acceptedTerms: string[] }) =>
-  api.post(`/user/applications/${id}/payment/upi/submit`, data);
+export const startPayment = (id: string, promoCode?: string) =>
+  api.post(`/user/applications/${id}/payment/start`, promoCode ? { promoCode } : {});
+// Multipart so an optional screenshot can ride along with the reference.
+export const submitPayment = (
+  id: string,
+  data: { paymentId: string; method: 'upi' | 'bank_transfer'; utr: string; acceptedTerms: string[]; screenshot?: File | null },
+) => {
+  const form = new FormData();
+  form.append('paymentId', data.paymentId);
+  form.append('method', data.method);
+  form.append('utr', data.utr);
+  form.append('acceptedTerms', JSON.stringify(data.acceptedTerms));
+  if (data.screenshot) form.append('screenshot', data.screenshot);
+  return api.post(`/user/applications/${id}/payment/submit`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
 export const submitCourierDetails = (id: string, data: { trackingNumber: string; phone: string; expectedDate: string }) =>
   api.put(`/user/applications/${id}/courier`, data);
 

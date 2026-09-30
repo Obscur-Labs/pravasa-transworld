@@ -1,6 +1,5 @@
-import * as Brevo from '@getbrevo/brevo';
 import {
-  emailApi, MAIL_FROM_NAME, MAIL_FROM_EMAIL, EMBASSY_FROM_NAME, EMBASSY_FROM_EMAIL,
+  brevo, brevoErrorDetail, MAIL_FROM_NAME, MAIL_FROM_EMAIL, EMBASSY_FROM_NAME, EMBASSY_FROM_EMAIL,
 } from '../config/email';
 
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -45,21 +44,20 @@ async function sendMail(to: string, subject: string, html: string, label: string
   const sender = extras.from ?? { name: MAIL_FROM_NAME, email: MAIL_FROM_EMAIL };
   console.log(`[EMAIL:${label}] Preparing to send → ${to} | From: ${sender.email} | Subject: "${subject}"`);
 
-  const email = new Brevo.SendSmtpEmail();
-  email.sender = sender;
-  email.to = [{ email: to }];
-  email.subject = subject;
-  email.htmlContent = html;
-  if (extras.cc?.length) email.cc = extras.cc.map((address) => ({ email: address }));
-  if (extras.replyTo) email.replyTo = { email: extras.replyTo };
-  if (extras.attachments?.length) email.attachment = extras.attachments;
-
   try {
-    const { body } = await emailApi.sendTransacEmail(email);
-    console.log(`[EMAIL:${label}] Sent successfully → messageId: ${body.messageId}`);
+    const { messageId } = await brevo.transactionalEmails.sendTransacEmail({
+      sender,
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      ...(extras.cc?.length ? { cc: extras.cc.map((address) => ({ email: address })) } : {}),
+      ...(extras.replyTo ? { replyTo: { email: extras.replyTo } } : {}),
+      ...(extras.attachments?.length ? { attachment: extras.attachments } : {}),
+    });
+    console.log(`[EMAIL:${label}] Sent successfully → messageId: ${messageId}`);
   } catch (err: any) {
-    const status = err?.response?.statusCode;
-    const detail = err?.response?.body?.message ?? err?.message ?? err;
+    const status = err?.statusCode;
+    const detail = brevoErrorDetail(err);
     console.error(`[EMAIL:${label}] FAILED for ${to}`);
     console.error(`[EMAIL:${label}] Status: ${status} | Detail: ${detail}`);
     throw err;
@@ -253,7 +251,7 @@ export async function sendVisaDeliveredEmail(
   );
 }
 
-/** The outcome of an admin checking a UPI payment against the bank statement. */
+/** The outcome of an admin checking a payment against the bank statement. */
 export async function sendPaymentReviewEmail(
   email: string,
   name: string,
@@ -294,7 +292,7 @@ const istDateTime = (d: Date) =>
   d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }) + ' IST';
 
 /**
- * Tells an admin a UPI payment is waiting to be matched against the bank statement:
+ * Tells an admin a UPI or bank payment is waiting to be matched against the bank statement:
  * once when it arrives, then as reminders while the promised deadline approaches.
  */
 export async function sendAdminPaymentAlert(
@@ -306,14 +304,16 @@ export async function sendAdminPaymentAlert(
     referenceId: string;
     amount: number;
     utr: string;
+    method: string;
+    hasScreenshot: boolean;
     submittedAt: Date;
     verifyBy: Date;
   }
 ): Promise<void> {
   const amount = `&#8377;${p.amount.toLocaleString('en-IN')}`;
-  const title = p.kind === 'new' ? 'New UPI Payment to Verify' : `Payment Verification Due in ${p.timeLeft}`;
+  const title = p.kind === 'new' ? `New ${escapeHtml(p.method)} Payment to Verify` : `Payment Verification Due in ${p.timeLeft}`;
   const intro = p.kind === 'new'
-    ? `${escapeHtml(p.customerName)} just submitted a UPI payment. Please check it against the bank statement and verify or reject it.`
+    ? `${escapeHtml(p.customerName)} just submitted a ${escapeHtml(p.method.toLowerCase())} payment${p.hasScreenshot ? ' with a screenshot' : ''}. Please check it against the bank statement and verify or reject it.`
     : `This payment is still waiting for verification. The customer was promised a decision by <strong>${istDateTime(p.verifyBy)}</strong>, which is ${escapeHtml(p.timeLeft)} from now.`;
   const row = (label: string, value: string) =>
     `<tr><td style="padding: 6px 0; color: #64748b; font-size: 13px; width: 120px;">${label}</td><td style="padding: 6px 0; color: #061E27; font-size: 14px; font-weight: 600;">${value}</td></tr>`;
@@ -330,7 +330,9 @@ export async function sendAdminPaymentAlert(
             ${row('Application', escapeHtml(p.referenceId))}
             ${row('Customer', escapeHtml(p.customerName))}
             ${row('Amount', amount)}
+            ${row('Method', escapeHtml(p.method))}
             ${row('UTR', `<span style="font-family: monospace;">${escapeHtml(p.utr)}</span>`)}
+            ${row('Screenshot', p.hasScreenshot ? 'Attached (view it in the admin panel)' : 'Not provided')}
             ${row('Submitted', istDateTime(p.submittedAt))}
             ${row('Verify by', istDateTime(p.verifyBy))}
           </table>

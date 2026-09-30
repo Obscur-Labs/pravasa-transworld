@@ -946,7 +946,7 @@ export default function ApplyPage() {
       }
 
       localStorage.removeItem(DRAFT_KEY);
-      toast({ title: 'Application saved', description: 'Complete your UPI payment to start processing.', variant: 'success' });
+      toast({ title: 'Application saved', description: 'Complete your payment to start processing.', variant: 'success' });
       // The application page owns the payment flow; ?pay=1 opens it straight away.
       const promo = promoResult?.code ? `&promo=${encodeURIComponent(promoResult.code)}` : '';
       router.push(`/applications/${appId}?pay=1${promo}`);
@@ -1675,7 +1675,7 @@ export default function ApplyPage() {
 
               <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
                 <p className="text-sm text-emerald-700">
-                  <strong>Pay by UPI.</strong> After you submit, you&apos;ll see a QR code and UPI ID to pay from any UPI app. Our team verifies the payment, and visa processing starts once it is verified.
+                  <strong>Pay by UPI or bank transfer.</strong> After you submit, you&apos;ll see a UPI QR code and our bank account details. Our team verifies the payment, and visa processing starts once it is verified.
                 </p>
               </div>
 
@@ -1724,7 +1724,7 @@ export default function ApplyPage() {
             {submitting ? (
               <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">{submitStatus || 'Submitting…'}</span></span>
             ) : (
-              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Submit &amp; Pay by UPI</span>
+              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Submit &amp; Pay</span>
             )}
           </Button>
         )}

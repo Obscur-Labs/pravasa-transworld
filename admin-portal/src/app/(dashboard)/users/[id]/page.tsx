@@ -128,7 +128,7 @@ export default function CustomerProfilePage() {
               </span>
               {user.accountType === 'corporate' ? (
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-warning/10 text-warning">
-                  <Building2 className="w-3 h-3" /> Corporate
+                  <Building2 className="w-3 h-3" /> {user.corporateType === 'b2b_agent' ? 'B2B Agent' : 'Corporate'}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary">

@@ -31,8 +31,12 @@ router.post('/ocr/passport', upload.single('file'), apps.scanPassport);
 router.post('/applications/:id/documents', upload.single('file'), apps.uploadDocument);
 router.post('/applications/:id/documents/from-vault', apps.addDocumentFromVault);
 router.put('/applications/:id/courier', apps.submitCourierDetails);
-router.post('/applications/:id/payment/upi', payments.startUpiPayment);
-router.post('/applications/:id/payment/upi/submit', payments.submitUpiPayment);
+router.post('/applications/:id/payment/start', payments.startPayment);
+// Optional screenshot of the payment rides along as a multipart file.
+router.post('/applications/:id/payment/submit', upload.single('screenshot'), payments.submitPayment);
+// Earlier UPI-only paths, kept so a site built before bank transfer keeps working.
+router.post('/applications/:id/payment/upi', payments.startPayment);
+router.post('/applications/:id/payment/upi/submit', payments.submitPayment);
 
 // Document Vault
 router.get('/vault', vault.getVaultDocuments);

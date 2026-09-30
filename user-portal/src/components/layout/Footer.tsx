@@ -20,13 +20,13 @@ export default function Footer() {
             </p>
             <div className="space-y-2 font-semibold">
               {[
-                { icon: Mail, text: 'support@pravasatransworld.com' },
+                { icon: Mail, text: 'support.pravasatransworld@gmail.com', href: 'mailto:support.pravasatransworld@gmail.com' },
                 { icon: Phone, text: '+1 (800) 123-4567' },
                 { icon: MapPin, text: 'Mon–Fri, 9AM–6PM EST' },
-              ].map(({ icon: Icon, text }) => (
+              ].map(({ icon: Icon, text, href }) => (
                 <div key={text} className="flex items-center gap-2.5 text-slate-500 text-sm">
                   <Icon className="w-4 h-4 text-brand-600 flex-shrink-0" />
-                  {text}
+                  {href ? <a href={href} className="hover:text-brand-700 hover:underline break-all">{text}</a> : text}
                 </div>
               ))}
             </div>

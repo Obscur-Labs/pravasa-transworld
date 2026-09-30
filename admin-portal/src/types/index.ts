@@ -320,10 +320,17 @@ export interface VisaType {
   childVfsFee?: number;
   adultServiceFee: number;
   childServiceFee: number;
-  // Visa and VFS fees are the same for every account type; only the service fee
-  // has a corporate override (0 waives it, unset charges the standard fee).
+  // Corporate accounts override only the service fee (0 waives it, unset charges standard).
   corporateAdultServiceFee?: number;
   corporateChildServiceFee?: number;
+  // B2B agents get their own price list. Unset visa/VFS fees charge standard; an unset
+  // service fee falls back to the corporate one, then standard.
+  b2bAdultPrice?: number;
+  b2bChildPrice?: number;
+  b2bAdultVfsFee?: number;
+  b2bChildVfsFee?: number;
+  b2bAdultServiceFee?: number;
+  b2bChildServiceFee?: number;
   processingTime: string;
   validity: string;
   entry: EntryType[];
@@ -376,11 +383,15 @@ export interface User {
   email: string;
   phone: string;
   accountType: 'individual' | 'corporate';
+  /** Admin-only. Only meaningful when accountType is corporate. */
+  corporateType?: CorporateType;
   gstNumber?: string;
   isActive: boolean;
   promoApplicable: boolean;
   createdAt: string;
 }
+
+export type CorporateType = 'corporate' | 'b2b_agent';
 
 export type DiscountType = 'percentage' | 'fixed';
 
@@ -436,12 +447,14 @@ export interface Payment {
   _id: string;
   amount: number;
   // 'online' only appears on records from the retired card gateway.
-  method: 'upi' | 'cash' | 'manual_override' | 'online';
+  method: 'upi' | 'bank_transfer' | 'cash' | 'manual_override' | 'online';
   status: PaymentStatus;
   transactionId: string;
   utr?: string;
   rejectedUtr?: string;
   acceptedTerms?: string[];
+  /** Short-lived link to the customer's payment screenshot, empty when none was sent. */
+  proofUrl?: string;
   submittedAt?: string | null;
   verifyBy?: string | null;
   verifiedAt?: string | null;
@@ -454,7 +467,7 @@ export interface Payment {
   createdAt: string;
 }
 
-/** A submitted UPI payment in the verification queue, with its application and customer. */
+/** A submitted UPI or bank payment in the verification queue, with its application and customer. */
 export interface PendingPayment extends Payment {
   application: { _id: string; referenceId: string; status: ApplicationStatus; visaType?: { name: string }; country?: { name: string; flag: string } } | null;
   user: { _id: string; name: string; email: string; phone: string } | null;
@@ -466,6 +479,11 @@ export interface PaymentConfig {
   upiId: string;
   payeeName: string;
   merchantCode: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  ifsc: string;
+  branch: string;
   verificationHours: number;
   terms: string[];
 }

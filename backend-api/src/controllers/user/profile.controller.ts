@@ -5,7 +5,7 @@ import { uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudin
 import { sendSuccess, sendError } from '../../utils/response';
 
 export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
-  const user = await User.findById(req.user!._id).select('-__v');
+  const user = await User.findById(req.user!._id).select('-__v -corporateType');
   if (!user) { sendError(res, 'User not found', 404); return; }
   sendSuccess(res, user);
 };
@@ -17,7 +17,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
   if (phone?.trim()) updates.phone = phone.trim();
   if (gstNumber !== undefined) updates.gstNumber = gstNumber.trim();
 
-  const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true }).select('-__v');
+  const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true }).select('-__v -corporateType');
   if (!user) { sendError(res, 'User not found', 404); return; }
   sendSuccess(res, user, 'Profile updated');
 };
@@ -37,7 +37,7 @@ export const uploadProfilePhoto = async (req: AuthRequest, res: Response): Promi
     userId,
     { profilePhoto: url, profilePhotoPublicId: publicId },
     { new: true }
-  ).select('-__v');
+  ).select('-__v -corporateType');
 
   sendSuccess(res, user, 'Profile photo updated');
 };

@@ -189,10 +189,12 @@ export interface CourierRequest {
 export interface ApplicationPayment {
   _id: string;
   amount: number;
-  method: 'upi' | 'cash' | 'manual_override' | 'online';
+  method: 'upi' | 'bank_transfer' | 'cash' | 'manual_override' | 'online';
   status: 'pending' | 'awaiting_verification' | 'completed' | 'failed' | 'refunded';
   utr?: string;
   rejectedUtr?: string;
+  /** Short-lived link to the screenshot the applicant attached, if any. */
+  proofUrl?: string;
   submittedAt?: string | null;
   failureReason?: string;
   failedAt?: string | null;

@@ -7,13 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { PaymentReviewActions } from '@/components/shared/payment-review-actions';
 import { useSocket } from '@/components/providers/SocketProvider';
 import { getPendingPayments } from '@/lib/api';
-import { deadlineLabel, formatCurrency } from '@/lib/utils';
+import { PaymentProofLink } from '@/components/shared/payment-proof-link';
+import { PAYMENT_METHOD_LABELS, deadlineLabel, formatCurrency } from '@/lib/utils';
 import type { PendingPayment } from '@/types';
 
 const SHOWN = 5;
 
 /**
- * Dashboard shortcut to the verification queue: the oldest submitted UPI payments with
+ * Dashboard shortcut to the verification queue: the oldest submitted payments with
  * their deadlines, verifiable in place. Hidden when nothing is waiting.
  */
 export function PendingPaymentsCard() {
@@ -67,8 +68,9 @@ export function PendingPaymentsCard() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate mt-0.5">
-                  {p.user?.name} &middot; UTR <span className="font-mono">{p.utr}</span>
+                  {p.user?.name} &middot; {PAYMENT_METHOD_LABELS[p.method] || 'UPI'} &middot; UTR <span className="font-mono">{p.utr}</span>
                 </p>
+                <PaymentProofLink url={p.proofUrl} className="mt-0.5" />
               </div>
               <PaymentReviewActions paymentId={p._id} amount={p.amount} utr={p.utr} onDone={load} />
             </li>

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { createUser, updateUser } from '@/lib/api';
-import type { User } from '@/types';
+import type { CorporateType, User } from '@/types';
 
 interface CustomerFormDialogProps {
   open: boolean;
@@ -20,6 +20,7 @@ interface FormState {
   email: string;
   phone: string;
   accountType: 'individual' | 'corporate';
+  corporateType: CorporateType;
   gstNumber: string;
   isActive: boolean;
   promoApplicable: boolean;
@@ -30,6 +31,7 @@ const empty = (): FormState => ({
   email: '',
   phone: '',
   accountType: 'individual',
+  corporateType: 'corporate',
   gstNumber: '',
   isActive: true,
   promoApplicable: true,
@@ -53,6 +55,7 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: Cu
             email: customer.email,
             phone: customer.phone,
             accountType: customer.accountType || 'individual',
+            corporateType: customer.corporateType === 'b2b_agent' ? 'b2b_agent' : 'corporate',
             gstNumber: customer.gstNumber || '',
             isActive: customer.isActive,
             promoApplicable: customer.promoApplicable !== false,
@@ -78,6 +81,7 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: Cu
         email: form.email.trim(),
         phone: form.phone.trim(),
         accountType: form.accountType,
+        corporateType: isCorporate ? form.corporateType : 'corporate',
         gstNumber: isCorporate ? form.gstNumber.trim() : '',
         isActive: form.isActive,
         promoApplicable: form.promoApplicable,
@@ -122,6 +126,36 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: Cu
               ))}
             </div>
           </div>
+
+          {/* Corporate kind. Admin-only: the customer never sees which one they are. */}
+          {isCorporate && (
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Corporate Type *</label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: 'corporate' as const, label: 'Corporate', desc: 'Corporate service fee, pays by any method' },
+                  { value: 'b2b_agent' as const, label: 'B2B Agent', desc: 'Uses the B2B price list set on each visa' },
+                ]).map(({ value, label, desc }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setForm({ ...form, corporateType: value })}
+                    className={`text-left rounded-xl border p-3 transition-colors ${
+                      form.corporateType === value
+                        ? value === 'b2b_agent' ? 'border-violet-500 bg-violet-500/10 ring-1 ring-violet-500/30' : 'border-warning bg-warning/10 ring-1 ring-warning/30'
+                        : 'border-input hover:bg-muted'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      {form.corporateType === value && <Check className="w-3.5 h-3.5" />}{label}
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{desc}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Only admins see this. The customer just sees their prices.</p>
+            </div>
+          )}
 
           {/* Name */}
           <div>

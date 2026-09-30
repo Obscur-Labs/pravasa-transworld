@@ -1,8 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { deliveryUrl } from '../services/cloudinary.service';
 
 // 'online' is kept only so records from the retired card gateway still load.
-export type PaymentMethod = 'upi' | 'cash' | 'manual_override' | 'online';
-// pending: UPI details shown, customer has not confirmed paying yet.
+export type PaymentMethod = 'upi' | 'bank_transfer' | 'cash' | 'manual_override' | 'online';
+// pending: payment details shown, customer has not confirmed paying yet.
 // awaiting_verification: customer submitted a UTR; an admin must match it to the bank statement.
 // failed: an admin rejected the submission (failureReason says why); the customer can pay again.
 export type PaymentStatus = 'pending' | 'awaiting_verification' | 'completed' | 'failed' | 'refunded';
@@ -16,12 +17,17 @@ export interface IPayment extends Document {
   status: PaymentStatus;
   transactionId: string;
   gateway: string;
-  // UPI transaction reference (12-digit RRN) the customer entered. Unique across payments,
-  // so one bank credit can't be claimed twice. Moved to rejectedUtr on rejection.
+  // Transaction reference the customer entered (UPI RRN, or NEFT/RTGS/IMPS UTR). Unique
+  // across payments, so one bank credit can't be claimed twice. Moved to rejectedUtr on rejection.
   utr?: string;
   rejectedUtr: string;
   // The confirmations the customer ticked, verbatim, as shown at the time.
   acceptedTerms: string[];
+  // Optional screenshot of the payment, a private Cloudinary asset under
+  // users/{userId}/payments/{applicationRef}. Supporting evidence only: admins verify
+  // against the bank statement.
+  proofUrl: string;
+  proofPublicId: string;
   submittedAt: Date | null;
   // The deadline promised to the customer at submission (submittedAt + verification hours).
   verifyBy: Date | null;
@@ -47,13 +53,15 @@ const PaymentSchema = new Schema<IPayment>(
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: 'INR' },
-    method: { type: String, enum: ['upi', 'cash', 'manual_override', 'online'], default: 'upi' },
+    method: { type: String, enum: ['upi', 'bank_transfer', 'cash', 'manual_override', 'online'], default: 'upi' },
     status: { type: String, enum: ['pending', 'awaiting_verification', 'completed', 'failed', 'refunded'], default: 'pending' },
     transactionId: { type: String, default: '' },
     gateway: { type: String, default: '' },
     utr: { type: String },
     rejectedUtr: { type: String, default: '' },
     acceptedTerms: { type: [String], default: [] },
+    proofUrl: { type: String, default: '' },
+    proofPublicId: { type: String, default: '' },
     submittedAt: { type: Date, default: null },
     verifyBy: { type: Date, default: null },
     remindersSent: { type: [Number], default: [] },
@@ -69,7 +77,17 @@ const PaymentSchema = new Schema<IPayment>(
     failureReason: { type: String, default: '' },
     failedAt: { type: Date, default: null },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    // The stored screenshot URL never leaves the server; responses get a 1-hour link.
+    toJSON: {
+      transform: (_doc: unknown, ret: Record<string, any>) => {
+        if (ret.proofUrl) ret.proofUrl = deliveryUrl(ret.proofUrl, ret.proofPublicId);
+        delete ret.proofPublicId;
+        return ret;
+      },
+    },
+  }
 );
 
 PaymentSchema.index({ utr: 1 }, { unique: true, partialFilterExpression: { utr: { $exists: true } } });

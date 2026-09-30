@@ -175,6 +175,9 @@ export default function CustomersPage() {
                         <span className={`text-xs font-semibold ${tab === 'corporate' ? 'text-warning' : 'text-primary'}`}>{u.name?.[0]?.toUpperCase()}</span>
                       </div>
                       <span className="font-medium text-foreground">{u.name}</span>
+                      {tab === 'corporate' && u.corporateType === 'b2b_agent' && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400">B2B</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>

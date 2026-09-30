@@ -68,14 +68,24 @@ function TabButton({ step, label, active, onClick }: { step: number; label: stri
   );
 }
 
-// Pricing splits along the line that actually matters: visa and VFS fees are
-// pass-through charges (same for everyone), while the service fee is our margin and
-// varies by both traveler type and account type.
+// Visa and VFS fees are pass-through charges; the service fee is our margin. Corporate
+// accounts override only the service fee, B2B agents get a full price list of their own.
 type PriceField =
   | 'adultPrice' | 'childPrice'
   | 'adultVfsFee' | 'childVfsFee'
   | 'adultServiceFee' | 'childServiceFee'
-  | 'corporateAdultServiceFee' | 'corporateChildServiceFee';
+  | 'corporateAdultServiceFee' | 'corporateChildServiceFee'
+  | 'b2bAdultPrice' | 'b2bChildPrice'
+  | 'b2bAdultVfsFee' | 'b2bChildVfsFee'
+  | 'b2bAdultServiceFee' | 'b2bChildServiceFee';
+
+// Optional overrides: blank means "inherit", so they go to the server as '' (clears it).
+const OPTIONAL_PRICE_FIELDS = [
+  'corporateAdultServiceFee', 'corporateChildServiceFee',
+  'b2bAdultPrice', 'b2bChildPrice', 'b2bAdultVfsFee', 'b2bChildVfsFee', 'b2bAdultServiceFee', 'b2bChildServiceFee',
+] as const;
+
+const optPrice = (v: string) => (v === '' ? '' : Number(v));
 
 const PASS_THROUGH_ROWS: { label: string; required?: boolean; fields: [PriceField, PriceField] }[] = [
   { label: 'Visa fee', required: true, fields: ['adultPrice', 'childPrice'] },
@@ -88,6 +98,13 @@ const PRICE_GRID = 'grid grid-cols-[minmax(7rem,1fr)_minmax(6.5rem,9rem)_minmax(
 const SERVICE_FEE_ROWS: { label: string; hint?: string; fields: [PriceField, PriceField] }[] = [
   { label: 'Individual', fields: ['adultServiceFee', 'childServiceFee'] },
   { label: 'Corporate', hint: 'blank = same as individual', fields: ['corporateAdultServiceFee', 'corporateChildServiceFee'] },
+];
+
+// B2B rows with the fields each one inherits from when left blank.
+const B2B_ROWS: { label: string; fields: [PriceField, PriceField]; inherits: [PriceField, PriceField] }[] = [
+  { label: 'Visa fee', fields: ['b2bAdultPrice', 'b2bChildPrice'], inherits: ['adultPrice', 'childPrice'] },
+  { label: 'VFS fee', fields: ['b2bAdultVfsFee', 'b2bChildVfsFee'], inherits: ['adultVfsFee', 'childVfsFee'] },
+  { label: 'Service fee', fields: ['b2bAdultServiceFee', 'b2bChildServiceFee'], inherits: ['corporateAdultServiceFee', 'corporateChildServiceFee'] },
 ];
 
 // Dialog steps, in order. Any tab can be opened at any time; required fields are checked on save.
@@ -115,6 +132,7 @@ const emptyForm = () => ({
   country: '', name: '', description: '',
   adultPrice: '', childPrice: '', adultVfsFee: '', childVfsFee: '', adultServiceFee: '', childServiceFee: '',
   corporateAdultServiceFee: '', corporateChildServiceFee: '',
+  b2bAdultPrice: '', b2bChildPrice: '', b2bAdultVfsFee: '', b2bChildVfsFee: '', b2bAdultServiceFee: '', b2bChildServiceFee: '',
   processingTime: '', validity: '',
   entry: [] as EntryType[],
   visaSubType: 'e-visa' as string,
@@ -260,8 +278,7 @@ export default function CountryDetailPage() {
         childVfsFee: Number(form.childVfsFee || 0),
         adultServiceFee: Number(form.adultServiceFee || 0),
         childServiceFee: Number(form.childServiceFee || 0),
-        corporateAdultServiceFee: form.corporateAdultServiceFee === '' ? '' : Number(form.corporateAdultServiceFee),
-        corporateChildServiceFee: form.corporateChildServiceFee === '' ? '' : Number(form.corporateChildServiceFee),
+        ...Object.fromEntries(OPTIONAL_PRICE_FIELDS.map((f) => [f, optPrice(form[f])])),
         ...orderedFormArrays(form.formFields, form.documentRequirements),
         terms: form.terms.filter((t) => t.text.trim()).map((t, i) => ({ ...t, text: t.text.trim(), order: i })),
       };
@@ -301,8 +318,7 @@ export default function CountryDetailPage() {
         adultServiceFee: vt.adultServiceFee || 0,
         childServiceFee: vt.childServiceFee || 0,
         // '' clears the override on the server; `undefined` would silently keep it unset anyway.
-        corporateAdultServiceFee: vt.corporateAdultServiceFee ?? '',
-        corporateChildServiceFee: vt.corporateChildServiceFee ?? '',
+        ...Object.fromEntries(OPTIONAL_PRICE_FIELDS.map((f) => [f, vt[f] ?? ''])),
         processingTime: vt.processingTime,
         validity: vt.validity || '',
         entry: vt.entry || [],
@@ -506,8 +522,7 @@ export default function CountryDetailPage() {
       childVfsFee: vt.childVfsFee ? String(vt.childVfsFee) : '',
       adultServiceFee: vt.adultServiceFee ? String(vt.adultServiceFee) : '',
       childServiceFee: vt.childServiceFee ? String(vt.childServiceFee) : '',
-      corporateAdultServiceFee: vt.corporateAdultServiceFee != null ? String(vt.corporateAdultServiceFee) : '',
-      corporateChildServiceFee: vt.corporateChildServiceFee != null ? String(vt.corporateChildServiceFee) : '',
+      ...(Object.fromEntries(OPTIONAL_PRICE_FIELDS.map((f) => [f, vt[f] != null ? String(vt[f]) : ''])) as Record<(typeof OPTIONAL_PRICE_FIELDS)[number], string>),
       processingTime: vt.processingTime || '',
       validity: vt.validity || '',
       entry: vt.entry?.length ? [vt.entry[0]] : [],
@@ -545,6 +560,18 @@ export default function CountryDetailPage() {
   const subCorpAdult = passThroughAdult + corpAdultFee + gstOnFee(corpAdultFee);
   const subCorpChild = passThroughChild + corpChildFee + gstOnFee(corpChildFee);
   const corpFeeDiffers = form.corporateAdultServiceFee !== '' || form.corporateChildServiceFee !== '';
+  // B2B: each blank component inherits; the service fee inherits corporate, then individual.
+  const b2bAdultFee = form.b2bAdultServiceFee !== '' ? num(form.b2bAdultServiceFee) : corpAdultFee;
+  const b2bChildFee = form.b2bChildServiceFee !== '' ? num(form.b2bChildServiceFee) : corpChildFee;
+  const subB2bAdult = corpOrStd(form.b2bAdultPrice, form.adultPrice) + corpOrStd(form.b2bAdultVfsFee, form.adultVfsFee) + b2bAdultFee + gstOnFee(b2bAdultFee);
+  const subB2bChild = corpOrStd(form.b2bChildPrice, form.childPrice) + corpOrStd(form.b2bChildVfsFee, form.childVfsFee) + b2bChildFee + gstOnFee(b2bChildFee);
+  const b2bDiffers = B2B_ROWS.some((r) => r.fields.some((f) => form[f] !== ''));
+  // What a blank B2B input would inherit, shown as its placeholder.
+  const b2bInherited = (name: PriceField): string => {
+    if (name === 'corporateAdultServiceFee') return String(corpAdultFee);
+    if (name === 'corporateChildServiceFee') return String(corpChildFee);
+    return form[name] || '0';
+  };
 
   // Plain function (not a component) so React keeps the same input instances between
   // renders, a nested component here would remount and steal focus on every keystroke.
@@ -568,6 +595,15 @@ export default function CountryDetailPage() {
   // Corporate differs from standard only by the service fee component (and its GST).
   const corpAdultTotal = (vt: VisaType) => { const fee = vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0; return (vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + fee + gstOnFee(fee); };
   const corpChildTotal = (vt: VisaType) => { const fee = vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0; return (vt.childPrice || 0) + (vt.childVfsFee || 0) + fee + gstOnFee(fee); };
+  const hasB2bPricing = (vt: VisaType) => B2B_ROWS.some((r) => r.fields.some((f) => vt[f as keyof VisaType] != null));
+  const b2bAdultTotal = (vt: VisaType) => {
+    const fee = vt.b2bAdultServiceFee ?? vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0;
+    return (vt.b2bAdultPrice ?? (vt.adultPrice || vt.price)) + (vt.b2bAdultVfsFee ?? (vt.adultVfsFee || 0)) + fee + gstOnFee(fee);
+  };
+  const b2bChildTotal = (vt: VisaType) => {
+    const fee = vt.b2bChildServiceFee ?? vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0;
+    return (vt.b2bChildPrice ?? (vt.childPrice || 0)) + (vt.b2bChildVfsFee ?? (vt.childVfsFee || 0)) + fee + gstOnFee(fee);
+  };
 
   const displayedVisaTypes = visaTypes
     .filter((vt) => {
@@ -837,7 +873,8 @@ export default function CountryDetailPage() {
               {/* ── Step 2: Pricing ──
                   Split by who the charge belongs to: visa + VFS are pass-through and
                   identical for everyone, so they're entered once; the service fee is our
-                  margin and gets its own individual/corporate grid. ── */}
+                  margin and gets its own individual/corporate grid. B2B agents get a
+                  full price list below that. ── */}
               <div className={activeTab === 'pricing' ? '' : 'hidden'}>
                 <div className="rounded-xl border border-border overflow-hidden max-w-2xl">
                   <div className="px-5 py-3.5 bg-muted/40 border-b border-border">
@@ -897,6 +934,26 @@ export default function CountryDetailPage() {
                       </div>
                     </div>
 
+                    {/* B2B agents: their own price list, blank inherits */}
+                    <div className="pt-5 border-t border-border">
+                      <div className="flex items-baseline justify-between gap-3 mb-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">B2B agent price list</p>
+                        <p className="text-xs text-muted-foreground">Blank = same as above. Only B2B agents see it</p>
+                      </div>
+                      <div className={PRICE_GRID}>
+                        <span />
+                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
+                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
+
+                        {B2B_ROWS.map((row) => (
+                          <Fragment key={row.label}>
+                            <span className="text-sm text-foreground">{row.label}</span>
+                            {row.fields.map((name, i) => priceInput(name, b2bInherited(row.inherits[i])))}
+                          </Fragment>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* What each account type ends up paying */}
                     <div className="pt-5 border-t border-border">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Customer pays <span className="font-normal normal-case tracking-normal">(incl. 18% GST)</span></p>
@@ -915,6 +972,13 @@ export default function CountryDetailPage() {
                         </span>
                         <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpAdult > 0 ? formatCurrency(subCorpAdult) : '-'}</span>
                         <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpChild > 0 ? formatCurrency(subCorpChild) : '-'}</span>
+
+                        <span className="text-sm text-foreground flex items-center gap-1.5">
+                          B2B agent
+                          {b2bDiffers && <span className="w-1.5 h-1.5 rounded-full bg-violet-500" title="B2B prices are set" />}
+                        </span>
+                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${b2bDiffers ? 'text-violet-600 dark:text-violet-400' : 'text-primary'}`}>{subB2bAdult > 0 ? formatCurrency(subB2bAdult) : '-'}</span>
+                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${b2bDiffers ? 'text-violet-600 dark:text-violet-400' : 'text-primary'}`}>{subB2bChild > 0 ? formatCurrency(subB2bChild) : '-'}</span>
                       </div>
                     </div>
                   </div>
@@ -1151,6 +1215,11 @@ export default function CountryDetailPage() {
                     <span className={vt.corporateChildServiceFee != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
                       {vt.childPrice ? formatCurrency(corpChildTotal(vt)) : '-'}
                     </span>
+                    {hasB2bPricing(vt) && (
+                      <span className="block text-violet-600 dark:text-violet-400 font-semibold" title="B2B agent price: visa + VFS + service fee, incl. 18% GST">
+                        B2B {formatCurrency(b2bAdultTotal(vt))}{vt.childPrice ? ` / ${formatCurrency(b2bChildTotal(vt))}` : ''}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${vt.process === 'express' ? 'text-destructive bg-destructive/10' : 'text-muted-foreground bg-muted'}`}>

@@ -2,11 +2,11 @@ import { Response } from 'express';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import Payment from '../../models/Payment';
 import PaymentConfig, { DEFAULT_PAYMENT_TERMS } from '../../models/PaymentConfig';
-import { UPI_ID_RE, approvePayment, loadPaymentConfig, rejectPayment } from '../../services/payment.service';
+import { IFSC_RE, METHOD_LABELS, availableMethods, UPI_ID_RE, approvePayment, loadPaymentConfig, rejectPayment } from '../../services/payment.service';
 import { logActivity } from '../../utils/activityLog';
 import { sendSuccess, sendError } from '../../utils/response';
 
-/** UPI payments customers have submitted, oldest first, so the longest-waiting is on top. */
+/** UPI and bank payments customers have submitted, oldest first, so the longest-waiting is on top. */
 export const getPendingPayments = async (_req: AdminRequest, res: Response): Promise<void> => {
   const [payments, config] = await Promise.all([
     Payment.find({ status: 'awaiting_verification' })
@@ -16,13 +16,13 @@ export const getPendingPayments = async (_req: AdminRequest, res: Response): Pro
       .sort({ submittedAt: 1 }),
     loadPaymentConfig(),
   ]);
-  sendSuccess(res, { payments, verificationHours: config.verificationHours, upiId: config.upiId });
+  sendSuccess(res, { payments, verificationHours: config.verificationHours, upiId: config.upiId, methods: availableMethods(config) });
 };
 
 export const approveUpiPayment = async (req: AdminRequest, res: Response): Promise<void> => {
   const payment = await approvePayment(req.params.id, req.admin!, String(req.body?.note ?? '').trim());
   if (!payment) { sendError(res, 'This payment is no longer awaiting verification', 409); return; }
-  logActivity(req, 'update', 'Payment', `Verified UPI payment ${payment.transactionId}`);
+  logActivity(req, 'update', 'Payment', `Verified ${METHOD_LABELS[payment.method] || 'UPI'} payment ${payment.transactionId}`);
   sendSuccess(res, payment, 'Payment verified');
 };
 
@@ -31,7 +31,7 @@ export const rejectUpiPayment = async (req: AdminRequest, res: Response): Promis
   if (!reason) { sendError(res, 'A reason is required so the customer knows what to fix'); return; }
   const payment = await rejectPayment(req.params.id, req.admin!, reason);
   if (!payment) { sendError(res, 'This payment is no longer awaiting verification', 409); return; }
-  logActivity(req, 'update', 'Payment', `Rejected UPI payment ${payment.rejectedUtr}: ${reason}`);
+  logActivity(req, 'update', 'Payment', `Rejected ${METHOD_LABELS[payment.method] || 'UPI'} payment ${payment.rejectedUtr}: ${reason}`);
   sendSuccess(res, payment, 'Payment rejected');
 };
 
@@ -41,8 +41,22 @@ export const getPaymentConfig = async (_req: AdminRequest, res: Response): Promi
 };
 
 export const updatePaymentConfig = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { upiId, payeeName, merchantCode, verificationHours, terms } = req.body || {};
+  const { upiId, payeeName, merchantCode, verificationHours, terms, accountNumber, ifsc } = req.body || {};
   const update: Record<string, unknown> = {};
+
+  for (const field of ['bankName', 'accountName', 'branch'] as const) {
+    if (req.body?.[field] !== undefined) update[field] = String(req.body[field]).trim();
+  }
+  if (accountNumber !== undefined) {
+    const value = String(accountNumber).replace(/\s+/g, '');
+    if (value && !/^\d{6,20}$/.test(value)) { sendError(res, 'Account number should be 6 to 20 digits'); return; }
+    update.accountNumber = value;
+  }
+  if (ifsc !== undefined) {
+    const value = String(ifsc).trim().toUpperCase();
+    if (value && !IFSC_RE.test(value)) { sendError(res, 'That does not look like an IFSC code (e.g. AUBL0002132)'); return; }
+    update.ifsc = value;
+  }
 
   if (upiId !== undefined) {
     const value = String(upiId).trim();
@@ -68,6 +82,6 @@ export const updatePaymentConfig = async (req: AdminRequest, res: Response): Pro
   }
 
   const config = await PaymentConfig.findOneAndUpdate({}, { $set: update }, { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true });
-  logActivity(req, 'update', 'Payment Config', config.upiId || 'UPI settings');
+  logActivity(req, 'update', 'Payment Config', 'Payment settings');
   sendSuccess(res, { config, defaultTerms: DEFAULT_PAYMENT_TERMS }, 'Payment settings saved');
 };

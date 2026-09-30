@@ -14,7 +14,7 @@ import { deliveryUrl, fetchAsset, uploadToCloudinary } from '../../services/clou
 import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
 import { generateReceiptPDF } from '../../services/pdf.service';
 import { buildReceiptData } from '../../utils/receiptData';
-import { computeVisaPricing, computeSubtotal, computeGst } from '../../utils/pricing';
+import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf } from '../../utils/pricing';
 import { logActivity } from '../../utils/activityLog';
 import { POST_PAYMENT_STAGES, PRE_PAYMENT_STAGES, hasCompletedPayment } from '../../services/payment.service';
 import { sendSuccess, sendError } from '../../utils/response';
@@ -58,7 +58,8 @@ export const getApplications = async (req: AdminRequest, res: Response): Promise
 
 export const getApplication = async (req: AdminRequest, res: Response): Promise<void> => {
   const application = await Application.findById(req.params.id)
-    .populate('user', 'name email phone')
+    .select('+pricingTier')
+    .populate('user', 'name email phone corporateType accountType')
     .populate('visaType')
     .populate('country');
   if (!application) { sendError(res, 'Application not found', 404); return; }
@@ -198,8 +199,7 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
   // Preserve the per-traveler total locked at creation; only recompute if it was never set.
   if (visaType && (!application.paymentAmount || application.paymentAmount <= 0)) {
     const fullUser = await (await import('../../models/User')).default.findById(application.user);
-    const isCorporate = fullUser?.accountType === 'corporate';
-    const breakdown = computeVisaPricing(visaType, isCorporate);
+    const breakdown = computeVisaPricing(visaType, pricingTierOf(fullUser));
     const numAdults = application.adults || 1;
     const numChildren = application.children || 0;
     const subtotal = computeSubtotal(breakdown, numAdults, numChildren);
@@ -212,6 +212,7 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
     application.childVfs = breakdown.childVfs;
     application.childFee = breakdown.childFee;
     application.gstAmount = gstAmount;
+    application.pricingTier = pricingTierOf(fullUser);
   }
   await application.save();
 
@@ -419,7 +420,7 @@ export const manualPaymentOverride = async (req: AdminRequest, res: Response): P
     sendError(res, 'Application is not awaiting payment'); return;
   }
   if (await Payment.exists({ application: application._id, status: 'awaiting_verification' })) {
-    sendError(res, 'A UPI payment for this application is waiting for verification. Approve or reject it first.', 409); return;
+    sendError(res, 'A customer payment for this application is waiting for verification. Approve or reject it first.', 409); return;
   }
 
   const transactionId = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;

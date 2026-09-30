@@ -15,14 +15,30 @@ import { Textarea } from '@/components/ui/textarea';
 
 type FormState = Omit<PaymentConfig, '_id'>;
 
-const empty: FormState = { upiId: '', payeeName: '', merchantCode: '', verificationHours: 24, terms: [] };
+const empty: FormState = {
+  upiId: '', payeeName: '', merchantCode: '',
+  bankName: '', accountName: '', accountNumber: '', ifsc: '', branch: '',
+  verificationHours: 24, terms: [],
+};
 const UPI_ID_RE = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$/;
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const ACCOUNT_RE = /^d{6,20}$/;
 
 // Same shape the backend builds for customers, fixed at Rs 1 for a safe live test.
 function testLink(f: FormState): string {
   const params: [string, string][] = [['pa', f.upiId], ['pn', f.payeeName], ['am', '1.00'], ['cu', 'INR'], ['tn', 'Test payment']];
   if (f.merchantCode) params.push(['mc', f.merchantCode], ['tr', 'TEST']);
   return `upi://pay?${params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')}`;
+}
+
+/** Whether customers currently see this method. */
+function MethodStatus({ ready }: { ready: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${ready ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${ready ? 'bg-success' : 'bg-muted-foreground/60'}`} />
+      {ready ? 'Shown to customers' : 'Hidden'}
+    </span>
+  );
 }
 
 export default function PaymentConfigPage() {
@@ -46,6 +62,10 @@ export default function PaymentConfigPage() {
 
   const upiValid = UPI_ID_RE.test(form.upiId.trim());
   const canPreview = upiValid && !!form.payeeName.trim();
+  const accountValid = ACCOUNT_RE.test(form.accountNumber);
+  const ifscValid = IFSC_RE.test(form.ifsc);
+  const bankReady = accountValid && ifscValid && !!form.accountName.trim();
+  const upiReady = canPreview;
 
   const handleSave = async () => {
     setSaving(true);
@@ -65,7 +85,7 @@ export default function PaymentConfigPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader
         title="Payment Settings"
-        description="Where customers send UPI payments, and what they must confirm before submitting one."
+        description="Where customers send UPI and bank payments, and what they must confirm before submitting one."
       />
 
       {loading ? (
@@ -75,7 +95,10 @@ export default function PaymentConfigPage() {
           <div className="space-y-6">
             <Card>
               <CardContent className="p-6">
-                <h2 className="font-semibold text-foreground">UPI account</h2>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="font-semibold text-foreground">UPI account</h2>
+                  <MethodStatus ready={upiReady} />
+                </div>
                 <p className="text-xs text-muted-foreground mt-0.5 mb-4">
                   Use a business UPI ID linked to the company current account. Some UPI apps limit or block payments with a pre-filled amount to personal UPI IDs.
                 </p>
@@ -96,12 +119,60 @@ export default function PaymentConfigPage() {
                     <Input id="merchantCode" className="mt-1 font-mono" placeholder="4 digits, from your bank" inputMode="numeric" maxLength={4}
                       value={form.merchantCode} onChange={(e) => setForm({ ...form, merchantCode: e.target.value.replace(/\D/g, '') })} />
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="font-semibold text-foreground">Bank account</h2>
+                  <MethodStatus ready={bankReady} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5 mb-4">
+                  Shown to customers for NEFT, RTGS or IMPS, useful for amounts above UPI limits. Leave the account number empty to hide bank transfer.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="hours">Verification time (hours)</Label>
-                    <Input id="hours" type="number" min={1} max={168} className="mt-1"
-                      value={form.verificationHours} onChange={(e) => setForm({ ...form, verificationHours: Number(e.target.value) })} />
-                    <p className="text-xs text-muted-foreground mt-1">Promised to customers. Late ones are flagged in Payment Verification.</p>
+                    <Label htmlFor="accountName">Account holder name</Label>
+                    <Input id="accountName" className="mt-1" placeholder="Exactly as on the bank account"
+                      value={form.accountName} onChange={(e) => setForm({ ...form, accountName: e.target.value })} />
                   </div>
+                  <div>
+                    <Label htmlFor="bankName">Bank name</Label>
+                    <Input id="bankName" className="mt-1" placeholder="e.g. AU Small Finance Bank"
+                      value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="accountNumber">Account number</Label>
+                    <Input id="accountNumber" className="mt-1 font-mono" inputMode="numeric" maxLength={20}
+                      value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value.replace(/D/g, '') })} />
+                    {form.accountNumber && !accountValid && <p className="text-xs text-destructive mt-1">Account numbers are 6 to 20 digits.</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="ifsc">IFSC</Label>
+                    <Input id="ifsc" className="mt-1 font-mono uppercase" placeholder="e.g. AUBL0002132" maxLength={11}
+                      value={form.ifsc} onChange={(e) => setForm({ ...form, ifsc: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })} />
+                    {form.ifsc && !ifscValid && <p className="text-xs text-destructive mt-1">IFSC is 11 characters, like AUBL0002132.</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="branch">Branch <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Input id="branch" className="mt-1"
+                      value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-semibold text-foreground">Verification</h2>
+                <p className="text-xs text-muted-foreground mt-0.5 mb-4">Applies to both methods. Every submitted payment is checked by hand against the bank statement.</p>
+                <div className="max-w-xs">
+                  <Label htmlFor="hours">Verification time (hours)</Label>
+                  <Input id="hours" type="number" min={1} max={168} className="mt-1"
+                    value={form.verificationHours} onChange={(e) => setForm({ ...form, verificationHours: Number(e.target.value) })} />
+                  <p className="text-xs text-muted-foreground mt-1">Promised to customers. Late ones are flagged in Payment Verification.</p>
                 </div>
               </CardContent>
             </Card>

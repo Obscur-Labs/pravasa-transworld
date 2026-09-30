@@ -17,7 +17,7 @@ import {
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { buildReviewRows, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import StatusTimeline from '@/components/dashboard/StatusTimeline';
-import UpiPaymentDialog from '@/components/payment/UpiPaymentDialog';
+import PaymentDialog from '@/components/payment/PaymentDialog';
 import type { Application, ApplicationPayment, Document as AppDocument, VisaFile, DocumentRequirement, VaultDocument } from '@/types';
 import { STATUS_LABELS } from '@/types';
 
@@ -518,11 +518,11 @@ export default function ApplicationDetailPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h3 className="font-bold text-brand-900 mb-1">Payment Required</h3>
-                    <p className="text-brand-700 text-sm">Pay by UPI to start processing your application. Processing begins once our team verifies the payment.</p>
+                    <p className="text-brand-700 text-sm">Pay by UPI or bank transfer to start processing your application. Processing begins once our team verifies the payment.</p>
                     <p className="text-2xl font-bold text-brand-900 mt-2">{formatCurrency(application.paymentAmount)}</p>
                   </div>
                   <Button onClick={() => setPayOpen(true)} className="sm:ml-4 shrink-0">
-                    <CreditCard className="w-4 h-4 mr-2" />{payment?.status === 'failed' ? 'Pay Again' : 'Pay by UPI'}
+                    <CreditCard className="w-4 h-4 mr-2" />{payment?.status === 'failed' ? 'Pay Again' : 'Pay Now'}
                   </Button>
                 </div>
 
@@ -554,8 +554,9 @@ export default function ApplicationDetailPage() {
                       We verify payments within {verificationHours} hours. Visa processing starts once your payment of {formatCurrency(payment.amount)} is verified.
                     </p>
                     <p className="text-xs text-amber-700 mt-2">
-                      UTR <span className="font-mono font-semibold">{payment.utr}</span>
+                      {payment.method === 'bank_transfer' ? 'Bank transfer' : 'UPI'} &middot; UTR <span className="font-mono font-semibold">{payment.utr}</span>
                       {payment.submittedAt && <> &middot; submitted {formatDate(payment.submittedAt)}</>}
+                      {payment.proofUrl && <> &middot; screenshot attached</>}
                     </p>
                   </div>
                 </div>
@@ -1121,7 +1122,7 @@ export default function ApplicationDetailPage() {
         </div>
       </div>
 
-      <UpiPaymentDialog
+      <PaymentDialog
         applicationId={id}
         open={payOpen}
         onOpenChange={setPayOpen}

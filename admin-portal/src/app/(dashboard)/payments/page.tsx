@@ -12,7 +12,8 @@ import { toast } from '@/components/ui/use-toast';
 import { PaymentReviewActions } from '@/components/shared/payment-review-actions';
 import { getPendingPayments } from '@/lib/api';
 import { useSocket } from '@/components/providers/SocketProvider';
-import { deadlineLabel, formatCurrency, formatDate, timeAgo } from '@/lib/utils';
+import { PaymentProofLink } from '@/components/shared/payment-proof-link';
+import { PAYMENT_METHOD_LABELS, deadlineLabel, formatCurrency, formatDate, timeAgo } from '@/lib/utils';
 import type { PendingPayment } from '@/types';
 
 const HOUR = 60 * 60 * 1000;
@@ -25,6 +26,7 @@ export default function PaymentVerificationPage() {
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [hours, setHours] = useState(24);
   const [upiId, setUpiId] = useState('');
+  const [methods, setMethods] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0);
   const { paymentsVersion } = useSocket();
@@ -36,6 +38,7 @@ export default function PaymentVerificationPage() {
         setPayments(r.data.data.payments || []);
         setHours(r.data.data.verificationHours || 24);
         setUpiId(r.data.data.upiId || '');
+        setMethods(r.data.data.methods || []);
       })
       .catch(() => toast({ title: 'Could not load payments', variant: 'destructive' }))
       .finally(() => setLoading(false));
@@ -52,7 +55,7 @@ export default function PaymentVerificationPage() {
 
   const copy = (value: string) => {
     navigator.clipboard.writeText(value).then(
-      () => toast({ title: 'UTR copied' }),
+      () => toast({ title: 'Reference copied' }),
       () => toast({ title: value }),
     );
   };
@@ -63,11 +66,11 @@ export default function PaymentVerificationPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader
         title="Payment Verification"
-        description={`UPI payments customers have submitted. Match each UTR and amount against the bank statement${upiId ? ` for ${upiId}` : ''}, then verify or reject. Customers were promised a decision within ${hours} hours.`}
+        description={`UPI and bank payments customers have submitted. Match each reference (UTR) and amount against the bank statement${upiId ? ` (UPI ${upiId})` : ''}, then verify or reject. Customers were promised a decision within ${hours} hours.`}
         action={
           <div className="flex gap-2">
             <Button variant="outline" asChild>
-              <Link href="/payment-config"><Settings2 className="w-4 h-4 mr-2" />UPI Settings</Link>
+              <Link href="/payment-config"><Settings2 className="w-4 h-4 mr-2" />Payment Settings</Link>
             </Button>
             <Button variant="outline" onClick={load} disabled={loading}>
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />Refresh
@@ -76,10 +79,10 @@ export default function PaymentVerificationPage() {
         }
       />
 
-      {!upiId && !loading && (
+      {methods?.length === 0 && !loading && (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <p>No UPI ID is set, so customers cannot pay yet. Add it in <Link href="/payment-config" className="font-semibold underline">UPI Settings</Link>.</p>
+          <p>Neither UPI nor a bank account is set up, so customers cannot pay yet. Add one in <Link href="/payment-config" className="font-semibold underline">Payment Settings</Link>.</p>
         </div>
       )}
 
@@ -96,7 +99,7 @@ export default function PaymentVerificationPage() {
             {Array.from({ length: 3 }).map((_, i) => <div key={i} className="p-4"><Skeleton className="h-14 w-full" /></div>)}
           </div>
         ) : payments.length === 0 ? (
-          <EmptyState icon={BadgeCheck} title="Nothing to verify" description="Submitted UPI payments will appear here, oldest first." />
+          <EmptyState icon={BadgeCheck} title="Nothing to verify" description="Submitted payments will appear here, oldest first." />
         ) : (
           <ul className="divide-y divide-border">
             {payments.map((p) => {
@@ -121,10 +124,11 @@ export default function PaymentVerificationPage() {
                       {p.promoCode?.code && <p className="text-xs text-muted-foreground">Promo {p.promoCode.code}</p>}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">UTR</p>
-                      <button type="button" onClick={() => copy(utr)} className="flex items-center gap-1 font-mono text-sm text-foreground hover:text-primary" title="Copy UTR">
-                        {utr} <Copy className="w-3 h-3" />
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{PAYMENT_METHOD_LABELS[p.method] || 'UPI'} &middot; UTR</p>
+                      <button type="button" onClick={() => copy(utr)} className="flex items-center gap-1 font-mono text-sm text-foreground hover:text-primary break-all text-left" title="Copy reference">
+                        {utr} <Copy className="w-3 h-3 shrink-0" />
                       </button>
+                      <PaymentProofLink url={p.proofUrl} className="mt-0.5" />
                     </div>
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Submitted</p>

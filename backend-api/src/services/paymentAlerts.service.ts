@@ -1,7 +1,7 @@
 import Admin from '../models/Admin';
 import Payment, { IPayment } from '../models/Payment';
 import { sendAdminPaymentAlert } from './email.service';
-import { notifyAdmins } from './payment.service';
+import { METHOD_LABELS, notifyAdmins } from './payment.service';
 
 // Reminders before the verification deadline, in minutes: 12h, 6h, 4h, 2h, then a final
 // one just before it's due. Nothing is sent once the deadline has passed.
@@ -50,6 +50,8 @@ export async function alertAdminsOfPayment(payment: IPayment, kind: 'new' | 'rem
       referenceId,
       amount: populated.amount,
       utr: populated.utr || '',
+      method: METHOD_LABELS[populated.method] || 'UPI',
+      hasScreenshot: !!populated.proofUrl,
       submittedAt: populated.submittedAt!,
       verifyBy: populated.verifyBy!,
     }).catch((err) => console.error(`[PAYMENT_ALERT] Mail to ${a.email} failed`, err?.message ?? err))

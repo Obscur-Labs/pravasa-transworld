@@ -4,9 +4,10 @@ import Payment from '../../models/Payment';
 import Application from '../../models/Application';
 import PromoCode from '../../models/PromoCode';
 import { generateReceiptPDF } from '../../services/pdf.service';
+import { deleteFromCloudinary, uploadToCloudinary } from '../../services/cloudinary.service';
 import {
-  PRE_PAYMENT_STAGES, UTR_RE, buildUpiLink, hasCompletedPayment, isUpiConfigured,
-  loadPaymentConfig, notifyAdmins, notifyUser, renderPaymentTerms,
+  METHOD_LABELS, PRE_PAYMENT_STAGES, availableMethods, buildUpiLink, hasCompletedPayment, isValidReference,
+  loadPaymentConfig, normalizeReference, notifyAdmins, notifyUser, renderPaymentTerms, type PaymentMethodChoice,
 } from '../../services/payment.service';
 import { alertAdminsOfPayment } from '../../services/paymentAlerts.service';
 import { buildReceiptData } from '../../utils/receiptData';
@@ -58,11 +59,12 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
 };
 
 /**
- * Step 1 of a UPI payment: works out the amount (with any promo), keeps one open payment
- * record for it, and returns what the customer needs to pay: UPI ID, payee name, the
- * upi:// link for the QR, and the confirmations they must accept when submitting.
+ * Step 1: works out the amount (with any promo), keeps one open payment record for it, and
+ * returns everything the customer needs to pay by any enabled method (UPI details and QR
+ * link, bank account details) plus the confirmations they must accept when submitting.
+ * The method itself is chosen at submit, so switching tabs needs no round trip.
  */
-export const startUpiPayment = async (req: AuthRequest, res: Response): Promise<void> => {
+export const startPayment = async (req: AuthRequest, res: Response): Promise<void> => {
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
   if (!PRE_PAYMENT_STAGES.includes(application.status) || await hasCompletedPayment(application._id)) {
@@ -74,7 +76,8 @@ export const startUpiPayment = async (req: AuthRequest, res: Response): Promise<
   }
 
   const config = await loadPaymentConfig();
-  if (!isUpiConfigured(config)) {
+  const methods = availableMethods(config);
+  if (!methods.length) {
     sendError(res, 'Online payment is not available right now. Please contact our team to complete your payment.', 503); return;
   }
 
@@ -104,10 +107,10 @@ export const startUpiPayment = async (req: AuthRequest, res: Response): Promise<
   }
 
   const payment = await Payment.findOneAndUpdate(
-    { application: application._id, user: req.user!._id, status: 'pending', method: 'upi' },
+    { application: application._id, user: req.user!._id, status: 'pending' },
     {
       $set: {
-        amount, currency: 'INR', gateway: 'upi', discountApplied,
+        amount, currency: 'INR', discountApplied,
         ...(promoId ? { promoCode: promoId } : {}),
       },
       ...(promoId ? {} : { $unset: { promoCode: '' } }),
@@ -121,37 +124,67 @@ export const startUpiPayment = async (req: AuthRequest, res: Response): Promise<
     amount,
     originalAmount: application.paymentAmount,
     discountApplied,
-    upi: {
+    methods,
+    upi: methods.includes('upi') ? {
       upiId: config.upiId,
       payeeName: config.payeeName,
       link: buildUpiLink(config, amount, application.referenceId, String(payment._id)),
-    },
+    } : null,
+    bank: methods.includes('bank_transfer') ? {
+      bankName: config.bankName,
+      accountName: config.accountName,
+      accountNumber: config.accountNumber,
+      ifsc: config.ifsc,
+      branch: config.branch,
+    } : null,
     terms: renderPaymentTerms(config),
     verificationHours: config.verificationHours,
   });
 };
 
+/** acceptedTerms arrives as a JSON array (JSON body) or a JSON string (multipart form). */
+function parseTerms(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === 'string') {
+    try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed.map(String) : []; } catch { return []; }
+  }
+  return [];
+}
+
 /**
- * Step 2: the customer has paid in their UPI app and hands over the transaction reference.
- * Nothing is marked paid here. The payment waits for an admin to match the UTR against
- * the bank statement.
+ * Step 2: the customer has paid and hands over the transaction reference, optionally with
+ * a screenshot. Nothing is marked paid here: the payment waits for an admin to match the
+ * reference against the bank statement.
  */
-export const submitUpiPayment = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { paymentId, acceptedTerms } = req.body || {};
-  const utr = String(req.body?.utr ?? '').replace(/\s+/g, '');
+export const submitPayment = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { paymentId } = req.body || {};
+  const method: PaymentMethodChoice = req.body?.method === 'bank_transfer' ? 'bank_transfer' : 'upi';
+  const utr = normalizeReference(req.body?.utr ?? req.body?.reference);
   if (!paymentId) { sendError(res, 'paymentId is required'); return; }
-  if (!UTR_RE.test(utr)) { sendError(res, 'Enter the 12-digit UPI transaction reference (UTR) from your UPI app'); return; }
+  if (!isValidReference(method, utr)) {
+    sendError(res, method === 'upi'
+      ? 'Enter the 12-digit UPI transaction reference (UTR) from your UPI app'
+      : 'Enter the transaction reference (UTR) from your bank: 12 to 22 letters and numbers');
+    return;
+  }
 
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
 
   const config = await loadPaymentConfig();
+  if (!availableMethods(config).includes(method)) { sendError(res, 'This payment method is not available'); return; }
   const terms = renderPaymentTerms(config);
-  const accepted: string[] = Array.isArray(acceptedTerms) ? acceptedTerms.map(String) : [];
+  const accepted = parseTerms(req.body?.acceptedTerms);
   if (terms.some((t) => !accepted.includes(t))) { sendError(res, 'Please tick all the confirmations before submitting'); return; }
 
   if (await Payment.exists({ utr })) {
-    sendError(res, 'This UTR has already been submitted. Please check the reference in your UPI app.', 409); return;
+    sendError(res, 'This reference has already been submitted. Please check it in your payment app or bank statement.', 409); return;
+  }
+
+  // Screenshot last, so a rejected submission never leaves a file behind.
+  let proof: { url: string; publicId: string } | null = null;
+  if (req.file) {
+    proof = await uploadToCloudinary(req.file.buffer, `users/${req.user!._id}/payments/${application.referenceId}`, 'auto', { private: true });
   }
 
   const submittedAt = new Date();
@@ -159,19 +192,24 @@ export const submitUpiPayment = async (req: AuthRequest, res: Response): Promise
     { _id: paymentId, application: application._id, user: req.user!._id, status: 'pending' },
     {
       $set: {
-        status: 'awaiting_verification', utr, acceptedTerms: terms, submittedAt,
+        status: 'awaiting_verification', method, gateway: method, utr, acceptedTerms: terms, submittedAt,
         verifyBy: new Date(submittedAt.getTime() + config.verificationHours * 60 * 60 * 1000),
         remindersSent: [],
+        ...(proof ? { proofUrl: proof.url, proofPublicId: proof.publicId } : {}),
       },
     },
     { new: true }
   );
-  if (!payment) { sendError(res, 'This payment was already submitted. Please refresh the page.', 409); return; }
+  if (!payment) {
+    if (proof) deleteFromCloudinary(proof.publicId, proof.url).catch(() => {});
+    sendError(res, 'This payment was already submitted. Please refresh the page.', 409); return;
+  }
 
   const amount = `₹${payment.amount.toLocaleString('en-IN')}`;
+  const via = METHOD_LABELS[method];
   await notifyAdmins({
-    title: 'UPI Payment to Verify',
-    message: `${req.user!.name} submitted a UPI payment of ${amount} for ${application.referenceId} (UTR ${utr}). Match it against the bank statement.`,
+    title: `${via} Payment to Verify`,
+    message: `${req.user!.name} submitted a ${via.toLowerCase()} payment of ${amount} for ${application.referenceId} (UTR ${utr})${proof ? ' with a screenshot' : ''}. Match it against the bank statement.`,
     type: 'payment_submitted',
     application: application._id,
   });

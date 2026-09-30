@@ -1,5 +1,5 @@
 import Payment, { IPayment } from '../models/Payment';
-import PaymentConfig, { IPaymentConfig } from '../models/PaymentConfig';
+import PaymentConfig, { DEFAULT_PAYMENT_TERMS, IPaymentConfig, LEGACY_UPI_TERMS } from '../models/PaymentConfig';
 import Application from '../models/Application';
 import PromoCode from '../models/PromoCode';
 import User from '../models/User';
@@ -15,13 +15,39 @@ export const PRE_PAYMENT_STAGES = ['submitted', 'documents_under_review', 'docum
 export const POST_PAYMENT_STAGES = ['payment_completed', 'visa_processing', 'embassy_review', 'visa_approved', 'visa_delivered'];
 
 export const UPI_ID_RE = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$/;
-// A UPI transaction reference (RRN / UTR) is always 12 digits.
-export const UTR_RE = /^\d{12}$/;
+export const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
-export const loadPaymentConfig = () =>
-  PaymentConfig.findOneAndUpdate({}, {}, { upsert: true, new: true, setDefaultsOnInsert: true });
+export type PaymentMethodChoice = 'upi' | 'bank_transfer';
+
+// A UPI reference (RRN / UTR) is 12 digits. Bank transfer references vary by rail:
+// IMPS 12 digits, NEFT 16 characters, RTGS 22, all letters and digits.
+const REFERENCE_RE: Record<PaymentMethodChoice, RegExp> = {
+  upi: /^\d{12}$/,
+  bank_transfer: /^[A-Z0-9]{12,22}$/,
+};
+export const normalizeReference = (value: unknown) => String(value ?? '').replace(/\s+/g, '').toUpperCase();
+export const isValidReference = (method: PaymentMethodChoice, ref: string) => REFERENCE_RE[method].test(ref);
+
+export async function loadPaymentConfig() {
+  const config = await PaymentConfig.findOneAndUpdate({}, {}, { upsert: true, new: true, setDefaultsOnInsert: true });
+  // Upgrade the original UPI-only confirmations now that bank transfer shares them.
+  if (JSON.stringify(config.terms) === JSON.stringify(LEGACY_UPI_TERMS)) {
+    config.terms = [...DEFAULT_PAYMENT_TERMS];
+    await config.save();
+  }
+  return config;
+}
 
 export const isUpiConfigured = (config: IPaymentConfig) => UPI_ID_RE.test(config.upiId) && !!config.payeeName;
+export const isBankConfigured = (config: IPaymentConfig) =>
+  !!config.accountName && /^\d{6,20}$/.test(config.accountNumber) && IFSC_RE.test(config.ifsc);
+
+export const availableMethods = (config: IPaymentConfig): PaymentMethodChoice[] => [
+  ...(isUpiConfigured(config) ? ['upi' as const] : []),
+  ...(isBankConfigured(config) ? ['bank_transfer' as const] : []),
+];
+
+export const METHOD_LABELS: Record<string, string> = { upi: 'UPI', bank_transfer: 'Bank transfer', cash: 'Cash', manual_override: 'Manual', online: 'Card (legacy)' };
 
 /** The confirmations exactly as the customer sees them. */
 export const renderPaymentTerms = (config: IPaymentConfig): string[] =>
@@ -68,7 +94,7 @@ export function announceQueueChange(): void {
 type Reviewer = { _id: unknown; name: string };
 
 /**
- * Marks a submitted UPI payment as verified and starts the application. The status flip
+ * Marks a submitted payment as verified and starts the application. The status flip
  * is conditional, so two admins clicking at once can't both run the side effects.
  * Returns null when the payment was not awaiting verification.
  */
@@ -137,7 +163,7 @@ export async function approvePayment(paymentId: string, admin: Reviewer, note = 
 }
 
 /**
- * Rejects a submitted UPI payment. The UTR is moved aside so the customer can submit
+ * Rejects a submitted payment. The UTR is moved aside so the customer can submit
  * the same reference again if the rejection was a mistake on either side.
  */
 export async function rejectPayment(paymentId: string, admin: Reviewer, reason: string): Promise<IPayment | null> {

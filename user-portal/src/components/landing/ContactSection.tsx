@@ -46,17 +46,19 @@ export default function ContactSection() {
           <div>
             <div className="space-y-4 mb-10">
               {[
-                { icon: Mail, label: 'Email Us', value: 'support@pravasatransworld.com' },
+                { icon: Mail, label: 'Email Us', value: 'support.pravasatransworld@gmail.com', href: 'mailto:support.pravasatransworld@gmail.com' },
                 { icon: Phone, label: 'Call Us', value: '+1 (800) 123-4567' },
                 { icon: MapPin, label: 'Hours', value: 'Mon–Fri, 9AM–6PM EST' },
-              ].map(({ icon: Icon, label, value }) => (
+              ].map(({ icon: Icon, label, value, href }) => (
                 <div key={label} className="bg-white rounded-3xl px-5 py-4 flex items-center gap-4 border border-slate-100 hover:border-brand-200 shadow-sm transition-all duration-300">
                   <div className="w-10 h-10 bg-brand-50 border border-brand-100/50 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Icon className="w-5 h-5 text-brand-600" />
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 font-bold tracking-wide uppercase">{label}</p>
-                    <p className="text-slate-800 font-extrabold text-sm mt-0.5">{value}</p>
+                    {href
+                      ? <a href={href} className="block text-slate-800 font-extrabold text-sm mt-0.5 hover:text-brand-700 hover:underline break-all">{value}</a>
+                      : <p className="text-slate-800 font-extrabold text-sm mt-0.5">{value}</p>}
                   </div>
                 </div>
               ))}
