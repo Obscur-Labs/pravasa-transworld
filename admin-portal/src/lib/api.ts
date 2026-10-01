@@ -165,6 +165,9 @@ export const getPromoHistory = (id: string) => api.get(`/admin/promo-codes/${id}
 export const getLeads = () => api.get('/admin/leads');
 export const markLeadRead = (id: string) => api.patch(`/admin/leads/${id}/read`);
 export const deleteLead = (id: string) => api.delete(`/admin/leads/${id}`);
+export const getServiceInquiries = () => api.get('/admin/inquiries');
+export const markServiceInquiryRead = (id: string) => api.patch(`/admin/inquiries/${id}/read`);
+export const deleteServiceInquiry = (id: string) => api.delete(`/admin/inquiries/${id}`);
 
 // Notifications
 export const getAdminNotifications = (before?: string) => api.get('/admin/notifications', { params: { before } });

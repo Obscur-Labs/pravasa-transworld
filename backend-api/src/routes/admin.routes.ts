@@ -6,6 +6,7 @@ import * as countries from '../controllers/admin/countries.controller';
 import * as visaTypes from '../controllers/admin/visaTypes.controller';
 import * as apps from '../controllers/admin/applications.controller';
 import * as leads from '../controllers/admin/contactLeads.controller';
+import * as inquiries from '../controllers/admin/serviceInquiries.controller';
 import * as notifications from '../controllers/admin/notifications.controller';
 import * as users from '../controllers/admin/users.controller';
 import * as formPresets from '../controllers/admin/formPresets.controller';
@@ -118,6 +119,11 @@ router.get('/promo-codes/:id/history', promoCodes.getPromoHistory);
 router.get('/leads', leads.getLeads);
 router.patch('/leads/:id/read', leads.markLeadRead);
 router.delete('/leads/:id', leads.deleteLead);
+
+// Service Inquiries (flights, hotels, transport, insurance, forex)
+router.get('/inquiries', inquiries.getServiceInquiries);
+router.patch('/inquiries/:id/read', inquiries.markServiceInquiryRead);
+router.delete('/inquiries/:id', inquiries.deleteServiceInquiry);
 
 // Activity Logs
 router.get('/activity-logs', activityLogs.getActivityLogs);

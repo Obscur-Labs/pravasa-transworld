@@ -45,6 +45,8 @@ export const downloadVisaSummaryPdf = (visaTypeId: string) =>
 export const submitContactLead = (data: { name: string; email: string; phone?: string; message: string }) =>
   api.post('/public/contact', data);
 export const getPublicVisaConfig = () => api.get('/public/visa-config');
+export const submitServiceInquiry = (service: string, data: Record<string, unknown>) =>
+  api.post(`/public/inquiries/${service}`, data);
 
 // User, Countries (all active, for the apply form, ignores showOnWebsite)
 export const getActiveCountries = () => api.get('/user/countries');

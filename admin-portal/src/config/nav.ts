@@ -33,7 +33,7 @@ export const configNavItems: NavItem[] = [
 export const bottomNavItems: NavItem[] = [
   { href: '/users', label: 'Customers', icon: Users },
   { href: '/promo-codes', label: 'Promo Codes', icon: Tag },
-  { href: '/leads', label: 'Contact Leads', icon: MessageSquare },
+  { href: '/inquiries', label: 'Inquiries', icon: MessageSquare },
 ];
 
 // Grouped under the "Other Options" accordion in the sidebar.

@@ -4,6 +4,7 @@ import VisaType from '../models/VisaType';
 import FormPreset from '../models/FormPreset';
 import TermPreset from '../models/TermPreset';
 import ContactLead from '../models/ContactLead';
+import ServiceInquiry from '../models/ServiceInquiry';
 import Application from '../models/Application';
 import User from '../models/User';
 import Trash, { TrashEntityType } from '../models/Trash';
@@ -15,6 +16,7 @@ export const TRASH_MODELS: Record<TrashEntityType, Model<any>> = {
   formPreset: FormPreset,
   termPreset: TermPreset,
   contactLead: ContactLead,
+  serviceInquiry: ServiceInquiry,
   application: Application,
   user: User,
 };
@@ -25,6 +27,7 @@ export const ENTITY_LABELS: Record<TrashEntityType, string> = {
   formPreset: 'Form Preset',
   termPreset: 'Terms Preset',
   contactLead: 'Contact Lead',
+  serviceInquiry: 'Service Inquiry',
   application: 'Application',
   user: 'Customer',
 };
@@ -40,6 +43,8 @@ function deriveLabels(entityType: TrashEntityType, data: any): { label: string; 
       return { label: data.name || ENTITY_LABELS[entityType], sublabel: data.description || '' };
     case 'contactLead':
       return { label: data.name || 'Lead', sublabel: data.email || '' };
+    case 'serviceInquiry':
+      return { label: data.name || 'Inquiry', sublabel: data.summary || '' };
     case 'application':
       return { label: data.referenceId || 'Application', sublabel: '' };
     case 'user':

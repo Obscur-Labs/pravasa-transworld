@@ -1,10 +1,12 @@
 ﻿'use client';
 import Link from 'next/link';
-import { LayoutDashboard, Menu, X } from 'lucide-react';
+import { ChevronDown, LayoutDashboard, Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import InstallAppButton from '@/components/pwa/InstallAppButton';
 import { useHasSession } from '@/lib/useHasSession';
+import { SERVICES } from '@/lib/services';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -22,6 +24,7 @@ export default function Navbar() {
     { href: '/about', label: 'About' },
     { href: '/contact', label: 'Contact' },
   ];
+  const linkClass = 'text-sm font-semibold text-slate-600 hover:text-brand-600 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all duration-200';
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${
@@ -44,14 +47,27 @@ export default function Navbar() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="text-sm font-semibold text-slate-600 hover:text-brand-600 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all duration-200"
-              >
-                {l.label}
-              </Link>
+            <Link href={navLinks[0].href} className={linkClass}>{navLinks[0].label}</Link>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger className={`${linkClass} flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 data-[state=open]:text-brand-600 data-[state=open]:bg-slate-50 group`}>
+                More Services
+                <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]:rotate-180" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" sideOffset={8} className="w-64 rounded-2xl p-2 bg-white border-slate-100 shadow-xl">
+                {SERVICES.map(({ key, slug, name, icon: Icon }) => (
+                  <DropdownMenuItem key={key} asChild className="rounded-xl px-3 py-2.5 cursor-pointer focus:bg-brand-50">
+                    <Link href={`/services/${slug}`} className="flex items-center gap-3">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 border border-brand-100">
+                        <Icon className="w-4 h-4 text-brand-600" aria-hidden />
+                      </span>
+                      <span className="text-sm font-semibold text-slate-700">{name}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {navLinks.slice(1).map((l) => (
+              <Link key={l.href} href={l.href} className={linkClass}>{l.label}</Link>
             ))}
           </nav>
 
@@ -109,6 +125,19 @@ export default function Navbar() {
               {l.label}
             </Link>
           ))}
+          <p className="px-3 pt-3 pb-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">More Services</p>
+          <div className="grid grid-cols-2 gap-1">
+            {SERVICES.map(({ key, slug, name, icon: Icon }) => (
+              <Link
+                key={key}
+                href={`/services/${slug}`}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition-colors"
+              >
+                <Icon className="w-4 h-4 text-brand-600 shrink-0" aria-hidden />{name}
+              </Link>
+            ))}
+          </div>
           <div className="pt-3 border-t border-slate-100 space-y-2">
             <InstallAppButton
               label="Install the App"

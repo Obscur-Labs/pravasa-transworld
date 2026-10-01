@@ -19,6 +19,7 @@ const TYPE_ICON: Record<TrashEntityType, React.ComponentType<{ className?: strin
   formPreset: LayoutTemplate,
   termPreset: ScrollText,
   contactLead: MessageSquare,
+  serviceInquiry: MessageSquare,
   application: FileText,
   user: Users,
 };
@@ -29,6 +30,7 @@ const TYPE_BADGE: Record<TrashEntityType, string> = {
   formPreset: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
   termPreset: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
   contactLead: 'bg-warning/10 text-warning border-warning/20',
+  serviceInquiry: 'bg-warning/10 text-warning border-warning/20',
   application: 'bg-success/10 text-success border-success/20',
   user: 'bg-destructive/10 text-destructive border-destructive/20',
 };
@@ -104,7 +106,7 @@ export default function TrashPage() {
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
         </div>
       ) : items.length === 0 ? (
-        <EmptyState icon={Trash2} title="Trash is empty" description="Deleted visa types, countries, presets, and leads will appear here." />
+        <EmptyState icon={Trash2} title="Trash is empty" description="Deleted visa types, countries, presets, and inquiries will appear here." />
       ) : (
         <>
           <div className="flex items-start gap-2.5 p-3 mb-4 bg-warning/5 border border-warning/20 rounded-xl">

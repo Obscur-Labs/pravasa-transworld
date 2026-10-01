@@ -1,12 +1,13 @@
 ﻿import Link from 'next/link';
 import { Mail, Phone, MapPin } from 'lucide-react';
+import { SERVICES } from '@/lib/services';
 
 export default function Footer() {
   return (
     <footer className="bg-slate-50 border-t border-slate-200/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="md:col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-8">
+          <div className="sm:col-span-3 md:col-span-2">
             <img
               src="/logo.png"
               alt="Pravasa Transworld"
@@ -44,6 +45,19 @@ export default function Footer() {
                 <li key={href}>
                   <Link href={href} className="text-slate-600 hover:text-brand-600 transition-colors">
                     {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-slate-900 font-extrabold text-base mb-4">Services</h4>
+            <ul className="space-y-2.5 text-sm font-semibold">
+              {SERVICES.map((s) => (
+                <li key={s.key}>
+                  <Link href={`/services/${s.slug}`} className="text-slate-600 hover:text-brand-600 transition-colors">
+                    {s.name}
                   </Link>
                 </li>
               ))}

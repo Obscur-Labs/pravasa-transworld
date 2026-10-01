@@ -14,6 +14,7 @@ const limiter = (limit: number, message: string) =>
 
 export const otpSendLimiter = limiter(20, 'Too many OTP requests from this network. Please try again in a few minutes.');
 export const otpVerifyLimiter = limiter(50, 'Too many verification attempts from this network. Please try again in a few minutes.');
+export const inquiryLimiter = limiter(30, 'Too many requests from this network. Please try again in a few minutes.');
 
 // Per signed-in admin (runs after adminProtect), to keep the Groq quota from being drained.
 export const aiLimiter = rateLimit({

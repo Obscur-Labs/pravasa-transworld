@@ -529,7 +529,7 @@ export interface VisaFile {
   url: string;
 }
 
-export type TrashEntityType = 'country' | 'visaType' | 'formPreset' | 'termPreset' | 'contactLead' | 'application' | 'user';
+export type TrashEntityType = 'country' | 'visaType' | 'formPreset' | 'termPreset' | 'contactLead' | 'serviceInquiry' | 'application' | 'user';
 
 export interface TrashItem {
   _id: string;
@@ -570,6 +570,23 @@ export interface ActivityLog {
   action: ActivityAction;
   entityType: string;
   entityLabel: string;
+  createdAt: string;
+}
+
+export type InquiryService = 'flight' | 'hotel' | 'transport' | 'insurance' | 'forex';
+
+/** A request from one of the website's "More Services" forms. */
+export interface ServiceInquiry {
+  _id: string;
+  service: InquiryService;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  summary: string;
+  /** Answers in form order, already formatted for display. */
+  details: { key: string; label: string; value: string }[];
+  read: boolean;
   createdAt: string;
 }
 
