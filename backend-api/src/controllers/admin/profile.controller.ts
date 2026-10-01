@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import ActivityLog from '../../models/ActivityLog';
+import AdminLoginEvent from '../../models/AdminLoginEvent';
 import Admin, { toAdminProfile } from '../../models/Admin';
 import { signToken } from '../auth.controller';
 import { hashPassword, passwordProblem, verifyPassword } from '../../utils/password';
@@ -10,8 +11,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const getProfile = async (req: AdminRequest, res: Response): Promise<void> => {
   const admin = req.admin!;
-  const recentActivity = await ActivityLog.find({ admin: admin._id }).sort({ createdAt: -1 }).limit(10).lean();
-  sendSuccess(res, { profile: toAdminProfile(admin), recentActivity });
+  const [recentActivity, recentSignIns] = await Promise.all([
+    ActivityLog.find({ admin: admin._id }).sort({ createdAt: -1 }).limit(10).lean(),
+    // Lets members spot sign-ins or failed attempts that weren't them.
+    AdminLoginEvent.find({ admin: admin._id }).sort({ createdAt: -1 }).limit(10).lean(),
+  ]);
+  sendSuccess(res, { profile: toAdminProfile(admin), recentActivity, recentSignIns });
 };
 
 export const updateProfile = async (req: AdminRequest, res: Response): Promise<void> => {

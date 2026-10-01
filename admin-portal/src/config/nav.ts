@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ModuleKey } from '@/config/permissions';
+import type { BadgeKey } from '@/store/badges.store';
 import {
   LayoutDashboard, FileText, Globe2, Users, Kanban,
   Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal, Receipt, Mail, UserRound, ScrollText,
@@ -13,13 +14,15 @@ export interface NavItem {
   /** Module whose view access shows this page. Absent: open to every staff member. */
   module?: ModuleKey;
   superAdminOnly?: boolean;
+  /** Unread count shown beside the link. */
+  badge?: BadgeKey;
 }
 
 // Single source of truth for sidebar nav + the command palette, so the two never drift.
 export const topNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard' },
   { href: '/applications', label: 'Applications', icon: FileText, module: 'applications' },
-  { href: '/payments', label: 'Payment Verification', icon: BadgeCheck, module: 'payments' },
+  { href: '/payments', label: 'Payment Verification', icon: BadgeCheck, module: 'payments', badge: 'payments' },
   { href: '/processing', label: 'Processing Board', icon: Kanban, module: 'applications' },
   { href: '/countries', label: 'Countries & Visas', icon: Globe2, module: 'countries' },
 ];
@@ -37,7 +40,7 @@ export const configNavItems: NavItem[] = [
 export const bottomNavItems: NavItem[] = [
   { href: '/users', label: 'Customers', icon: Users, module: 'customers' },
   { href: '/promo-codes', label: 'Promo Codes', icon: Tag, module: 'promoCodes' },
-  { href: '/inquiries', label: 'Inquiries', icon: MessageSquare, module: 'inquiries' },
+  { href: '/inquiries', label: 'Inquiries', icon: MessageSquare, module: 'inquiries', badge: 'inquiries' },
   { href: '/team', label: 'Team & Roles', icon: ShieldHalf, superAdminOnly: true },
 ];
 

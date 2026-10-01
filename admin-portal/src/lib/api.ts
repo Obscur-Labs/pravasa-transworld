@@ -53,6 +53,10 @@ export const getTeamMember = (id: string) => api.get(`/admin/team/members/${id}`
 export const createTeamMember = (data: Record<string, unknown>) => api.post('/admin/team/members', data);
 export const updateTeamMember = (id: string, data: Record<string, unknown>) => api.put(`/admin/team/members/${id}`, data);
 export const deleteTeamMember = (id: string) => api.delete(`/admin/team/members/${id}`);
+export const getTeamSignIns = (params: { admin?: string; result?: string; days?: number }) => api.get('/admin/team/sign-ins', { params });
+
+// Sidebar unread counts (only for modules this member can see)
+export const getBadges = () => api.get('/admin/badges');
 
 // Dashboard
 export const getDashboardStats = () => api.get('/admin/dashboard');
@@ -116,7 +120,7 @@ export const sendEmbassyMail = (
 ) => api.post(`/admin/applications/${id}/embassy-mail`, data);
 
 // Activity Logs
-export const getActivityLogs = () => api.get('/admin/activity-logs');
+export const getActivityLogs = (params: { admin?: string; module?: string; action?: string } = {}) => api.get('/admin/activity-logs', { params });
 export const deleteAllActivityLogs = () => api.delete('/admin/activity-logs');
 
 // Trash

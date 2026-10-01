@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Clock, History, Trash2 } from 'lucide-react';
+import { Clock, History, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { NativeSelect } from '@/components/ui/native-select';
 import { PageHeader } from '@/components/ui/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -13,32 +14,59 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from '@/components/ui/use-toast';
 import { getActivityLogs, deleteAllActivityLogs } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { usePermissions } from '@/lib/usePermissions';
+import { ADMIN_MODULES } from '@/config/permissions';
 import { ACTION_BADGE } from '@/types';
 import type { ActivityLog } from '@/types';
 
-const COLUMNS = ['Time', 'Admin', 'Action', 'Entity Type', 'Details'];
+const COLUMNS = ['Time', 'Member', 'Action', 'Module', 'Entity Type', 'Details'];
+
+const MODULE_LABELS: Record<string, string> = {
+  ...Object.fromEntries(ADMIN_MODULES.map((m) => [m.key, m.label])),
+  team: 'Team & Roles',
+};
+const moduleName = (key: string) => MODULE_LABELS[key] ?? (key || 'Other');
+
+type Filters = { admin: string; module: string; action: string };
+const NO_FILTERS: Filters = { admin: '', module: '', action: '' };
 
 export default function ActivityLogsPage() {
+  const { isSuperAdmin } = usePermissions();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [retentionDays, setRetentionDays] = useState(7);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(2000);
+  const [retentionDays, setRetentionDays] = useState(90);
+  const [members, setMembers] = useState<{ _id: string; name: string }[]>([]);
+  const [modules, setModules] = useState<string[]>([]);
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [loading, setLoading] = useState(true);
   const [confirmClear, setConfirmClear] = useState(false);
 
   useEffect(() => {
-    getActivityLogs()
+    setLoading(true);
+    const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
+    getActivityLogs(params)
       .then((r) => {
-        setLogs(r.data.data.logs);
-        setRetentionDays(r.data.data.retentionDays);
+        const d = r.data.data;
+        setLogs(d.logs);
+        setTotal(d.total);
+        setLimit(d.limit);
+        setRetentionDays(d.retentionDays);
+        setMembers(d.members);
+        setModules(d.modules);
       })
+      .catch(() => toast({ title: 'Could not load activity logs', variant: 'destructive' }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [filters]);
 
-  const { pageItems, paginationProps } = usePagination(logs, 'activity-logs');
+  const { pageItems, paginationProps } = usePagination(logs, 'activity-logs', JSON.stringify(filters));
+  const filtered = Object.values(filters).some(Boolean);
 
   const handleDeleteAll = async () => {
     try {
       await deleteAllActivityLogs();
       setLogs([]);
+      setTotal(0);
       toast({ title: 'Activity logs cleared', variant: 'success' });
     } catch {
       toast({ title: 'Failed to clear activity logs', variant: 'destructive' });
@@ -51,7 +79,7 @@ export default function ActivityLogsPage() {
         title="Activity Logs"
         description="Who changed what in the console, and when."
         action={
-          logs.length > 0 ? (
+          isSuperAdmin && logs.length > 0 && !filtered ? (
             <Button
               variant="outline"
               onClick={() => setConfirmClear(true)}
@@ -63,10 +91,47 @@ export default function ActivityLogsPage() {
         }
       />
 
-      <div className="flex items-start gap-3 mb-5 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
-        <Clock className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+      <div className="flex items-start gap-3 mb-5 rounded-xl border border-border bg-muted/40 px-4 py-3">
+        <Clock className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
         <p className="text-sm text-foreground">
           Logs are kept for {retentionDays} days. Anything older is deleted automatically.
+        </p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <div className="w-full sm:w-52">
+          <label htmlFor="f-member" className="block text-xs font-medium text-muted-foreground mb-1">Member</label>
+          <NativeSelect id="f-member" value={filters.admin} onChange={(e) => setFilters({ ...filters, admin: e.target.value })}>
+            <option value="">Everyone</option>
+            {members.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+          </NativeSelect>
+        </div>
+        <div className="w-full sm:w-52">
+          <label htmlFor="f-module" className="block text-xs font-medium text-muted-foreground mb-1">Module</label>
+          <NativeSelect id="f-module" value={filters.module} onChange={(e) => setFilters({ ...filters, module: e.target.value })}>
+            <option value="">All modules</option>
+            {[...modules].sort((a, b) => moduleName(a).localeCompare(moduleName(b))).map((m) => (
+              <option key={m} value={m}>{moduleName(m)}</option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="w-full sm:w-40">
+          <label htmlFor="f-action" className="block text-xs font-medium text-muted-foreground mb-1">Action</label>
+          <NativeSelect id="f-action" value={filters.action} onChange={(e) => setFilters({ ...filters, action: e.target.value })}>
+            <option value="">Any action</option>
+            <option value="create">Create</option>
+            <option value="update">Update</option>
+            <option value="delete">Delete</option>
+          </NativeSelect>
+        </div>
+        {filtered && (
+          <Button variant="ghost" size="sm" onClick={() => setFilters(NO_FILTERS)}>
+            <X className="w-3.5 h-3.5 mr-1" />Clear filters
+          </Button>
+        )}
+        <p className="text-xs text-muted-foreground sm:ml-auto">
+          {loading ? 'Loading...' : `${total.toLocaleString('en-IN')} ${total === 1 ? 'entry' : 'entries'}${total > limit ? `, newest ${limit.toLocaleString('en-IN')} shown` : ''}`}
         </p>
       </div>
 
@@ -94,6 +159,7 @@ export default function ActivityLogsPage() {
                   <TableCell>
                     <Badge variant={ACTION_BADGE[log.action]} className="text-xs capitalize">{log.action}</Badge>
                   </TableCell>
+                  <TableCell className="text-muted-foreground whitespace-nowrap">{moduleName(log.module)}</TableCell>
                   <TableCell className="text-foreground/90 whitespace-nowrap">{log.entityType}</TableCell>
                   <TableCell className="text-muted-foreground">{log.entityLabel}</TableCell>
                 </TableRow>
@@ -102,7 +168,11 @@ export default function ActivityLogsPage() {
           </TableBody>
         </Table>
         {!loading && logs.length === 0 && (
-          <EmptyState icon={History} title={`No activity in the last ${retentionDays} days`} description="Creating or editing visas, countries and promo codes shows up here." />
+          <EmptyState
+            icon={History}
+            title={filtered ? 'Nothing matches these filters' : `No activity in the last ${retentionDays} days`}
+            description={filtered ? undefined : 'Creating or editing visas, countries and promo codes shows up here.'}
+          />
         )}
         <Pagination {...paginationProps} className="border-t border-border" />
       </Card>

@@ -20,6 +20,7 @@ import * as termPresets from '../controllers/admin/termPresets.controller';
 import * as payments from '../controllers/admin/payments.controller';
 import * as ai from '../controllers/admin/ai.controller';
 import * as team from '../controllers/admin/team.controller';
+import * as badges from '../controllers/admin/badges.controller';
 import { aiLimiter } from '../middleware/rateLimiter';
 
 // Every route needs a signed-in staff account. Module guards then apply by method:
@@ -30,6 +31,7 @@ router.use(adminProtect);
 // Your own account, notifications and the AI writer are open to every staff member.
 router.route('/profile').get(profile.getProfile).put(profile.updateProfile);
 router.put('/profile/password', profile.changePassword);
+router.get('/badges', badges.getBadges);
 
 // Team & Roles: super admins only, never a grantable module.
 router.use('/team', requireSuperAdmin);
@@ -37,6 +39,7 @@ router.route('/team/roles').get(team.getRoles).post(team.createRole);
 router.route('/team/roles/:id').put(team.updateRole).delete(team.deleteRole);
 router.route('/team/members').get(team.getMembers).post(team.createMember);
 router.route('/team/members/:id').get(team.getMember).put(team.updateMember).delete(team.deleteMember);
+router.get('/team/sign-ins', team.getSignIns);
 
 // Dashboard
 router.get('/dashboard', requireModule('dashboard'), apps.getDashboardStats);

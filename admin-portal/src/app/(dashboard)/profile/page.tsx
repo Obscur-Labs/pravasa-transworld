@@ -13,18 +13,20 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { PermissionList } from '@/components/shared/permission-list';
+import { SignInList } from '@/components/shared/sign-in-list';
 import { changeOwnPassword, getAdminProfile, updateAdminProfile } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/utils';
 import { usePermissions } from '@/lib/usePermissions';
 import { useAdminAuthStore } from '@/store/auth.store';
 import { ACTION_BADGE } from '@/types';
-import type { ActivityLog, AdminProfile } from '@/types';
+import type { ActivityLog, AdminProfile, LoginEvent } from '@/types';
 
 export default function ProfilePage() {
   const updateAdmin = useAdminAuthStore((s) => s.updateAdmin);
   const { can } = usePermissions();
   const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [activity, setActivity] = useState<ActivityLog[]>([]);
+  const [signIns, setSignIns] = useState<LoginEvent[]>([]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -36,9 +38,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     getAdminProfile().then((r) => {
-      const { profile: p, recentActivity } = r.data.data;
+      const { profile: p, recentActivity, recentSignIns } = r.data.data;
       setProfile(p);
       setActivity(recentActivity);
+      setSignIns(recentSignIns || []);
       setName(p.name);
       setPhone(p.phone);
       setEmail(p.email);
@@ -146,6 +149,18 @@ export default function ProfilePage() {
               {profile.isSuperAdmin ? 'Super admin: full access to every module, plus Team & Roles.' : 'Set by your role. Ask a super admin to change it.'}
             </p>
             <PermissionList permissions={profile.permissions} />
+          </Card>
+
+          <Card>
+            <div className="p-5 pb-3">
+              <h3 className="font-semibold text-foreground">Recent sign-ins</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Don&apos;t recognise one? Change your password and tell a super admin.</p>
+            </div>
+            {signIns.length === 0 ? (
+              <p className="px-5 pb-5 text-sm text-muted-foreground">No sign-ins recorded yet.</p>
+            ) : (
+              <SignInList events={signIns} className="border-t border-border" />
+            )}
           </Card>
         </div>
 

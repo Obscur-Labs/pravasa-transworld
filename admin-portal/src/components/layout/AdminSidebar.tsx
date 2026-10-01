@@ -7,12 +7,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { cn } from '@/lib/utils';
 import { topNavItems, configNavItems, bottomNavItems, otherNavItems, type NavItem } from '@/config/nav';
 import { usePermissions } from '@/lib/usePermissions';
+import { useBadgesStore } from '@/store/badges.store';
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + '/');
 }
 
-function NavLink({ href, label, icon: Icon, active, onNavigate }: NavItem & { active: boolean; onNavigate?: () => void }) {
+function NavLink({ href, label, icon: Icon, badge, active, onNavigate }: NavItem & { active: boolean; onNavigate?: () => void }) {
+  const count = useBadgesStore((s) => (badge ? s.counts[badge] ?? 0 : 0));
   return (
     <Link
       href={href}
@@ -26,7 +28,15 @@ function NavLink({ href, label, icon: Icon, active, onNavigate }: NavItem & { ac
       )}
     >
       <Icon className="h-4 w-4 flex-shrink-0" />
-      {label}
+      <span className="flex-1 truncate">{label}</span>
+      {count > 0 && (
+        <span
+          aria-label={`${count} waiting`}
+          className="ml-auto min-w-[1.25rem] rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-primary-foreground tabular-nums"
+        >
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
     </Link>
   );
 }

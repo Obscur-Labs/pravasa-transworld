@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import type { AdminNotification } from '@/types';
 import { allows, notificationModule } from '@/config/permissions';
+import { useBadgesStore } from '@/store/badges.store';
 
 const PAYMENT_QUEUE_TYPES = new Set(['payment_submitted', 'payment_reminder']);
 
@@ -106,6 +107,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       const me = useAdminAuthStore.getState().admin;
       const module = notificationModule(newNotif.type);
       if (module && !me?.isSuperAdmin && !allows(me?.permissions?.[module], 'view')) return;
+      useBadgesStore.getState().refresh();
       setNotifications((prev) => [newNotif, ...prev]);
       setUnreadCount((c) => c + 1);
       toast({ title: newNotif.title, description: newNotif.message });
@@ -113,9 +115,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Another admin verified or rejected a payment.
-    socket.on('payments_changed', () => setPaymentsVersion((v) => v + 1));
+    socket.on('payments_changed', () => { setPaymentsVersion((v) => v + 1); useBadgesStore.getState().refresh(); });
 
-    return () => { socket.disconnect(); };
+    // Sockets don't run on every host (e.g. serverless), so the counts also poll slowly.
+    useBadgesStore.getState().refresh();
+    const poll = setInterval(() => useBadgesStore.getState().refresh(), 2 * 60 * 1000);
+
+    return () => { clearInterval(poll); socket.disconnect(); };
   }, [isAuthenticated, token, fetchPage]);
 
   return (

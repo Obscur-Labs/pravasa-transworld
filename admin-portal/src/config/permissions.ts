@@ -20,7 +20,7 @@ export const ADMIN_MODULES = [
   { key: 'receiptSettings', label: 'Receipt Settings', description: 'Receipt layout and company details' },
   { key: 'embassyMailSettings', label: 'Embassy Mail Settings', description: 'Default embassy mail template' },
   { key: 'trash', label: 'Trash', description: 'Restore or permanently delete removed items' },
-  { key: 'activityLogs', label: 'Activity Logs', description: 'Who changed what in the last 7 days', viewOnly: true },
+  { key: 'activityLogs', label: 'Activity Logs', description: 'Who changed what, filterable by member and module', viewOnly: true },
 ] as const;
 
 export type ModuleKey = (typeof ADMIN_MODULES)[number]['key'];

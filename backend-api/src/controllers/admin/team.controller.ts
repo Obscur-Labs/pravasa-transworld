@@ -4,6 +4,7 @@ import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import Admin, { IAdmin, effectivePermissions, roleName } from '../../models/Admin';
 import AdminRole from '../../models/AdminRole';
 import ActivityLog from '../../models/ActivityLog';
+import AdminLoginEvent, { LOGIN_RESULTS } from '../../models/AdminLoginEvent';
 import { cleanPermissions } from '../../config/permissions';
 import { hashPassword, passwordProblem } from '../../utils/password';
 import { logActivity } from '../../utils/activityLog';
@@ -15,7 +16,7 @@ const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
 const PHONE_RE = /^\+?[\d\s()-]{7,20}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const toMember = (a: IAdmin, lastActivityAt: Date | null = null) => ({
+const toMember = (a: IAdmin, lastActivityAt: Date | null = null, recentFailures = 0) => ({
   _id: a._id,
   name: a.name,
   username: a.username || '',
@@ -30,6 +31,8 @@ const toMember = (a: IAdmin, lastActivityAt: Date | null = null) => ({
   hasLogin: !!a.username,
   lastLoginAt: a.lastLoginAt,
   lastActivityAt,
+  /** Failed sign-ins on this account in the last 24 hours. */
+  recentFailures,
   createdAt: a.createdAt,
 });
 
@@ -98,20 +101,46 @@ export const deleteRole = async (req: AdminRequest, res: Response): Promise<void
 // ── Members ────────────────────────────────────────────────────────────────────
 
 export const getMembers = async (_req: AdminRequest, res: Response): Promise<void> => {
-  const [members, activity] = await Promise.all([
+  const [members, activity, failures] = await Promise.all([
     Admin.find().populate('role', 'name permissions').sort({ isSuperAdmin: -1, createdAt: 1 }),
     ActivityLog.aggregate([{ $group: { _id: '$admin', last: { $max: '$createdAt' } } }]),
+    AdminLoginEvent.aggregate([
+      { $match: { admin: { $ne: null }, result: { $ne: 'success' }, createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } },
+      { $group: { _id: '$admin', count: { $sum: 1 } } },
+    ]),
   ]);
   const lastOf = new Map(activity.map((a) => [String(a._id), a.last as Date]));
-  sendSuccess(res, members.map((m) => toMember(m, lastOf.get(String(m._id)) ?? null)));
+  const failedOf = new Map(failures.map((f) => [String(f._id), f.count as number]));
+  sendSuccess(res, members.map((m) => toMember(m, lastOf.get(String(m._id)) ?? null, failedOf.get(String(m._id)) ?? 0)));
 };
 
 export const getMember = async (req: AdminRequest, res: Response): Promise<void> => {
   if (!mongoose.isValidObjectId(req.params.id)) { sendError(res, 'Team member not found', 404); return; }
   const member = await Admin.findById(req.params.id).populate('role', 'name permissions');
   if (!member) { sendError(res, 'Team member not found', 404); return; }
-  const recentActivity = await ActivityLog.find({ admin: member._id }).sort({ createdAt: -1 }).limit(25).lean();
-  sendSuccess(res, { member: toMember(member, recentActivity[0]?.createdAt ?? null), recentActivity });
+  const [recentActivity, recentSignIns] = await Promise.all([
+    ActivityLog.find({ admin: member._id }).sort({ createdAt: -1 }).limit(25).lean(),
+    AdminLoginEvent.find({ admin: member._id }).sort({ createdAt: -1 }).limit(20).lean(),
+  ]);
+  sendSuccess(res, { member: toMember(member, recentActivity[0]?.createdAt ?? null), recentActivity, recentSignIns });
+};
+
+/**
+ * Sign-in attempts across the team, newest first. Includes attempts on usernames that
+ * don't exist, which is where guessing attacks show up.
+ * Filters: admin (member id), result ('success' | 'failed' | a specific result), days.
+ */
+export const getSignIns = async (req: AdminRequest, res: Response): Promise<void> => {
+  const filter: Record<string, unknown> = {};
+  const { admin, result } = req.query;
+  if (typeof admin === 'string' && mongoose.isValidObjectId(admin)) filter.admin = admin;
+  if (result === 'failed') filter.result = { $ne: 'success' };
+  else if (typeof result === 'string' && (LOGIN_RESULTS as readonly string[]).includes(result)) filter.result = result;
+  const days = Number(req.query.days);
+  if (Number.isInteger(days) && days > 0) filter.createdAt = { $gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) };
+
+  const events = await AdminLoginEvent.find(filter).populate('admin', 'name username').sort({ createdAt: -1 }).limit(500).lean();
+  sendSuccess(res, events);
 };
 
 /** Validates the member form. Password is required only when creating. */

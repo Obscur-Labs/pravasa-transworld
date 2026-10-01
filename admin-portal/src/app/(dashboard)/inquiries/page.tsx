@@ -17,6 +17,7 @@ import {
 } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { ContactLead, InquiryService, ServiceInquiry } from '@/types';
+import { useBadgesStore } from '@/store/badges.store';
 
 type Tab = 'contact' | InquiryService;
 
@@ -93,6 +94,7 @@ export default function InquiriesPage() {
     try {
       await (item.tab === 'contact' ? markLeadRead(item._id) : markServiceInquiryRead(item._id));
       setItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, read: true } : i)));
+      useBadgesStore.getState().refresh();
     } catch {
       toast({ title: 'Failed to update', variant: 'destructive' });
     }
@@ -102,6 +104,7 @@ export default function InquiriesPage() {
     try {
       await (item.tab === 'contact' ? deleteLead(item._id) : deleteServiceInquiry(item._id));
       setItems((prev) => prev.filter((i) => i._id !== item._id));
+      useBadgesStore.getState().refresh();
       toast({ title: 'Moved to Trash', description: 'Restore it anytime from the Trash page.', variant: 'success' });
     } catch {
       toast({ title: 'Failed to move to trash', variant: 'destructive' });

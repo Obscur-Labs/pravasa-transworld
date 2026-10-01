@@ -8,6 +8,7 @@ import { sendOTPEmail } from '../services/email.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { jwtSecret } from '../config/env';
 import { verifyPassword } from '../utils/password';
+import AdminLoginEvent, { LoginResult } from '../models/AdminLoginEvent';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 30 * 1000;
@@ -188,9 +189,17 @@ export const adminLogin = async (req: Request, res: Response): Promise<void> => 
 
   const admin = await Admin.findOne({ username }).select('+passwordHash +failedLogins +lockedUntil').populate('role', 'name permissions');
   const invalid = () => sendError(res, 'Invalid username or password', 401);
+  const record = (result: LoginResult) => AdminLoginEvent.create({
+    admin: admin?._id ?? null,
+    username: username.slice(0, 60),
+    result,
+    ip: (req.ip || '').replace(/^::ffff:/, ''),
+    userAgent: String(req.headers['user-agent'] || '').slice(0, 300),
+  }).catch((err) => console.error('[ADMIN] Could not record sign-in', err));
 
-  if (!admin) { await verifyPassword(password, DUMMY_HASH); invalid(); return; }
+  if (!admin) { await verifyPassword(password, DUMMY_HASH); record('unknown_user'); invalid(); return; }
   if (admin.lockedUntil && admin.lockedUntil > new Date()) {
+    record('locked');
     const mins = Math.ceil((admin.lockedUntil.getTime() - Date.now()) / 60000);
     sendError(res, `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.`, 429);
     return;
@@ -201,10 +210,12 @@ export const adminLogin = async (req: Request, res: Response): Promise<void> => 
     await Admin.updateOne({ _id: admin._id }, failedLogins >= MAX_FAILED_LOGINS
       ? { $set: { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MS) } }
       : { $set: { failedLogins } });
+    record('wrong_password');
     invalid();
     return;
   }
-  if (!admin.isActive) { sendError(res, 'This account has been disabled. Contact your administrator.', 403); return; }
+  if (!admin.isActive) { record('disabled'); sendError(res, 'This account has been disabled. Contact your administrator.', 403); return; }
+  record('success');
 
   await Admin.updateOne({ _id: admin._id }, { $set: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() } });
   sendSuccess(res, {

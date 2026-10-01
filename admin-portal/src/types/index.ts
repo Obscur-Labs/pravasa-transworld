@@ -584,6 +584,21 @@ export interface TeamMember {
   hasLogin: boolean;
   lastLoginAt: string | null;
   lastActivityAt: string | null;
+  /** Failed sign-ins in the last 24 hours. */
+  recentFailures: number;
+  createdAt: string;
+}
+
+export type LoginResult = 'success' | 'wrong_password' | 'unknown_user' | 'locked' | 'disabled';
+
+/** One admin panel sign-in attempt. */
+export interface LoginEvent {
+  _id: string;
+  admin: string | { _id: string; name: string; username: string } | null;
+  username: string;
+  result: LoginResult;
+  ip: string;
+  userAgent: string;
   createdAt: string;
 }
 
@@ -601,7 +616,9 @@ export const ACTION_BADGE = { create: 'success', update: 'info', delete: 'destru
 
 export interface ActivityLog {
   _id: string;
+  admin: string | null;
   adminName: string;
+  module: string;
   action: ActivityAction;
   entityType: string;
   entityLabel: string;

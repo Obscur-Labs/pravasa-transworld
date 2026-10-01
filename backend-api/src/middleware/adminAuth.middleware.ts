@@ -7,6 +7,8 @@ import { jwtSecret } from '../config/env';
 
 export interface AdminRequest extends Request {
   admin?: IAdmin;
+  /** Module whose guard admitted the request; activity logs record it. */
+  permissionModule?: string;
 }
 
 export const adminProtect = async (req: AdminRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -55,13 +57,13 @@ export const requireModule = (module: ModuleKey, opts: { readableBy?: ModuleKey[
     const level: AccessLevel = opts.level ?? (req.method === 'GET' || req.method === 'HEAD' ? 'view' : 'manage');
     const ok = hasAccess(req.admin, module, level)
       || (level === 'view' && (opts.readableBy || []).some((m) => hasAccess(req.admin, m, 'view')));
-    if (ok) { next(); return; }
+    if (ok) { req.permissionModule = module; next(); return; }
     sendError(res, level === 'view'
       ? `You don't have access to ${moduleLabel(module)}`
       : `You have view-only access to ${moduleLabel(module)}`, 403);
   };
 
 export const requireSuperAdmin = (req: AdminRequest, res: Response, next: NextFunction): void => {
-  if (req.admin?.isSuperAdmin) { next(); return; }
+  if (req.admin?.isSuperAdmin) { req.permissionModule ??= 'team'; next(); return; }
   sendError(res, 'Only a super admin can do this', 403);
 };

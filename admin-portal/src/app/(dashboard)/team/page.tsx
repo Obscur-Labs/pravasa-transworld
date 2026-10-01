@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Crown, History, KeyRound, Pencil, Plus, Search, ShieldHalf, Trash2, UserRound, Users,
+  AlertTriangle, Crown, History, KeyRound, LogIn, Pencil, Plus, Search, ShieldHalf, Trash2, UserRound, Users,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -16,15 +16,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/components/ui/use-toast';
 import { PermissionList } from '@/components/shared/permission-list';
+import { SignInList } from '@/components/shared/sign-in-list';
+import { NativeSelect } from '@/components/ui/native-select';
 import { MemberDialog } from '@/components/team/member-dialog';
 import { RoleDialog } from '@/components/team/role-dialog';
-import { deleteTeamMember, deleteTeamRole, getTeamMember, getTeamMembers, getTeamRoles } from '@/lib/api';
+import { deleteTeamMember, deleteTeamRole, getTeamMember, getTeamMembers, getTeamRoles, getTeamSignIns } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/utils';
 import { useAdminAuthStore } from '@/store/auth.store';
 import { ACTION_BADGE } from '@/types';
-import type { ActivityLog, AdminRole, TeamMember } from '@/types';
+import type { ActivityLog, AdminRole, LoginEvent, TeamMember } from '@/types';
 
-type Tab = 'members' | 'roles';
+type Tab = 'members' | 'roles' | 'signins';
 
 export default function TeamPage() {
   const selfId = useAdminAuthStore((s) => s.admin?._id ?? '');
@@ -39,7 +41,22 @@ export default function TeamPage() {
   const [removeMember, setRemoveMember] = useState<TeamMember | null>(null);
   const [removeRole, setRemoveRole] = useState<AdminRole | null>(null);
 
-  const [detail, setDetail] = useState<{ member: TeamMember; activity: ActivityLog[] | null } | null>(null);
+  const [detail, setDetail] = useState<{ member: TeamMember; activity: ActivityLog[] | null; signIns: LoginEvent[] | null } | null>(null);
+
+  const [signIns, setSignIns] = useState<LoginEvent[] | null>(null);
+  const [signInFilter, setSignInFilter] = useState({ admin: '', result: '', days: '30' });
+
+  useEffect(() => {
+    if (tab !== 'signins') return;
+    setSignIns(null);
+    getTeamSignIns({
+      admin: signInFilter.admin || undefined,
+      result: signInFilter.result || undefined,
+      days: Number(signInFilter.days) || undefined,
+    })
+      .then((r) => setSignIns(r.data.data))
+      .catch(() => setSignIns([]));
+  }, [tab, signInFilter]);
 
   const load = useCallback(() => {
     Promise.all([getTeamMembers(), getTeamRoles()])
@@ -50,7 +67,7 @@ export default function TeamPage() {
 
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab');
-    if (t === 'roles') setTab('roles');
+    if (t === 'roles' || t === 'signins') setTab(t);
     load();
   }, [load]);
 
@@ -63,10 +80,12 @@ export default function TeamPage() {
   };
 
   const openDetail = (member: TeamMember) => {
-    setDetail({ member, activity: null });
+    setDetail({ member, activity: null, signIns: null });
     getTeamMember(member._id)
-      .then((r) => setDetail((d) => (d?.member._id === member._id ? { member: r.data.data.member, activity: r.data.data.recentActivity } : d)))
-      .catch(() => setDetail((d) => (d ? { ...d, activity: [] } : d)));
+      .then((r) => setDetail((d) => (d?.member._id === member._id
+        ? { member: { ...member, ...r.data.data.member }, activity: r.data.data.recentActivity, signIns: r.data.data.recentSignIns }
+        : d)))
+      .catch(() => setDetail((d) => (d ? { ...d, activity: [], signIns: [] } : d)));
   };
 
   const s = search.trim().toLowerCase();
@@ -89,17 +108,17 @@ export default function TeamPage() {
             <Button onClick={() => setMemberDialog({ open: true, member: null })} disabled={loading}>
               <Plus className="w-4 h-4 mr-2" />Add member
             </Button>
-          ) : (
+          ) : tab === 'roles' ? (
             <Button onClick={() => setRoleDialog({ open: true, role: null })}>
               <Plus className="w-4 h-4 mr-2" />New role
             </Button>
-          )
+          ) : undefined
         }
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
         <div role="tablist" className="flex gap-1 bg-muted rounded-xl p-1 w-fit">
-          {([['members', 'Members', Users, members.length], ['roles', 'Roles', ShieldHalf, roles.length]] as const).map(([key, label, Icon, count]) => (
+          {([['members', 'Members', Users, members.length], ['roles', 'Roles', ShieldHalf, roles.length], ['signins', 'Sign-ins', LogIn, null]] as const).map(([key, label, Icon, count]) => (
             <button
               key={key}
               role="tab"
@@ -110,17 +129,56 @@ export default function TeamPage() {
               }`}
             >
               <Icon className="w-4 h-4" />{label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === key ? 'bg-primary/10 text-primary' : 'bg-muted-foreground/10 text-muted-foreground'}`}>{count}</span>
+              {count !== null && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === key ? 'bg-primary/10 text-primary' : 'bg-muted-foreground/10 text-muted-foreground'}`}>{count}</span>
+              )}
             </button>
           ))}
         </div>
-        <div className="relative sm:ml-auto sm:w-72">
+        {tab !== 'signins' && <div className="relative sm:ml-auto sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder={tab === 'members' ? 'Search members...' : 'Search roles...'} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
+        </div>}
       </div>
 
-      {loading ? (
+      {tab === 'signins' ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-full sm:w-52">
+              <label htmlFor="s-member" className="block text-xs font-medium text-muted-foreground mb-1">Member</label>
+              <NativeSelect id="s-member" value={signInFilter.admin} onChange={(e) => setSignInFilter({ ...signInFilter, admin: e.target.value })}>
+                <option value="">Everyone (incl. unknown usernames)</option>
+                {members.filter((m) => m.hasLogin).map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+              </NativeSelect>
+            </div>
+            <div className="w-full sm:w-44">
+              <label htmlFor="s-result" className="block text-xs font-medium text-muted-foreground mb-1">Result</label>
+              <NativeSelect id="s-result" value={signInFilter.result} onChange={(e) => setSignInFilter({ ...signInFilter, result: e.target.value })}>
+                <option value="">All attempts</option>
+                <option value="success">Successful</option>
+                <option value="failed">Failed or blocked</option>
+              </NativeSelect>
+            </div>
+            <div className="w-full sm:w-40">
+              <label htmlFor="s-days" className="block text-xs font-medium text-muted-foreground mb-1">Period</label>
+              <NativeSelect id="s-days" value={signInFilter.days} onChange={(e) => setSignInFilter({ ...signInFilter, days: e.target.value })}>
+                <option value="1">Last 24 hours</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </NativeSelect>
+            </div>
+            <p className="text-xs text-muted-foreground sm:ml-auto">Kept for 90 days. Up to 500 most recent shown.</p>
+          </div>
+          {signIns === null ? (
+            <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}</div>
+          ) : signIns.length === 0 ? (
+            <EmptyState icon={LogIn} title="No sign-in attempts match" />
+          ) : (
+            <Card className="overflow-hidden"><SignInList events={signIns} showMember /></Card>
+          )}
+        </div>
+      ) : loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</div>
       ) : tab === 'members' ? (
         shownMembers.length === 0 ? (
@@ -168,6 +226,11 @@ export default function TeamPage() {
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">
                           <Badge variant={m.isActive ? 'success' : 'destructive'}>{m.isActive ? 'Active' : 'Disabled'}</Badge>
+                          {m.recentFailures > 0 && (
+                            <span className="flex items-center gap-1 text-[11px] text-destructive" title="Failed sign-in attempts in the last 24 hours">
+                              <AlertTriangle className="w-3 h-3" />{m.recentFailures} failed sign-in{m.recentFailures === 1 ? '' : 's'}
+                            </span>
+                          )}
                           {m.mustChangePassword && (
                             <span className="flex items-center gap-1 text-[11px] text-warning" title="Still on a temporary password">
                               <KeyRound className="w-3 h-3" />Temp password
@@ -260,7 +323,7 @@ export default function TeamPage() {
                 {detail.activity === null ? (
                   <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
                 ) : detail.activity.length === 0 ? (
-                  <EmptyState icon={History} title="No activity in the last 7 days" className="py-6" />
+                  <EmptyState icon={History} title="No recent activity" className="py-6" />
                 ) : (
                   <ul className="divide-y divide-border rounded-xl border border-border">
                     {detail.activity.map((log) => (
@@ -274,6 +337,17 @@ export default function TeamPage() {
                       </li>
                     ))}
                   </ul>
+                )}
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-foreground mb-2">Recent sign-ins</h4>
+                {detail.signIns === null ? (
+                  <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                ) : detail.signIns.length === 0 ? (
+                  <EmptyState icon={LogIn} title="No sign-ins yet" className="py-6" />
+                ) : (
+                  <SignInList events={detail.signIns} className="rounded-xl border border-border" />
                 )}
               </div>
 
