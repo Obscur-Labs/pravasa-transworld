@@ -21,7 +21,7 @@ export default function Footer() {
             <div className="space-y-2 font-semibold">
               {[
                 { icon: Mail, text: 'support.pravasatransworld@gmail.com', href: 'mailto:support.pravasatransworld@gmail.com' },
-                { icon: Phone, text: '+1 (800) 123-4567' },
+                { icon: Phone, text: '+91 84693 24000', href: 'tel:+918469324000' },
                 { icon: MapPin, text: 'Mon–Fri, 9AM–6PM EST' },
               ].map(({ icon: Icon, text, href }) => (
                 <div key={text} className="flex items-center gap-2.5 text-slate-500 text-sm">

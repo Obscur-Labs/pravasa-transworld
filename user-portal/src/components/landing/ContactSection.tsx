@@ -47,7 +47,7 @@ export default function ContactSection() {
             <div className="space-y-4 mb-10">
               {[
                 { icon: Mail, label: 'Email Us', value: 'support.pravasatransworld@gmail.com', href: 'mailto:support.pravasatransworld@gmail.com' },
-                { icon: Phone, label: 'Call Us', value: '+1 (800) 123-4567' },
+                { icon: Phone, label: 'Call Us', value: '+91 84693 24000', href: 'tel:+918469324000' },
                 { icon: MapPin, label: 'Hours', value: 'Mon–Fri, 9AM–6PM EST' },
               ].map(({ icon: Icon, label, value, href }) => (
                 <div key={label} className="bg-white rounded-3xl px-5 py-4 flex items-center gap-4 border border-slate-100 hover:border-brand-200 shadow-sm transition-all duration-300">
