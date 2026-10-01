@@ -11,6 +11,7 @@ import {
   deleteAllAdminNotifications,
 } from '@/lib/api';
 import type { AdminNotification } from '@/types';
+import { allows, notificationModule } from '@/config/permissions';
 
 const PAYMENT_QUEUE_TYPES = new Set(['payment_submitted', 'payment_reminder']);
 
@@ -101,6 +102,10 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const socket = io(apiUrl.startsWith('http') ? new URL(apiUrl).origin : apiUrl, { auth: { token } });
 
     socket.on('admin_notification', (newNotif: AdminNotification) => {
+      // Every admin socket gets every push; show only the ones for this member's modules.
+      const me = useAdminAuthStore.getState().admin;
+      const module = notificationModule(newNotif.type);
+      if (module && !me?.isSuperAdmin && !allows(me?.permissions?.[module], 'view')) return;
       setNotifications((prev) => [newNotif, ...prev]);
       setUnreadCount((c) => c + 1);
       toast({ title: newNotif.title, description: newNotif.message });

@@ -1,6 +1,7 @@
 ﻿import 'dotenv/config';
 import { connectDB } from '../config/database';
 import Admin from '../models/Admin';
+import { bootstrapAdmins } from '../services/adminBootstrap';
 import Country from '../models/Country';
 import VisaType from '../models/VisaType';
 
@@ -52,12 +53,9 @@ async function seed() {
   console.log('✔ Old data cleared');
 
   // ── Admin ──────────────────────────────────────────────────────────────────
-  await Admin.create({
-    name:  process.env.ADMIN_NAME  || 'Super Admin',
-    email: process.env.ADMIN_EMAIL || 'admin@pravasatransworld.com',
-    phone: process.env.ADMIN_PHONE || '9999999999',
-  });
-  console.log('✔ Admin created');
+  // Same path as server start-up: super admin from SUPER_ADMIN_USERNAME / _PASSWORD.
+  await bootstrapAdmins();
+  console.log('✔ Admin ready');
 
   // ── Countries ──────────────────────────────────────────────────────────────
   await Country.insertMany(countries);
@@ -493,9 +491,8 @@ async function seed() {
   console.log(`✔ Visa types seeded (${visaTypes.length})`);
 
   console.log('\n✅ Seed completed successfully!');
-  console.log(`   Admin : ${process.env.ADMIN_EMAIL || 'admin@pravasatransworld.com'}`);
-  console.log(`   Phone : ${process.env.ADMIN_PHONE || '9999999999'}`);
-  console.log('   Login : email + phone → OTP');
+  console.log(`   Admin : ${process.env.SUPER_ADMIN_USERNAME || '(set SUPER_ADMIN_USERNAME)'}`);
+  console.log('   Login : username + password');
   process.exit(0);
 }
 

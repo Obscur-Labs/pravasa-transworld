@@ -1,49 +1,60 @@
 import type { LucideIcon } from 'lucide-react';
+import type { ModuleKey } from '@/config/permissions';
 import {
   LayoutDashboard, FileText, Globe2, Users, Kanban,
   Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal, Receipt, Mail, UserRound, ScrollText,
-  BadgeCheck, QrCode,
+  BadgeCheck, QrCode, ShieldHalf,
 } from 'lucide-react';
 
 export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Module whose view access shows this page. Absent: open to every staff member. */
+  module?: ModuleKey;
+  superAdminOnly?: boolean;
 }
 
 // Single source of truth for sidebar nav + the command palette, so the two never drift.
 export const topNavItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/applications', label: 'Applications', icon: FileText },
-  { href: '/payments', label: 'Payment Verification', icon: BadgeCheck },
-  { href: '/processing', label: 'Processing Board', icon: Kanban },
-  { href: '/countries', label: 'Countries & Visas', icon: Globe2 },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard' },
+  { href: '/applications', label: 'Applications', icon: FileText, module: 'applications' },
+  { href: '/payments', label: 'Payment Verification', icon: BadgeCheck, module: 'payments' },
+  { href: '/processing', label: 'Processing Board', icon: Kanban, module: 'applications' },
+  { href: '/countries', label: 'Countries & Visas', icon: Globe2, module: 'countries' },
 ];
 
 // Grouped under the "Configurations" accordion in the sidebar.
 export const configNavItems: NavItem[] = [
-  { href: '/form-config', label: 'Form Presets', icon: LayoutTemplate },
-  { href: '/terms-config', label: 'Terms Presets', icon: ScrollText },
-  { href: '/visa-config', label: 'Visa Config', icon: SlidersHorizontal },
-  { href: '/payment-config', label: 'Payment Settings', icon: QrCode },
-  { href: '/receipt-config', label: 'Receipt Config', icon: Receipt },
-  { href: '/embassy-mail-config', label: 'Embassy Mail', icon: Mail },
+  { href: '/form-config', label: 'Form Presets', icon: LayoutTemplate, module: 'formPresets' },
+  { href: '/terms-config', label: 'Terms Presets', icon: ScrollText, module: 'termPresets' },
+  { href: '/visa-config', label: 'Visa Config', icon: SlidersHorizontal, module: 'visaConfig' },
+  { href: '/payment-config', label: 'Payment Settings', icon: QrCode, module: 'paymentSettings' },
+  { href: '/receipt-config', label: 'Receipt Config', icon: Receipt, module: 'receiptSettings' },
+  { href: '/embassy-mail-config', label: 'Embassy Mail', icon: Mail, module: 'embassyMailSettings' },
 ];
 
 export const bottomNavItems: NavItem[] = [
-  { href: '/users', label: 'Customers', icon: Users },
-  { href: '/promo-codes', label: 'Promo Codes', icon: Tag },
-  { href: '/inquiries', label: 'Inquiries', icon: MessageSquare },
+  { href: '/users', label: 'Customers', icon: Users, module: 'customers' },
+  { href: '/promo-codes', label: 'Promo Codes', icon: Tag, module: 'promoCodes' },
+  { href: '/inquiries', label: 'Inquiries', icon: MessageSquare, module: 'inquiries' },
+  { href: '/team', label: 'Team & Roles', icon: ShieldHalf, superAdminOnly: true },
 ];
 
 // Grouped under the "Other Options" accordion in the sidebar.
 export const otherNavItems: NavItem[] = [
   { href: '/notifications', label: 'Notifications', icon: Bell },
-  { href: '/trash', label: 'Trash', icon: Trash2 },
-  { href: '/logs', label: 'Activity Logs', icon: History },
+  { href: '/trash', label: 'Trash', icon: Trash2, module: 'trash' },
+  { href: '/logs', label: 'Activity Logs', icon: History, module: 'activityLogs' },
 ];
 
 // Reached from the account menu, so only the command palette lists it.
 const accountNavItems: NavItem[] = [{ href: '/profile', label: 'My Profile', icon: UserRound }];
 
 export const allNavItems: NavItem[] = [...topNavItems, ...configNavItems, ...bottomNavItems, ...otherNavItems, ...accountNavItems];
+
+/** The nav entry a path belongs to (longest matching href), for page-level access checks. */
+export const navItemForPath = (pathname: string) =>
+  allNavItems
+    .filter((i) => pathname === i.href || pathname.startsWith(i.href + '/'))
+    .sort((a, b) => b.href.length - a.href.length)[0];

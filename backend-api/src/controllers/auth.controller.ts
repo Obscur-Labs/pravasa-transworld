@@ -7,6 +7,7 @@ import OTP, { IOTP, IPendingUser } from '../models/OTP';
 import { sendOTPEmail } from '../services/email.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { jwtSecret } from '../config/env';
+import { verifyPassword } from '../utils/password';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 30 * 1000;
@@ -17,7 +18,7 @@ type Role = 'user' | 'admin';
 
 const normalizeEmail = (email: unknown) => String(email ?? '').trim().toLowerCase();
 
-const signToken = (id: string, role: Role): string =>
+export const signToken = (id: string, role: Role): string =>
   jwt.sign({ id, role }, jwtSecret(), {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   } as jwt.SignOptions);
@@ -174,42 +175,40 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
   sendSuccess(res, { token: signToken(String(user._id), 'user'), user: userPayload(user) }, 'Login successful');
 };
 
-export const sendAdminOtp = async (req: Request, res: Response): Promise<void> => {
-  const email = normalizeEmail(req.body.email);
-  if (!email) {
-    sendError(res, 'Email is required');
+const MAX_FAILED_LOGINS = 5;
+const LOCK_MS = 15 * 60 * 1000;
+// Compared against when the username doesn't exist, so both cases take the same time.
+const DUMMY_HASH = 'scrypt$00000000000000000000000000000000$' + '0'.repeat(128);
+
+/** Admin panel sign-in with username and password. Locks the account after repeated failures. */
+export const adminLogin = async (req: Request, res: Response): Promise<void> => {
+  const username = String(req.body?.username ?? '').trim().toLowerCase();
+  const password = String(req.body?.password ?? '');
+  if (!username || !password) { sendError(res, 'Username and password are required'); return; }
+
+  const admin = await Admin.findOne({ username }).select('+passwordHash +failedLogins +lockedUntil').populate('role', 'name permissions');
+  const invalid = () => sendError(res, 'Invalid username or password', 401);
+
+  if (!admin) { await verifyPassword(password, DUMMY_HASH); invalid(); return; }
+  if (admin.lockedUntil && admin.lockedUntil > new Date()) {
+    const mins = Math.ceil((admin.lockedUntil.getTime() - Date.now()) / 60000);
+    sendError(res, `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.`, 429);
     return;
   }
 
-  // Same answer whether or not the address is an admin, so the endpoint can't be used
-  // to discover admin accounts.
-  const admin = await Admin.findOne({ email });
-  if (admin) {
-    const failure = await issueOtp(email, 'admin', admin.name);
-    if (failure) { sendError(res, failure.message, failure.status); return; }
-  }
-
-  sendSuccess(res, { email }, 'If this email belongs to an admin account, a code has been sent');
-};
-
-export const verifyAdminOtp = async (req: Request, res: Response): Promise<void> => {
-  const email = normalizeEmail(req.body.email);
-  if (!email || !req.body.otp) {
-    sendError(res, 'Email and OTP are required');
+  if (!(await verifyPassword(password, admin.passwordHash))) {
+    const failedLogins = (admin.failedLogins || 0) + 1;
+    await Admin.updateOne({ _id: admin._id }, failedLogins >= MAX_FAILED_LOGINS
+      ? { $set: { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MS) } }
+      : { $set: { failedLogins } });
+    invalid();
     return;
   }
+  if (!admin.isActive) { sendError(res, 'This account has been disabled. Contact your administrator.', 403); return; }
 
-  const result = await consumeOtp(email, 'admin', req.body.otp);
-  if (typeof result === 'string') { sendError(res, result, 400); return; }
-
-  const admin = await Admin.findOne({ email });
-  if (!admin) {
-    sendError(res, 'Invalid or expired OTP. Please request a new code.', 400);
-    return;
-  }
-
+  await Admin.updateOne({ _id: admin._id }, { $set: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() } });
   sendSuccess(res, {
     token: signToken(String(admin._id), 'admin'),
     admin: toAdminProfile(admin),
-  }, 'Admin login successful');
+  }, 'Signed in');
 };

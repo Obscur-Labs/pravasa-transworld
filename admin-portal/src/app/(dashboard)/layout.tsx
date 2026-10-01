@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCommandPaletteStore } from '@/store/command-palette.store';
 import { getAdminProfile } from '@/lib/api';
+import { AccessGate } from '@/components/layout/AccessGate';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, _hasHydrated, updateAdmin } = useAdminAuthStore();
@@ -31,7 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (_hasHydrated && !isAuthenticated) router.push('/login');
   }, [isAuthenticated, _hasHydrated, router]);
 
-  // Keeps name and role current when they change after this session signed in.
+  // Keeps name, role and permissions current when a super admin changes them mid-session.
   useEffect(() => {
     if (isAuthenticated) getAdminProfile().then((r) => updateAdmin(r.data.data.profile)).catch(() => {});
   }, [isAuthenticated, updateAdmin]);
@@ -120,7 +121,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </header>
           <div className="flex-1 overflow-y-auto">
-            {children}
+            <AccessGate>{children}</AccessGate>
           </div>
         </main>
       </div>

@@ -42,15 +42,15 @@ export default function AccountMenu() {
           </Avatar>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{admin?.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{admin?.email}</p>
+            <p className="text-xs text-muted-foreground truncate">{admin?.username ? `@${admin.username}` : admin?.email}</p>
           </div>
         </div>
 
-        {admin?.role && (
+        {admin?.roleName && (
           <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg bg-accent px-3 py-2">
             <ShieldCheck className="w-4 h-4 text-accent-foreground flex-shrink-0" />
             <span className="text-xs text-muted-foreground">Role</span>
-            <span className="ml-auto text-xs font-semibold text-accent-foreground">{admin.role}</span>
+            <span className="ml-auto text-xs font-semibold text-accent-foreground">{admin.roleName}</span>
           </div>
         )}
 

@@ -9,6 +9,7 @@ import { assertEnv } from "./config/env";
 import http from "http";
 import { initSocket } from "./utils/socket";
 import { startPaymentReminderLoop } from "./services/paymentAlerts.service";
+import { bootstrapAdmins } from "./services/adminBootstrap";
 
 const PORT = process.env.PORT || 5000;
 
@@ -19,6 +20,7 @@ initSocket(server);
   try {
     assertEnv();
     await connectDB();
+    await bootstrapAdmins();
     initCloudinary();
     await verifyMailConnection();
     server.listen(PORT, () => {

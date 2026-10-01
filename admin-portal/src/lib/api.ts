@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from '@/components/ui/use-toast';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
@@ -15,9 +16,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('adminToken');
-      window.location.href = '/login';
+    if (typeof window !== 'undefined') {
+      // Signed out, disabled, or password reset elsewhere: back to the login screen.
+      if (err.response?.status === 401 && !err.config?.url?.includes('/auth/admin/login')) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('admin-auth-storage');
+        window.location.href = '/login';
+      }
+      // Permission denials explain themselves, whichever page triggered them.
+      if (err.response?.status === 403) {
+        toast({ title: 'Not allowed', description: err.response.data?.message || 'You do not have permission for this.', variant: 'destructive' });
+      }
     }
     return Promise.reject(err);
   }
@@ -26,14 +35,24 @@ api.interceptors.response.use(
 export default api;
 
 // Auth
-export const sendAdminOtp = (data: { email: string }) =>
-  api.post('/auth/admin/send-otp', data);
-export const verifyAdminOtp = (data: { email: string; otp: string }) =>
-  api.post('/auth/admin/verify-otp', data);
+export const adminLogin = (data: { username: string; password: string }) =>
+  api.post('/auth/admin/login', data);
 
 // Profile
 export const getAdminProfile = () => api.get('/admin/profile');
-export const updateAdminProfile = (data: { name: string; phone: string }) => api.put('/admin/profile', data);
+export const updateAdminProfile = (data: { name: string; phone: string; email: string }) => api.put('/admin/profile', data);
+export const changeOwnPassword = (data: { currentPassword: string; newPassword: string }) => api.put('/admin/profile/password', data);
+
+// Team & Roles (super admin only)
+export const getTeamRoles = () => api.get('/admin/team/roles');
+export const createTeamRole = (data: Record<string, unknown>) => api.post('/admin/team/roles', data);
+export const updateTeamRole = (id: string, data: Record<string, unknown>) => api.put(`/admin/team/roles/${id}`, data);
+export const deleteTeamRole = (id: string) => api.delete(`/admin/team/roles/${id}`);
+export const getTeamMembers = () => api.get('/admin/team/members');
+export const getTeamMember = (id: string) => api.get(`/admin/team/members/${id}`);
+export const createTeamMember = (data: Record<string, unknown>) => api.post('/admin/team/members', data);
+export const updateTeamMember = (id: string, data: Record<string, unknown>) => api.put(`/admin/team/members/${id}`, data);
+export const deleteTeamMember = (id: string) => api.delete(`/admin/team/members/${id}`);
 
 // Dashboard
 export const getDashboardStats = () => api.get('/admin/dashboard');

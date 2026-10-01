@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import app from '../src/app';
 import { initCloudinary } from '../src/config/cloudinary';
 import { assertEnv } from '../src/config/env';
+import { bootstrapAdmins } from '../src/services/adminBootstrap';
 
 // Fails the cold start rather than serving requests with missing secrets.
 assertEnv();
@@ -12,6 +13,7 @@ const connectIfNeeded = async () => {
   if (mongoose.connection.readyState === 0) {
     await mongoose.connect(process.env.MONGODB_URI!);
     initCloudinary();
+    await bootstrapAdmins();
   }
 };
 

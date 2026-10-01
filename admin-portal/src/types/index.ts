@@ -1,3 +1,5 @@
+import type { Permissions } from '@/config/permissions';
+
 export type ApplicationStatus =
   | 'submitted'
   | 'documents_under_review'
@@ -546,9 +548,42 @@ export type ActivityAction = 'create' | 'update' | 'delete';
 export interface AdminProfile {
   _id: string;
   name: string;
+  username: string;
   email: string;
   phone: string;
-  role: string;
+  isSuperAdmin: boolean;
+  roleName: string;
+  permissions: Permissions;
+  mustChangePassword: boolean;
+  createdAt: string;
+}
+
+/** A named set of module permissions (Team & Roles). */
+export interface AdminRole {
+  _id: string;
+  name: string;
+  description: string;
+  permissions: Permissions;
+  memberCount: number;
+  createdAt: string;
+}
+
+/** A staff account as the super admin sees it in Team & Roles. */
+export interface TeamMember {
+  _id: string;
+  name: string;
+  username: string;
+  email: string;
+  phone: string;
+  isSuperAdmin: boolean;
+  role: { _id: string; name: string } | null;
+  roleName: string;
+  permissions: Permissions;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  hasLogin: boolean;
+  lastLoginAt: string | null;
+  lastActivityAt: string | null;
   createdAt: string;
 }
 

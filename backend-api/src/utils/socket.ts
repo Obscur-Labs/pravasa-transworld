@@ -32,7 +32,7 @@ export const initSocket = (server: HttpServer) => {
       const role: SocketUser['role'] = decoded.role === 'admin' ? 'admin' : 'user';
       // A valid token is not enough: the account may have been deleted or deactivated since.
       const exists = role === 'admin'
-        ? await Admin.exists({ _id: decoded.id })
+        ? await Admin.exists({ _id: decoded.id, isActive: true })
         : await User.exists({ _id: decoded.id, isActive: true });
       if (!exists) return next(new Error('Authentication error'));
 

@@ -1,6 +1,5 @@
-import { Router } from 'express';
 import { asyncRouter } from '../utils/asyncRouter';
-import { adminProtect } from '../middleware/adminAuth.middleware';
+import { adminProtect, requireModule, requireSuperAdmin } from '../middleware/adminAuth.middleware';
 import { upload } from '../middleware/upload.middleware';
 import * as countries from '../controllers/admin/countries.controller';
 import * as visaTypes from '../controllers/admin/visaTypes.controller';
@@ -20,18 +19,30 @@ import * as profile from '../controllers/admin/profile.controller';
 import * as termPresets from '../controllers/admin/termPresets.controller';
 import * as payments from '../controllers/admin/payments.controller';
 import * as ai from '../controllers/admin/ai.controller';
+import * as team from '../controllers/admin/team.controller';
 import { aiLimiter } from '../middleware/rateLimiter';
 
+// Every route needs a signed-in staff account. Module guards then apply by method:
+// GET needs view access, anything else needs manage (see requireModule).
 const router = asyncRouter();
 router.use(adminProtect);
 
-// Profile
+// Your own account, notifications and the AI writer are open to every staff member.
 router.route('/profile').get(profile.getProfile).put(profile.updateProfile);
+router.put('/profile/password', profile.changePassword);
+
+// Team & Roles: super admins only, never a grantable module.
+router.use('/team', requireSuperAdmin);
+router.route('/team/roles').get(team.getRoles).post(team.createRole);
+router.route('/team/roles/:id').put(team.updateRole).delete(team.deleteRole);
+router.route('/team/members').get(team.getMembers).post(team.createMember);
+router.route('/team/members/:id').get(team.getMember).put(team.updateMember).delete(team.deleteMember);
 
 // Dashboard
-router.get('/dashboard', apps.getDashboardStats);
+router.get('/dashboard', requireModule('dashboard'), apps.getDashboardStats);
 
-// Countries
+// Countries & Visas
+router.use(['/countries', '/visa-types'], requireModule('countries', { readableBy: ['applications'] }));
 router.route('/countries').get(countries.getCountries).post(countries.createCountry);
 router.route('/countries/:id').get(countries.getCountry).put(countries.updateCountry).delete(countries.deleteCountry);
 router.patch('/countries/:id/toggle', countries.toggleCountryStatus);
@@ -40,46 +51,48 @@ router.put('/countries/:id/web-content', countries.updateWebContent);
 router.post('/countries/:id/images', upload.single('image'), countries.uploadCountryImage);
 router.delete('/countries/:id/images', countries.removeCountryImage);
 
-// Visa Types
 router.route('/visa-types').get(visaTypes.getVisaTypes).post(visaTypes.createVisaType);
 // Must stay above '/visa-types/:id', otherwise 'reorder' is matched as an id.
 router.put('/visa-types/reorder', visaTypes.reorderVisaTypes);
 router.route('/visa-types/:id').get(visaTypes.getVisaType).put(visaTypes.updateVisaType).delete(visaTypes.deleteVisaType);
 router.patch('/visa-types/:id/toggle', visaTypes.toggleVisaTypeStatus);
 
-// Form Presets
+// Presets and visa options are also read by the visa editor in Countries & Visas.
+router.use('/form-presets', requireModule('formPresets', { readableBy: ['countries'] }));
 router.route('/form-presets').get(formPresets.getFormPresets).post(formPresets.createFormPreset);
 router.route('/form-presets/:id').put(formPresets.updateFormPreset).delete(formPresets.deleteFormPreset);
 
-// Terms Presets
+router.use('/term-presets', requireModule('termPresets', { readableBy: ['countries'] }));
 router.route('/term-presets').get(termPresets.getTermPresets).post(termPresets.createTermPreset);
 router.route('/term-presets/:id').put(termPresets.updateTermPreset).delete(termPresets.deleteTermPreset);
 
-// Visa Config
+router.use('/visa-config', requireModule('visaConfig', { readableBy: ['countries', 'applications'] }));
 router.route('/visa-config').get(visaConfig.getVisaConfigOptions).post(visaConfig.createVisaConfigOption);
 router.route('/visa-config/:id').put(visaConfig.updateVisaConfigOption).delete(visaConfig.deleteVisaConfigOption);
 
-// Receipt Config
+router.use('/receipt-config', requireModule('receiptSettings'));
 router.route('/receipt-config').get(receiptConfig.getReceiptConfig).put(receiptConfig.updateReceiptConfig);
 router.get('/receipt-config/demo', receiptConfig.downloadDemoReceipt);
 
-// Embassy Mail Config, the default format every embassy mail starts from
+router.use('/embassy-mail-config', requireModule('embassyMailSettings'));
 router.route('/embassy-mail-config').get(embassyMail.getEmbassyMailConfig).put(embassyMail.updateEmbassyMailConfig);
 
 // Trash
+router.use('/trash', requireModule('trash'));
 router.get('/trash', trash.getTrash);
 router.delete('/trash', trash.emptyTrash);
 router.put('/trash/:id/restore', trash.restoreTrashItem);
 router.delete('/trash/:id', trash.deleteTrashItem);
 
-// Applications
+// Applications. Recording a cash/manual payment is a payments action, so it's checked first.
+router.put('/applications/:id/manual-payment', requireModule('payments', { level: 'manage' }), apps.manualPaymentOverride);
+router.use('/applications', requireModule('applications'));
 router.get('/applications', apps.getApplications);
 router.get('/applications/:id', apps.getApplication);
 router.put('/applications/:id/status', apps.updateStatus);
 router.put('/applications/:id/document-review', apps.reviewDocument);
 router.put('/applications/:id/approve-documents', apps.approveAllDocuments);
 router.post('/applications/:id/visa-file', upload.single('file'), apps.uploadVisaFile);
-router.put('/applications/:id/manual-payment', apps.manualPaymentOverride);
 router.put('/applications/:id/courier', apps.requestCourier);
 router.put('/applications/:id/courier/received', apps.markCourierReceived);
 router.get('/applications/:id/embassy-mail', embassyMail.getEmbassyMailDraft);
@@ -92,13 +105,17 @@ router.delete('/applications/:id', apps.deleteApplication);
 router.post('/ai/generate', aiLimiter, ai.generateAiContent);
 
 // Payments
+router.use('/payments', requireModule('payments'));
 router.get('/payments', apps.getAdminPayments);
 router.get('/payments/pending', payments.getPendingPayments);
 router.put('/payments/:id/approve', payments.approveUpiPayment);
 router.put('/payments/:id/reject', payments.rejectUpiPayment);
+
+router.use('/payment-config', requireModule('paymentSettings'));
 router.route('/payment-config').get(payments.getPaymentConfig).put(payments.updatePaymentConfig);
 
-// Users
+// Customers
+router.use('/users', requireModule('customers'));
 router.get('/users', apps.getUsers);
 router.post('/users', users.createUser);
 router.put('/users/:userId', users.updateUser);
@@ -109,27 +126,27 @@ router.get('/users/:userId/vault/zip', users.downloadUserVaultZip);
 router.patch('/users/:userId/promo-applicable', users.togglePromoApplicable);
 
 // Promo Codes
+router.use('/promo-codes', requireModule('promoCodes'));
 router.route('/promo-codes').get(promoCodes.getPromoCodes).post(promoCodes.createPromoCode);
 router.route('/promo-codes/:id').put(promoCodes.updatePromoCode).delete(promoCodes.deletePromoCode);
 router.patch('/promo-codes/:id/toggle', promoCodes.togglePromoActive);
 router.patch('/promo-codes/:id/toggle-website', promoCodes.togglePromoWebsite);
 router.get('/promo-codes/:id/history', promoCodes.getPromoHistory);
 
-// Contact Leads
+// Inquiries: contact messages and service requests
+router.use(['/leads', '/inquiries'], requireModule('inquiries'));
 router.get('/leads', leads.getLeads);
 router.patch('/leads/:id/read', leads.markLeadRead);
 router.delete('/leads/:id', leads.deleteLead);
-
-// Service Inquiries (flights, hotels, transport, insurance, forex)
 router.get('/inquiries', inquiries.getServiceInquiries);
 router.patch('/inquiries/:id/read', inquiries.markServiceInquiryRead);
 router.delete('/inquiries/:id', inquiries.deleteServiceInquiry);
 
-// Activity Logs
-router.get('/activity-logs', activityLogs.getActivityLogs);
-router.delete('/activity-logs', activityLogs.deleteAllActivityLogs);
+// Activity Logs: read-only module; clearing the log is for super admins.
+router.get('/activity-logs', requireModule('activityLogs'), activityLogs.getActivityLogs);
+router.delete('/activity-logs', requireSuperAdmin, activityLogs.deleteAllActivityLogs);
 
-// Notifications
+// Notifications (filtered to the modules each member can see)
 router.get('/notifications', notifications.getNotifications);
 router.put('/notifications/read-all', notifications.markAllAsRead);
 router.put('/notifications/:id/read', notifications.markAsRead);

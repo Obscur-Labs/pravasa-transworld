@@ -1,4 +1,5 @@
 import Admin from '../models/Admin';
+import { hasAccess } from '../middleware/adminAuth.middleware';
 import Payment, { IPayment } from '../models/Payment';
 import { sendAdminPaymentAlert } from './email.service';
 import { METHOD_LABELS, notifyAdmins } from './payment.service';
@@ -41,9 +42,10 @@ export async function alertAdminsOfPayment(payment: IPayment, kind: 'new' | 'rem
     });
   }
 
-  const admins = await Admin.find().select('email');
+  const admins = (await Admin.find({ isActive: true, email: { $exists: true, $ne: '' } }).select('email isSuperAdmin role').populate('role', 'permissions'))
+    .filter((a) => a.email && hasAccess(a, 'payments', 'view'));
   await Promise.all(admins.map((a) =>
-    sendAdminPaymentAlert(a.email, {
+    sendAdminPaymentAlert(a.email!, {
       kind,
       timeLeft,
       customerName: customer?.name || 'A customer',

@@ -8,11 +8,14 @@ import {
 import { allNavItems } from '@/config/nav';
 import { useAdminAuthStore } from '@/store/auth.store';
 import { useCommandPaletteStore } from '@/store/command-palette.store';
+import { usePermissions } from '@/lib/usePermissions';
 
 export function CommandPalette() {
   const { open, setOpen, toggle } = useCommandPaletteStore();
   const router = useRouter();
   const { logout } = useAdminAuthStore();
+  const { can, isSuperAdmin } = usePermissions();
+  const pages = allNavItems.filter((i) => (i.superAdminOnly ? isSuperAdmin : !i.module || can(i.module)));
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -36,7 +39,7 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Navigate">
-          {allNavItems.map(({ href, label, icon: Icon }) => (
+          {pages.map(({ href, label, icon: Icon }) => (
             <CommandItem key={href} value={label} onSelect={() => go(href)}>
               <Icon className="h-4 w-4 text-muted-foreground" />
               {label}

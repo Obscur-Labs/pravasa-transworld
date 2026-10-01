@@ -12,6 +12,7 @@ import { StatTile } from '@/components/ui/stat-tile';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PendingPaymentsCard } from '@/components/shared/pending-payments-card';
 import { getDashboardStats, getApplications } from '@/lib/api';
+import { usePermissions } from '@/lib/usePermissions';
 import { formatDate } from '@/lib/utils';
 import type { Application } from '@/types';
 import { STATUS_LABELS } from '@/types';
@@ -32,15 +33,19 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const { can } = usePermissions();
+  // Widgets from other modules appear only for members who have those modules.
+  const showApplications = can('applications');
+  const showPayments = can('payments');
 
   useEffect(() => {
-    Promise.all([getDashboardStats(), getApplications({ limit: 8 })])
+    Promise.all([getDashboardStats(), showApplications ? getApplications({ limit: 8 }) : null])
       .then(([statsRes, appsRes]) => {
         setStats(statsRes.data.data);
-        setRecent(appsRes.data.data.applications);
+        if (appsRes) setRecent(appsRes.data.data.applications);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [showApplications]);
 
   const cards = stats ? [
     { label: 'Total Applications', value: stats.total, icon: Activity, tone: 'text-primary bg-primary/10' },
@@ -61,7 +66,7 @@ export default function AdminDashboard() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader title="Dashboard" description="Overview of all visa applications." />
 
-      <PendingPaymentsCard />
+      {showPayments && <PendingPaymentsCard />}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -172,6 +177,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent Applications */}
+      {showApplications && (
       <Card>
         <div className="p-5 border-b border-border flex items-center justify-between">
           <h2 className="font-semibold text-sm text-foreground">Recent Applications</h2>
@@ -229,6 +235,7 @@ export default function AdminDashboard() {
           <EmptyState icon={Inbox} title="No applications yet" description="New visa applications will show up here as they come in." />
         )}
       </Card>
+      )}
     </div>
   );
 }

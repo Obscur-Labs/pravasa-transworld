@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AdminProfile } from '@/types';
 
-// Sessions saved before roles existed have no role until the layout refreshes the profile.
-type Admin = Omit<AdminProfile, 'role' | 'createdAt'> & Partial<Pick<AdminProfile, 'role' | 'createdAt'>>;
+// Sessions saved before RBAC lack the newer fields until the layout refreshes the profile.
+type Admin = Pick<AdminProfile, '_id' | 'name'> & Partial<Omit<AdminProfile, '_id' | 'name'>>;
 
 interface AuthState {
   admin: Admin | null;
