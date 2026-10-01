@@ -259,12 +259,15 @@ export default function ServiceInquiryForm({ serviceKey }: { serviceKey: Service
           <div className="col-span-6 sm:col-span-3">
             <label htmlFor="field-phone" className="block text-sm font-bold text-slate-700 mb-1.5">WhatsApp number<span className="text-red-500"> *</span></label>
             <div className="flex gap-2">
-              <select aria-label="Country code" value={contact.code} onChange={(e) => setC('code', e.target.value)} className={inputClass + ' w-[5.5rem] shrink-0 px-2'}>
+              {/* Fixed-width code picker; the shared w-full would push the number box out of the row. */}
+              <select aria-label="Country code" value={contact.code} onChange={(e) => setC('code', e.target.value)}
+                className={inputClass.replace('w-full', 'w-24') + ' shrink-0 px-2'}>
                 {PHONE_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <input id="field-phone" type="tel" autoComplete="tel-national" maxLength={20}
                 placeholder={contact.code === 'Other' ? 'With country code' : '98765 43210'}
-                value={contact.phone} onChange={(e) => setC('phone', e.target.value.replace(/[^\d\s+]/g, ''))} className={inputClass + ring('phone')} />
+                value={contact.phone} onChange={(e) => setC('phone', e.target.value.replace(/[^\d\s+]/g, ''))}
+                className={inputClass.replace('w-full', 'min-w-0 flex-1') + ring('phone')} />
             </div>
             {error('phone')}
           </div>
