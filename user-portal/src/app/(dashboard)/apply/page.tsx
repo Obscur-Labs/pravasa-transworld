@@ -16,7 +16,9 @@ import {
   getActiveCountries, getPublicVisaTypes, createApplication, uploadDocument,
   addDocumentFromVault, getVaultDocuments,
   validatePromoCode, downloadVisaSummaryPdf,
+  getDraft, createDraft, updateDraft, deleteDraft,
 } from '@/lib/api';
+import StartOverDialog from '@/components/apply/StartOverDialog';
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
 import { formatCurrency } from '@/lib/utils';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
@@ -708,6 +710,10 @@ export default function ApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
   const [draftRestored, setDraftRestored] = useState(false);
+  // Server-side draft this progress was resumed from (or last saved to), see StartOverDialog.
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [showStartOver, setShowStartOver] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [travelStartDate, setTravelStartDate] = useState('');
   const [travelEndDate, setTravelEndDate] = useState('');
   const [adults, setAdults] = useState(1);
@@ -746,7 +752,17 @@ export default function ApplyPage() {
     getActiveCountries()
       .then((r) => setCountries(r.data.data))
       .finally(() => setCountriesLoading(false));
-    getVaultDocuments().then((r) => setVaultDocs(r.data.data || [])).catch(() => {});
+    const vaultPromise: Promise<VaultDocument[]> = getVaultDocuments()
+      .then((r) => { const docs = r.data.data || []; setVaultDocs(docs); return docs; })
+      .catch(() => []);
+
+    // Resuming from My Applications: the saved draft replaces whatever was in progress here.
+    const savedDraftId = new URLSearchParams(window.location.search).get('draft');
+    if (savedDraftId) {
+      window.history.replaceState(null, '', '/apply');
+      resumeSavedDraft(savedDraftId, vaultPromise).finally(() => setDraftRestored(true));
+      return;
+    }
 
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
@@ -760,6 +776,7 @@ export default function ApplyPage() {
         if (d.travelEndDate) setTravelEndDate(d.travelEndDate);
         if (d.adults) setAdults(d.adults);
         if (typeof d.children === 'number') setChildren(d.children);
+        if (d.draftId) setDraftId(d.draftId);
 
         // Visa type data (pricing, labels, sub-type, active status) is admin-controlled
         // and can change after a draft was saved, never restore it from the cached
@@ -784,15 +801,87 @@ export default function ApplyPage() {
     if (!draftRestored || !selectedCountry) return;
     // visaTypes is intentionally excluded, it's always re-fetched fresh on restore (see above),
     // never trusted from this cache, since pricing/labels are admin-controlled and can change.
-    const draft = { step, selectedCountry, selectedVisa, formData, passportValues, travelStartDate, travelEndDate, adults, children };
+    const draft = { step, selectedCountry, selectedVisa, formData, passportValues, travelStartDate, travelEndDate, adults, children, draftId };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftRestored, step, selectedCountry, selectedVisa, formData, passportValues, travelStartDate, travelEndDate, adults, children]);
+  }, [draftRestored, step, selectedCountry, selectedVisa, formData, passportValues, travelStartDate, travelEndDate, adults, children, draftId]);
 
   useEffect(() => {
     if (activeTraveler > travelers.length - 1) setActiveTraveler(0);
   }, [travelers.length, activeTraveler]);
 
+  const resumeSavedDraft = async (id: string, vaultPromise: Promise<VaultDocument[]>) => {
+    setLoading(true);
+    try {
+      const [r, vault] = await Promise.all([getDraft(id), vaultPromise]);
+      const d = r.data.data;
+      const fresh: VisaType[] = (await getPublicVisaTypes(d.country._id)).data.data;
+      const visa = fresh.find((v) => v._id === d.visaType) ?? null;
+      setSelectedCountry(d.country);
+      setVisaTypes(fresh);
+      setSelectedVisa(visa);
+      setFormData(d.formData || {});
+      setPassportValues(d.passportValues || {});
+      setTravelStartDate(d.travelStartDate || '');
+      setTravelEndDate(d.travelEndDate || '');
+      setAdults(d.adults || 1);
+      setChildren(d.children || 0);
+      setActiveTraveler(0);
+      // Vault picks are kept by id; any document since removed from the vault is dropped.
+      const picks: { key: string; vaultDocId: string }[] = d.vaultPicks || [];
+      setDocSources(Object.fromEntries(picks.flatMap((p) => {
+        const doc = vault.find((v) => v._id === p.vaultDocId);
+        return doc ? [[p.key, { type: 'vault' as const, vaultDocId: doc._id, label: doc.label, url: doc.url }]] : [];
+      })));
+      // A visa that's since been withdrawn sends the user back to choosing one.
+      setStep((visa ? d.step : Math.min(d.step, 2)) as Step);
+      setDraftId(id);
+    } catch {
+      toast({ title: 'Could not open this draft', description: 'It may have been deleted. Starting a new application.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasUploadedFiles = Object.values(docSources).some((s) => s.type === 'file');
+
+  // Only ask when there's something to lose.
   const startOver = () => {
+    if (selectedCountry) setShowStartOver(true);
+    else resetWizard();
+  };
+
+  const saveAndStartOver = async () => {
+    if (!selectedCountry) return;
+    setSavingDraft(true);
+    const payload = {
+      country: selectedCountry._id,
+      visaType: selectedVisa?._id ?? null,
+      step, formData, passportValues, travelStartDate, travelEndDate, adults, children,
+      vaultPicks: Object.entries(docSources).flatMap(([key, s]) => (s.type === 'vault' ? [{ key, vaultDocId: s.vaultDocId }] : [])),
+    };
+    try {
+      if (draftId) {
+        // The draft may have been deleted from another tab; save it fresh then.
+        await updateDraft(draftId, payload).catch((err) => {
+          if (err.response?.status === 404) return createDraft(payload);
+          throw err;
+        });
+      } else {
+        await createDraft(payload);
+      }
+      toast({ title: 'Saved to My Applications', description: 'Pick it up anytime from My Applications.', variant: 'success' });
+      setShowStartOver(false);
+      resetWizard();
+    } catch (err: any) {
+      toast({ title: 'Could not save', description: err.response?.data?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const resetWizard = () => {
+    setShowStartOver(false);
+    setDraftId(null);
     localStorage.removeItem(DRAFT_KEY);
     setStep(1);
     setSelectedCountry(null);
@@ -946,6 +1035,7 @@ export default function ApplyPage() {
       }
 
       localStorage.removeItem(DRAFT_KEY);
+      if (draftId) deleteDraft(draftId).catch(() => {});
       toast({ title: 'Application saved', description: 'Complete your payment to start processing.', variant: 'success' });
       // The application page owns the payment flow; ?pay=1 opens it straight away.
       const promo = promoResult?.code ? `&promo=${encodeURIComponent(promoResult.code)}` : '';
@@ -1170,6 +1260,16 @@ export default function ApplyPage() {
           onContinue={() => { setShowVisaOverview(false); goNext(); }}
         />
       )}
+
+      <StartOverDialog
+        open={showStartOver}
+        onOpenChange={setShowStartOver}
+        fromDraft={!!draftId}
+        hasUploadedFiles={hasUploadedFiles}
+        saving={savingDraft}
+        onSave={saveAndStartOver}
+        onDiscard={resetWizard}
+      />
 
       <div className="flex items-start justify-between mb-1">
         <h1 className="text-2xl font-bold text-slate-900">Apply for Visa</h1>

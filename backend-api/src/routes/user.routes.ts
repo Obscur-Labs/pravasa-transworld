@@ -8,6 +8,7 @@ import * as vault from '../controllers/user/documentVault.controller';
 import * as payments from '../controllers/user/payments.controller';
 import * as profile from '../controllers/user/profile.controller';
 import * as promos from '../controllers/user/promoCodes.controller';
+import * as drafts from '../controllers/user/drafts.controller';
 
 const router = asyncRouter();
 router.use(protect);
@@ -37,6 +38,13 @@ router.post('/applications/:id/payment/submit', upload.single('screenshot'), pay
 // Earlier UPI-only paths, kept so a site built before bank transfer keeps working.
 router.post('/applications/:id/payment/upi', payments.startPayment);
 router.post('/applications/:id/payment/upi/submit', payments.submitPayment);
+
+// Saved apply-flow progress
+router.get('/drafts', drafts.getDrafts);
+router.get('/drafts/:id', drafts.getDraft);
+router.post('/drafts', drafts.createDraft);
+router.put('/drafts/:id', drafts.updateDraft);
+router.delete('/drafts/:id', drafts.deleteDraft);
 
 // Document Vault
 router.get('/vault', vault.getVaultDocuments);

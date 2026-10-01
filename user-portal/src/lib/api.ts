@@ -84,6 +84,13 @@ export const submitCourierDetails = (id: string, data: { trackingNumber: string;
 
 // User, Document Vault
 export const getVaultDocuments = () => api.get('/user/vault');
+
+// Apply-flow progress saved from "Start over"
+export const getDrafts = () => api.get('/user/drafts');
+export const getDraft = (id: string) => api.get(`/user/drafts/${id}`);
+export const createDraft = (data: Record<string, unknown>) => api.post('/user/drafts', data);
+export const updateDraft = (id: string, data: Record<string, unknown>) => api.put(`/user/drafts/${id}`, data);
+export const deleteDraft = (id: string) => api.delete(`/user/drafts/${id}`);
 export const getVaultDocumentUrl = (id: string) => api.get(`/user/vault/${id}/url`);
 export const uploadVaultDocument = (formData: FormData) =>
   api.post('/user/vault', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
