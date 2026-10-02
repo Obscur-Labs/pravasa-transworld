@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  AlertTriangle, Crown, History, KeyRound, LogIn, Pencil, Plus, Search, ShieldHalf, Trash2, UserRound, Users,
+  AlertTriangle, Crown, KeyRound, LogIn, Pencil, Plus, Search, ShieldHalf, Trash2, Users,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -284,78 +284,109 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* Member detail */}
+      {/* Member detail: fixed header and footer, scrolling body */}
       <Sheet open={!!detail} onOpenChange={(v) => !v && setDetail(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-          {detail && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12"><AvatarFallback>{detail.member.name[0]?.toUpperCase()}</AvatarFallback></Avatar>
-                <div className="min-w-0">
-                  <SheetTitle className="truncate">{detail.member.name}</SheetTitle>
-                  <p className="text-sm text-muted-foreground font-mono">{detail.member.username ? `@${detail.member.username}` : 'No login yet'}</p>
-                </div>
-              </div>
-
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                {([
-                  ['Role', detail.member.roleName],
-                  ['Status', detail.member.isActive ? 'Active' : 'Disabled'],
-                  ['Phone', detail.member.phone || '-'],
-                  ['Email', detail.member.email || '-'],
-                  ['Created', formatDate(detail.member.createdAt)],
-                  ['Last sign-in', detail.member.lastLoginAt ? timeAgo(detail.member.lastLoginAt) : 'Never'],
-                ] as const).map(([k, v]) => (
-                  <div key={k} className="min-w-0">
-                    <dt className="text-xs text-muted-foreground">{k}</dt>
-                    <dd className="text-foreground truncate">{v}</dd>
+        <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col">
+          {detail && (() => {
+            const m = detail.member;
+            const granted = Object.values(m.permissions);
+            const full = granted.filter((l) => l === 'manage').length;
+            const view = granted.length - full;
+            return (
+              <>
+                <div className="flex items-center gap-4 border-b border-border px-6 py-5 pr-14">
+                  <Avatar className="h-12 w-12 shrink-0">
+                    <AvatarFallback className="bg-accent text-accent-foreground text-lg">{m.name[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <SheetTitle className="truncate text-lg">{m.name}</SheetTitle>
+                    <p className="text-sm text-muted-foreground font-mono truncate">{m.username ? `@${m.username}` : 'No login yet'}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {m.isSuperAdmin
+                        ? <Badge variant="warning" className="gap-1"><Crown className="w-3 h-3" />Super Admin</Badge>
+                        : <Badge variant="secondary">{m.roleName}</Badge>}
+                      <Badge variant={m.isActive ? 'success' : 'destructive'}>{m.isActive ? 'Active' : 'Disabled'}</Badge>
+                      {m.mustChangePassword && <Badge variant="outline" className="gap-1"><KeyRound className="w-3 h-3" />Temp password</Badge>}
+                    </div>
                   </div>
-                ))}
-              </dl>
+                </div>
 
-              <div>
-                <h4 className="text-sm font-semibold text-foreground mb-2">Permissions</h4>
-                <PermissionList permissions={detail.member.permissions} />
-              </div>
-
-              <div>
-                <h4 className="text-sm font-semibold text-foreground mb-2">Recent activity</h4>
-                {detail.activity === null ? (
-                  <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
-                ) : detail.activity.length === 0 ? (
-                  <EmptyState icon={History} title="No recent activity" className="py-6" />
-                ) : (
-                  <ul className="divide-y divide-border rounded-xl border border-border">
-                    {detail.activity.map((log) => (
-                      <li key={log._id} className="px-3 py-2.5 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={ACTION_BADGE[log.action]} className="capitalize">{log.action}</Badge>
-                          <span className="font-medium text-foreground">{log.entityType}</span>
-                          <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">{timeAgo(log.createdAt)}</span>
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                  <section>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Details</h4>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-border bg-muted/30 p-4 text-sm">
+                      {([
+                        ['Phone', m.phone || 'Not set'],
+                        ['Email', m.email || 'Not set'],
+                        ['Created', formatDate(m.createdAt)],
+                        ['Last sign-in', m.lastLoginAt ? timeAgo(m.lastLoginAt) : 'Never'],
+                      ] as const).map(([k, v]) => (
+                        <div key={k} className="min-w-0">
+                          <dt className="text-xs text-muted-foreground">{k}</dt>
+                          <dd className="mt-0.5 font-medium text-foreground truncate" title={v}>{v}</dd>
                         </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground truncate">{log.entityLabel}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                      ))}
+                    </dl>
+                  </section>
 
-              <div>
-                <h4 className="text-sm font-semibold text-foreground mb-2">Recent sign-ins</h4>
-                {detail.signIns === null ? (
-                  <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-                ) : detail.signIns.length === 0 ? (
-                  <EmptyState icon={LogIn} title="No sign-ins yet" className="py-6" />
-                ) : (
-                  <SignInList events={detail.signIns} className="rounded-xl border border-border" />
-                )}
-              </div>
+                  <section>
+                    <div className="flex items-baseline justify-between gap-3 mb-2">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Access</h4>
+                      {!m.isSuperAdmin && granted.length > 0 && (
+                        <span className="text-xs text-muted-foreground">{full} full &middot; {view} view only</span>
+                      )}
+                    </div>
+                    {m.isSuperAdmin ? (
+                      <p className="rounded-xl border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-foreground">
+                        Full access to every module, plus Team &amp; Roles.
+                      </p>
+                    ) : (
+                      <PermissionList permissions={m.permissions} />
+                    )}
+                  </section>
 
-              <Button className="w-full" variant="outline" onClick={() => { setMemberDialog({ open: true, member: detail.member }); setDetail(null); }}>
-                <UserRound className="w-4 h-4 mr-2" />Edit member
-              </Button>
-            </div>
-          )}
+                  <section>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recent activity</h4>
+                    {detail.activity === null ? (
+                      <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                    ) : detail.activity.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">No recent activity</p>
+                    ) : (
+                      <ul className="divide-y divide-border rounded-xl border border-border">
+                        {detail.activity.map((log) => (
+                          <li key={log._id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                            <Badge variant={ACTION_BADGE[log.action]} className="mt-0.5 w-14 shrink-0 justify-center capitalize">{log.action}</Badge>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-foreground">{log.entityType}</p>
+                              <p className="text-xs text-muted-foreground truncate" title={log.entityLabel}>{log.entityLabel}</p>
+                            </div>
+                            <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap" title={formatDate(log.createdAt)}>{timeAgo(log.createdAt)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+
+                  <section>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recent sign-ins</h4>
+                    {detail.signIns === null ? (
+                      <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                    ) : detail.signIns.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">No sign-ins recorded yet</p>
+                    ) : (
+                      <SignInList events={detail.signIns} className="rounded-xl border border-border" />
+                    )}
+                  </section>
+                </div>
+
+                <div className="border-t border-border px-6 py-4">
+                  <Button className="w-full" onClick={() => { setMemberDialog({ open: true, member: m }); setDetail(null); }}>
+                    <Pencil className="w-4 h-4 mr-2" />Edit member
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </SheetContent>
       </Sheet>
 
