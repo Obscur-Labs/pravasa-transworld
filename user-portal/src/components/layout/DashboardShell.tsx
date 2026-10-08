@@ -80,7 +80,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
               <Skeleton className="h-8 w-14 rounded-full" />
             </div>
           </div>
-          <div className="flex-1 p-6 max-w-5xl w-full mx-auto space-y-6">
+          <div className="flex-1 page-container space-y-6">
             <Skeleton className="h-8 w-64" />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-2xl" />)}

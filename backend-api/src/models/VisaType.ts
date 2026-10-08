@@ -51,6 +51,16 @@ export interface IDocumentRequirement {
 
 // A consent checkbox the applicant sees before paying. `required` blocks submission
 // until ticked; `defaultChecked` pre-ticks it (still un-tickable by the applicant).
+// A file the applicant can download from the visa's page, e.g. a blank form or checklist.
+export interface IVisaDownload {
+  _id?: mongoose.Types.ObjectId;
+  name: string;
+  url: string;
+  publicId: string;
+  fileName: string;
+  size: number;
+}
+
 export interface IVisaTerm {
   _id?: mongoose.Types.ObjectId;
   text: string;
@@ -70,7 +80,6 @@ export type ProcessType = 'normal' | 'express';
 export interface IVisaType extends Document {
   country: mongoose.Types.ObjectId;
   name: string;
-  description: string;
   price: number;
   // Per-traveler pricing: visa fee (base) + VFS fee + service fee, GST (18%) applied on top.
   // Visa and VFS fees are pass-through charges, identical for individual and corporate
@@ -104,6 +113,7 @@ export interface IVisaType extends Document {
   formFields: IFormField[];
   documentRequirements: IDocumentRequirement[];
   terms: IVisaTerm[];
+  downloads: IVisaDownload[];
   additionalNotes: string;
   // Admin-arranged position within its country. Every listing sorts on this first so
   // the visas the admin wants promoted lead the list; name breaks ties, which keeps
@@ -154,11 +164,18 @@ export const VisaTermSchema = new Schema<IVisaTerm>({
   order: { type: Number, default: 0 },
 });
 
+const VisaDownloadSchema = new Schema<IVisaDownload>({
+  name: { type: String, required: true, trim: true },
+  url: { type: String, required: true },
+  publicId: { type: String, required: true },
+  fileName: { type: String, default: '' },
+  size: { type: Number, default: 0 },
+});
+
 const VisaTypeSchema = new Schema<IVisaType>(
   {
     country: { type: Schema.Types.ObjectId, ref: 'Country', required: true },
     name: { type: String, required: true, trim: true },
-    description: { type: String, default: '' },
     price: { type: Number, required: true, min: 0 },
     adultPrice: { type: Number, default: 0, min: 0 },
     childPrice: { type: Number, default: 0, min: 0 },
@@ -185,6 +202,7 @@ const VisaTypeSchema = new Schema<IVisaType>(
     formFields: [FormFieldSchema],
     documentRequirements: [DocumentRequirementSchema],
     terms: [VisaTermSchema],
+    downloads: { type: [VisaDownloadSchema], default: [] },
     additionalNotes: { type: String, default: '' },
     order: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },

@@ -884,7 +884,7 @@ export default function DocumentVaultPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="page-container">
       {/* header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Document Vault</h1>
@@ -941,7 +941,7 @@ export default function DocumentVaultPage() {
       {loading ? (
         <div>
           <Skeleton className="h-5 w-48 mb-4" />
-          <CardGridSkeleton count={6} className="md:grid-cols-3" cardClassName="h-48" />
+          <CardGridSkeleton count={6} className="md:grid-cols-3 2xl:grid-cols-4" cardClassName="h-48" />
         </div>
       ) : docs.length === 0 && !active ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
@@ -959,7 +959,7 @@ export default function DocumentVaultPage() {
             <h2 className="text-base font-bold text-slate-900 mb-4">
               Your Vault <span className="text-slate-400 font-normal text-sm">({total} {total === 1 ? 'document' : 'documents'})</span>
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4">
               {/* single Aadhaar card grouping both sides */}
               {hasAadhar && (
                 <AadhaarGalleryCard

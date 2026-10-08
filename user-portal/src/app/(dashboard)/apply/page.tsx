@@ -6,6 +6,7 @@ import {
   Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy,
   Users, Minus, Plus, Shield, ArrowRight, Download, Info, PencilLine,
 } from 'lucide-react';
+import VisaDownloads from '@/components/visa/VisaDownloads';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -315,7 +316,6 @@ function VisaOverviewModal({
   const fullText = (() => {
     const lines: string[] = [];
     lines.push(`${visa.name}, ${country.name}`);
-    if (visa.description) lines.push(visa.description);
     lines.push('');
     lines.push('VISA DETAILS');
     lines.push(`- Adult Price: ${formatCurrency(adultRate)} (incl. 18% GST)`);
@@ -415,7 +415,6 @@ function VisaOverviewModal({
               <div>
                 <p className="text-slate-400 text-xs font-medium">{country.name}</p>
                 <h2 className="text-white font-bold text-lg sm:text-xl leading-tight">{visa.name}</h2>
-                {visa.description && <p className="text-slate-300/70 text-xs mt-0.5 line-clamp-1">{visa.description}</p>}
               </div>
             </div>
             <button onClick={handleClose} className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 -mr-1 flex-shrink-0">
@@ -496,14 +495,6 @@ function VisaOverviewModal({
             </div>
           )}
 
-          {/* About */}
-          {visa.description && (
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">About</p>
-              <p className="text-sm text-slate-600 leading-relaxed">{visa.description}</p>
-            </div>
-          )}
-
           {/* Information Required, fields and documents, in authored order */}
           {overviewItems.length > 0 && (
             <div>
@@ -558,6 +549,8 @@ function VisaOverviewModal({
               </div>
             </div>
           )}
+
+          {visa.downloads && visa.downloads.length > 0 && <VisaDownloads downloads={visa.downloads} />}
 
           {/* Additional Notes, kept at the bottom of the modal */}
           {visa.additionalNotes?.trim() && (
@@ -1239,7 +1232,7 @@ export default function ApplyPage() {
   const activeTr = travelers[Math.min(activeTraveler, travelers.length - 1)] || travelers[0];
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="page-container max-w-6xl">
       {showTravelModal && pendingCountry && (
         <TravelPlanModal
           country={pendingCountry}
@@ -1325,7 +1318,7 @@ export default function ApplyPage() {
                 </div>
               );
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {filtered.map((c) => {
                     const isSelected = selectedCountry?._id === c._id;
                     const coverImg = c.images?.[0];
@@ -1434,7 +1427,7 @@ export default function ApplyPage() {
             </div>
 
             {loading ? (
-              <CardGridSkeleton count={4} className="sm:grid-cols-2 lg:grid-cols-2" cardClassName="h-52" />
+              <CardGridSkeleton count={4} className="sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3" cardClassName="h-52" />
             ) : visaTypes.length === 0 ? (
               <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
                 <Globe className="w-10 h-10 mx-auto mb-3 text-slate-200" />
@@ -1442,7 +1435,7 @@ export default function ApplyPage() {
                 <p className="text-xs mt-1">Contact us for assistance.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {visaTypes.map((v) => (
                   <VisaCard
                     key={v._id}

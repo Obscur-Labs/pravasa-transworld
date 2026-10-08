@@ -29,9 +29,7 @@ export interface CountryFaq {
 }
 
 export interface CountryWebContent {
-  heroTagline?: string;
   overview?: string;
-  highlights?: string[];
   requirements?: string;
   processingInfo?: string;
   tips?: string;
@@ -60,7 +58,6 @@ export interface VisaType {
   _id: string;
   country: Country;
   name: string;
-  description: string;
   price: number;
   adultPrice: number;
   childPrice: number;
@@ -83,7 +80,17 @@ export interface VisaType {
   formFields: FormField[];
   documentRequirements: DocumentRequirement[];
   terms?: VisaTerm[];
+  downloads?: VisaDownload[];
   additionalNotes?: string;
+}
+
+// A file the admin attached for applicants to download, e.g. a blank form or checklist.
+export interface VisaDownload {
+  _id?: string;
+  name: string;
+  url: string;
+  fileName: string;
+  size: number;
 }
 
 // Consent checkboxes shown on the Review & Pay step. Mandatory terms block submission.

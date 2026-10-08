@@ -164,6 +164,16 @@ export function orderedFormArrays(fields: FormField[], docs: DocumentRequirement
 
 // A consent checkbox shown to the applicant before payment. `required` blocks
 // submission until ticked; `defaultChecked` pre-ticks it.
+// A file applicants can download from the visa's page, e.g. a blank form or checklist.
+export interface VisaDownload {
+  _id?: string;
+  name: string;
+  url: string;
+  publicId: string;
+  fileName: string;
+  size: number;
+}
+
 export interface VisaTerm {
   _id?: string;
   text: string;
@@ -178,9 +188,7 @@ export interface CountryFaq {
 }
 
 export interface CountryWebContent {
-  heroTagline: string;
   overview: string;
-  highlights: string[];
   requirements: string;
   processingInfo: string;
   tips: string;
@@ -314,7 +322,6 @@ export interface VisaType {
   _id: string;
   country: Country;
   name: string;
-  description: string;
   price: number;
   adultPrice: number;
   childPrice: number;
@@ -344,6 +351,7 @@ export interface VisaType {
   formFields: FormField[];
   documentRequirements: DocumentRequirement[];
   terms?: VisaTerm[];
+  downloads?: VisaDownload[];
   additionalNotes?: string;
   /** Admin-arranged position within its country. Listings sort on this, then name. */
   order?: number;

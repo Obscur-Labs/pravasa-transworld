@@ -30,14 +30,14 @@ export default function MyVisasPage() {
   }, []);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="page-container">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">My Visas</h1>
         <p className="text-slate-500 text-sm mt-1">All approved and delivered visas, newest first.</p>
       </div>
 
       {loading ? (
-        <CardGridSkeleton count={4} className="md:grid-cols-2 lg:grid-cols-2 gap-5" cardClassName="h-56" />
+        <CardGridSkeleton count={4} className="md:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-5" cardClassName="h-56" />
       ) : visas.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
           <Stamp className="w-12 h-12 text-slate-200 mx-auto mb-4" />
@@ -46,7 +46,7 @@ export default function MyVisasPage() {
           <Button asChild><Link href="/apply">Apply for Visa</Link></Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5">
           {visas.map((app) => (
             <Card key={app._id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-5">

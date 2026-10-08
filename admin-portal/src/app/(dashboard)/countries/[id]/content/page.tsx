@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
@@ -18,13 +17,12 @@ import type { Country, CountryWebContent, CountryFaq } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 
 const emptyContent: CountryWebContent = {
-  heroTagline: '', overview: '', highlights: [],
+  overview: '',
   requirements: '', processingInfo: '', tips: '', faqs: [],
 };
 
 /* Where each form section appears on the live country page. */
 const LOC = {
-  header: 'Page Header',
   slider: 'Photo Slider',
   overview: 'Overview Card',
   requirements: 'Requirements Card',
@@ -82,13 +80,6 @@ function TA({ value, onChange, placeholder, rows = 4, ai }: {
 /* ─── Mini Page Map (right panel) ─── */
 function PageMap() {
   const zones = [
-    {
-      label: 'Page Header',
-      color: 'bg-primary/5 border-primary/20 text-primary',
-      dot: 'bg-primary',
-      fields: ['Country name + flag', 'Hero Tagline', 'Highlights (chips)'],
-      auto: false,
-    },
     {
       label: 'Photo Slider',
       color: 'bg-primary/5 border-primary/20 text-primary',
@@ -191,7 +182,6 @@ export default function CountryContentPage() {
   const { id } = useParams<{ id: string }>();
   const [country, setCountry] = useState<Country | null>(null);
   const [content, setContent] = useState<CountryWebContent>(emptyContent);
-  const [newHighlight, setNewHighlight] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -206,7 +196,8 @@ export default function CountryContentPage() {
         if (found) {
           setCountry(found);
           setImages(found.images || []);
-          setContent({ ...emptyContent, ...(found.webContent || {}), faqs: found.webContent?.faqs || [] });
+          const { heroTagline: _t, highlights: _h, ...saved } = (found.webContent || {}) as CountryWebContent & { heroTagline?: string; highlights?: string[] };
+          setContent({ ...emptyContent, ...saved, faqs: saved.faqs || [] });
         }
       })
       .finally(() => setLoading(false));
@@ -227,7 +218,7 @@ export default function CountryContentPage() {
     };
   };
 
-  const aiFor = (key: keyof Omit<CountryWebContent, 'faqs' | 'highlights'>) => (
+  const aiFor = (key: keyof Omit<CountryWebContent, 'faqs'>) => (
     <AiGenerateButton
       purpose={`country.${key}` as AiPurpose}
       value={content[key] || ''}
@@ -236,15 +227,6 @@ export default function CountryContentPage() {
       countryId={id}
     />
   );
-
-  const addHighlight = () => {
-    const t = newHighlight.trim();
-    if (!t) return;
-    setField('highlights', [...content.highlights, t]);
-    setNewHighlight('');
-  };
-  const removeHighlight = (i: number) =>
-    setField('highlights', content.highlights.filter((_, idx) => idx !== i));
 
   const addFaq = () =>
     setField('faqs', [...(content.faqs || []), { question: '', answer: '' }]);
@@ -396,52 +378,6 @@ export default function CountryContentPage() {
             </Button>
           </Section>
 
-          {/* Hero Tagline + Highlights */}
-          <Section loc="header" title="Page Header" subtitle="Shown in the header banner of the country detail page.">
-            <div className="space-y-4">
-              <div>
-                <Label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Hero Tagline</Label>
-                <div className="relative">
-                  <Input
-                    className="pr-12"
-                    placeholder="e.g. The Land of Maple Leaves and Mountain Majesty"
-                    value={content.heroTagline}
-                    onChange={(e) => setField('heroTagline', e.target.value)}
-                  />
-                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2">{aiFor('heroTagline')}</div>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Shown as a subtitle next to "Visa" under the country name.</p>
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Key Highlights</Label>
-                <p className="text-[11px] text-muted-foreground mb-2">Shown as badge chips, e.g. "eVisa available", "10-year multiple entry"</p>
-                {content.highlights.length > 0 && (
-                  <ul className="space-y-1.5 mb-3">
-                    {content.highlights.map((h, i) => (
-                      <li key={i} className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                        <span className="text-sm text-foreground/90 flex-1">{h}</span>
-                        <button onClick={() => removeHighlight(i)} className="text-muted-foreground hover:text-destructive transition-colors">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add a highlight and press Enter"
-                    value={newHighlight}
-                    onChange={(e) => setNewHighlight(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addHighlight())}
-                  />
-                  <Button type="button" variant="outline" onClick={addHighlight} className="shrink-0">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Section>
-
           {/* Overview */}
           <Section loc="overview" title="Overview" subtitle="A paragraph describing the country and visa experience.">
             <TA
@@ -583,8 +519,6 @@ export default function CountryContentPage() {
             <p className="text-xs font-extrabold text-foreground/80 uppercase tracking-wider mb-3">Content Status</p>
             {[
               { label: 'Photos',           filled: images.length > 0,           hint: `${images.length} uploaded` },
-              { label: 'Hero Tagline',     filled: !!content.heroTagline.trim(), hint: content.heroTagline.trim() ? '✓ set' : 'empty' },
-              { label: 'Highlights',       filled: content.highlights.length > 0, hint: `${content.highlights.length} added` },
               { label: 'Overview',         filled: !!content.overview.trim(),    hint: content.overview.trim() ? '✓ set' : 'empty' },
               { label: 'Requirements',     filled: !!content.requirements.trim(),hint: content.requirements.trim() ? '✓ set' : 'empty' },
               { label: 'Processing Info',  filled: !!content.processingInfo.trim(), hint: content.processingInfo.trim() ? '✓ set' : 'empty' },

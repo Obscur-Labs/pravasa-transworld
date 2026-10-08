@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, GripVertical, Search as SearchIcon, ArrowUpDown, ArrowLeft, Globe, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, GripVertical, Search as SearchIcon, ArrowUpDown, ArrowLeft, Globe, FileText, Upload, ExternalLink, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,12 +22,12 @@ import { AiGenerateButton } from '@/components/shared/ai-generate-button';
 import { useStoredPrefs } from '@/lib/useStoredPrefs';
 import {
   getCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite,
-  getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType, reorderVisaTypes,
+  getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType, reorderVisaTypes, uploadVisaDownload,
   getFormPresets, createFormPreset, deleteFormPreset, getVisaConfig,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { orderedFormArrays } from '@/types';
-import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory, VisaTerm } from '@/types';
+import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory, VisaTerm, VisaDownload } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
 
@@ -50,6 +50,9 @@ const withoutIds = <T extends { _id?: string }>(rows: T[]) => rows.map(({ _id, .
 
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
 const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
+const fileSize = (bytes: number) =>
+  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+const DOWNLOAD_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png';
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false, order: 0 });
 
 function TabButton({ step, label, active, onClick }: { step: number; label: string; active: boolean; onClick: () => void }) {
@@ -108,12 +111,13 @@ const B2B_ROWS: { label: string; fields: [PriceField, PriceField]; inherits: [Pr
 ];
 
 // Dialog steps, in order. Any tab can be opened at any time; required fields are checked on save.
-const TABS = ['info', 'pricing', 'form', 'terms', 'notes'] as const;
+const TABS = ['info', 'pricing', 'form', 'downloads', 'terms', 'notes'] as const;
 type TabKey = (typeof TABS)[number];
 const TAB_LABELS: Record<TabKey, string> = {
   info: 'Information',
   pricing: 'Pricing',
   form: 'Form',
+  downloads: 'Downloads',
   notes: 'Additional Notes',
   terms: 'Terms',
 };
@@ -129,7 +133,7 @@ const DEFAULT_LIST_PREFS = {
 };
 
 const emptyForm = () => ({
-  country: '', name: '', description: '',
+  country: '', name: '',
   adultPrice: '', childPrice: '', adultVfsFee: '', childVfsFee: '', adultServiceFee: '', childServiceFee: '',
   corporateAdultServiceFee: '', corporateChildServiceFee: '',
   b2bAdultPrice: '', b2bChildPrice: '', b2bAdultVfsFee: '', b2bChildVfsFee: '', b2bAdultServiceFee: '', b2bChildServiceFee: '',
@@ -143,6 +147,7 @@ const emptyForm = () => ({
   formFields: [] as FormField[],
   documentRequirements: [] as DocumentRequirement[],
   terms: [] as VisaTerm[],
+  downloads: [] as VisaDownload[],
   additionalNotes: '',
 });
 
@@ -171,6 +176,7 @@ export default function CountryDetailPage() {
   const [infoErrors, setInfoErrors] = useState<Record<string, string>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deletePresetId, setDeletePresetId] = useState<string | null>(null);
+  const [uploadingDownloads, setUploadingDownloads] = useState(0);
 
   // ── Country header (basic info edit + outer toggles) ──
   const [showCountryForm, setShowCountryForm] = useState(false);
@@ -224,11 +230,9 @@ export default function CountryDetailPage() {
     configOptions.find((o) => o.category === category && o.value === value)?.label || value;
 
   // The visa type as it stands in the form right now, for the AI writer.
-  const visaAiContext = (skip: 'description' | 'additionalNotes') => ({
+  const visaAiContext = () => ({
     country: country?.name,
     visaName: form.name,
-    ...(skip !== 'description' ? { description: form.description } : {}),
-    ...(skip !== 'additionalNotes' ? { additionalNotes: form.additionalNotes } : {}),
     category: labelOf('visaCategory', form.visaCategory),
     type: labelOf('visaSubType', form.visaSubType),
     entry: form.entry.map((e) => labelOf('entryType', e)),
@@ -255,6 +259,35 @@ export default function CountryDetailPage() {
     setInfoErrors((prev) => (prev[key] ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)) : prev));
 
   const tabIndex = TABS.indexOf(activeTab);
+
+  // Files go up as soon as they're picked and attach to the visa type when it's saved.
+  const addDownloads = async (files: FileList | null) => {
+    const picked = Array.from(files || []);
+    if (!picked.length) return;
+    setUploadingDownloads((n) => n + picked.length);
+    for (const file of picked) {
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await uploadVisaDownload(fd);
+        const name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || file.name;
+        setForm((f) => ({ ...f, downloads: [...f.downloads, { ...res.data.data, name }] }));
+      } catch (err: any) {
+        toast({ title: `Could not upload ${file.name}`, description: err.response?.data?.message, variant: 'destructive' });
+      } finally {
+        setUploadingDownloads((n) => n - 1);
+      }
+    }
+  };
+
+  const updateDownload = (i: number, patch: Partial<VisaDownload>) =>
+    setForm((f) => ({ ...f, downloads: f.downloads.map((d, idx) => (idx === i ? { ...d, ...patch } : d)) }));
+  const moveDownload = (i: number, dir: -1 | 1) =>
+    setForm((f) => {
+      const next = [...f.downloads];
+      [next[i], next[i + dir]] = [next[i + dir], next[i]];
+      return { ...f, downloads: next };
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,7 +343,6 @@ export default function CountryDetailPage() {
       const res = await createVisaType({
         country: countryId,
         name: copyName(vt.name, visaTypes.map((v) => v.name)),
-        description: vt.description || '',
         adultPrice: vt.adultPrice || vt.price || 0,
         childPrice: vt.childPrice || 0,
         adultVfsFee: vt.adultVfsFee || 0,
@@ -330,6 +362,7 @@ export default function CountryDetailPage() {
         formFields: withoutIds(formFields),
         documentRequirements: withoutIds(documentRequirements),
         terms: withoutIds(vt.terms || []).map((t, i) => ({ ...t, order: i })),
+        downloads: withoutIds(vt.downloads || []),
         additionalNotes: vt.additionalNotes || '',
       });
       const created: VisaType = res.data.data;
@@ -515,7 +548,6 @@ export default function CountryDetailPage() {
     setForm({
       country: countryId,
       name: vt.name,
-      description: vt.description,
       adultPrice: String(vt.adultPrice || vt.price || ''),
       childPrice: vt.childPrice ? String(vt.childPrice) : '',
       adultVfsFee: vt.adultVfsFee ? String(vt.adultVfsFee) : '',
@@ -534,6 +566,7 @@ export default function CountryDetailPage() {
       formFields: (vt.formFields || []).map((f) => ({ ...f })),
       documentRequirements: (vt.documentRequirements || []).map((d) => ({ ...d })),
       terms: (vt.terms || []).map((t) => ({ ...t })),
+      downloads: (vt.downloads || []).map((d) => ({ ...d })),
       additionalNotes: vt.additionalNotes || '',
     });
     setEditId(vt._id);
@@ -607,7 +640,7 @@ export default function CountryDetailPage() {
 
   const displayedVisaTypes = visaTypes
     .filter((vt) => {
-      if (search && !vt.name.toLowerCase().includes(search.toLowerCase()) && !(vt.description || '').toLowerCase().includes(search.toLowerCase())) return false;
+      if (search && !vt.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterCategory && vt.visaCategory !== filterCategory) return false;
       if (filterStatus === 'active' && !vt.isActive) return false;
       if (filterStatus === 'inactive' && vt.isActive) return false;
@@ -782,7 +815,7 @@ export default function CountryDetailPage() {
 
               <div className={activeTab === 'info' ? 'space-y-6' : 'hidden'}>
               {/* ── Basic Info ── */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Country</Label>
                   {/* Fixed to this page's country, shown read-only rather than as a picker. */}
@@ -795,19 +828,6 @@ export default function CountryDetailPage() {
                   <Label>Visa Name</Label>
                   <Input className={`mt-1 ${infoErrors.name ? 'border-destructive focus-visible:ring-destructive' : ''}`} placeholder="e.g. 14 Days Single Tourist" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); clearInfoError('name'); }} required />
                   {infoErrors.name && <p className="text-xs text-destructive mt-1">{infoErrors.name}</p>}
-                </div>
-                <div>
-                  <Label>Description</Label>
-                  <div className="relative mt-1">
-                    <Input className="pr-12" placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-                    <AiGenerateButton
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2"
-                      purpose="visaType.description"
-                      value={form.description}
-                      onChange={(text) => setForm((f) => ({ ...f, description: text }))}
-                      getContext={() => visaAiContext('description')}
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -1038,6 +1058,67 @@ export default function CountryDetailPage() {
               />
               </div>
 
+              <div className={activeTab === 'downloads' ? 'space-y-4' : 'hidden'}>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Downloadable documents <span className="font-normal text-muted-foreground">(optional)</span></p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Files applicants can download from this visa, such as a blank application form, a checklist or a cover letter format.
+                    PDF, Word, Excel, JPG or PNG, up to 10 MB each.
+                  </p>
+                </div>
+
+                {form.downloads.length > 0 && (
+                  <ul className="divide-y divide-border rounded-xl border border-border">
+                    {form.downloads.map((d, i) => (
+                      <li key={d.publicId} className="flex items-center gap-3 px-3 py-2.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <FileText className="w-4 h-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <Input
+                            className="h-8"
+                            aria-label="Name shown to applicants"
+                            value={d.name}
+                            onChange={(e) => updateDownload(i, { name: e.target.value })}
+                          />
+                          <p className="mt-1 truncate text-[11px] text-muted-foreground" title={d.fileName}>
+                            {d.fileName}{d.size ? ` · ${fileSize(d.size)}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center">
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={i === 0} onClick={() => moveDownload(i, -1)} title="Move up">
+                            <ChevronUp className="w-4 h-4" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={i === form.downloads.length - 1} onClick={() => moveDownload(i, 1)} title="Move down">
+                            <ChevronDown className="w-4 h-4" />
+                          </Button>
+                          <a href={d.url} target="_blank" rel="noopener noreferrer" title="Open file"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Remove"
+                            onClick={() => setForm((f) => ({ ...f, downloads: f.downloads.filter((_, idx) => idx !== i) }))}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <label className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-8 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 ${uploadingDownloads ? 'pointer-events-none opacity-60' : ''}`}>
+                  <input type="file" multiple accept={DOWNLOAD_ACCEPT} className="sr-only"
+                    onChange={(e) => { addDownloads(e.target.files); e.target.value = ''; }} />
+                  {uploadingDownloads
+                    ? <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    : (form.downloads.length ? <Paperclip className="w-5 h-5 text-muted-foreground" /> : <Upload className="w-5 h-5 text-muted-foreground" />)}
+                  <span className="text-sm font-medium text-foreground">
+                    {uploadingDownloads ? `Uploading ${uploadingDownloads} file${uploadingDownloads === 1 ? '' : 's'}...` : form.downloads.length ? 'Add more files' : 'Upload files'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">Rename each one to what applicants should see. Saved with the visa type.</span>
+                </label>
+              </div>
+
               <div className={activeTab === 'notes' ? 'space-y-2' : 'hidden'}>
                 <Label>Additional Notes</Label>
                 <div className="relative mt-1">
@@ -1052,7 +1133,7 @@ export default function CountryDetailPage() {
                     purpose="visaType.additionalNotes"
                     value={form.additionalNotes}
                     onChange={(text) => setForm((f) => ({ ...f, additionalNotes: text }))}
-                    getContext={() => visaAiContext('additionalNotes')}
+                    getContext={visaAiContext}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">The AI button uses the details, documents and terms entered in the other tabs, so fill those in first.</p>
@@ -1078,7 +1159,7 @@ export default function CountryDetailPage() {
                     {TAB_LABELS[TABS[tabIndex + 1]]} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 )}
-                <Button type="submit" disabled={saving}>
+                <Button type="submit" disabled={saving || uploadingDownloads > 0}>
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editId ? 'Update Visa Type' : 'Create Visa Type'}
                 </Button>
               </div>
@@ -1192,7 +1273,6 @@ export default function CountryDetailPage() {
                   </TableCell>
                   <TableCell>
                     <p className="font-semibold text-foreground">{vt.name}</p>
-                    {vt.description && <p className="text-xs text-muted-foreground">{vt.description}</p>}
                     {vt.visaSubType && (
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                         {configOptions.find((o) => o.category === 'visaSubType' && o.value === vt.visaSubType)?.label || vt.visaSubType}

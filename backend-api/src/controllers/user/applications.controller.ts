@@ -305,6 +305,8 @@ function sanitizeVisaType(visaType: Record<string, unknown>, tier: PricingTier) 
   const v = visaType as Record<string, any>;
   const sanitized: Record<string, any> = { ...v };
   for (const field of OVERRIDE_PRICE_FIELDS) delete sanitized[field];
+  delete sanitized.description;
+  sanitized.downloads = (v.downloads || []).map((d: any) => ({ _id: d._id, name: d.name, url: d.url, fileName: d.fileName, size: d.size }));
   if (tier === 'individual') return sanitized;
 
   const b2b = tier === 'b2b_agent';
@@ -363,7 +365,6 @@ export const downloadVisaSummaryPdf = async (req: AuthRequest, res: Response): P
     const pdfBuffer = await generateVisaSummaryPDF({
       visaName: visaType.name,
       countryName: country?.name || 'N/A',
-      description: visaType.description,
       additionalNotes: visaType.additionalNotes,
       processingTime: visaType.processingTime,
       validity: visaType.validity,

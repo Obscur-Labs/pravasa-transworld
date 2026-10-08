@@ -13,11 +13,11 @@ export async function uploadToCloudinary(
   buffer: Buffer,
   folder: string,
   resourceType: ResourceType = 'auto',
-  opts: { private?: boolean } = {}
+  opts: { private?: boolean; publicId?: string } = {}
 ): Promise<{ url: string; publicId: string }> {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: resourceType, type: opts.private ? 'authenticated' : 'upload' },
+      { folder, resource_type: resourceType, type: opts.private ? 'authenticated' : 'upload', public_id: opts.publicId },
       (error, result) => {
         if (error || !result) return reject(error || new Error('Upload failed'));
         resolve({ url: result.secure_url, publicId: result.public_id });

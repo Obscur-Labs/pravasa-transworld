@@ -70,7 +70,7 @@ export default function ProfilePage() {
   if (!user) return null;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-2xl mx-auto">
+    <div className="page-container max-w-3xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Profile Settings</h1>
         <p className="text-slate-500 text-sm mt-1">Manage your account information and preferences.</p>

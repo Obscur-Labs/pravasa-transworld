@@ -213,9 +213,7 @@ async function seedCountries() {
           showOnWebsite: false,
           images: [],
           webContent: {
-            heroTagline: '',
             overview: '',
-            highlights: [],
             requirements: '',
             processingInfo: '',
             tips: '',

@@ -304,7 +304,6 @@ export interface VisaSummaryDocRow {
 export interface VisaSummaryData {
   visaName: string;
   countryName: string;
-  description?: string;
   additionalNotes?: string;
   processingTime?: string;
   validity?: string;
@@ -383,13 +382,6 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
       doc.font('Helvetica-Bold').fillColor('#061E27').text(`  ${value}`, { width: colW - 20 });
     });
     doc.y = gy + Math.ceil(info.length / 2) * 20 + 10;
-    doc.moveDown(0.8);
-  }
-
-  // Description
-  if (data.description?.trim()) {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#061E27').text('About', MARGIN, doc.y);
-    doc.font('Helvetica').fontSize(9).fillColor('#334155').text(data.description.trim(), MARGIN, doc.y + 2, { width: PAGE_RIGHT - MARGIN });
     doc.moveDown(0.8);
   }
 

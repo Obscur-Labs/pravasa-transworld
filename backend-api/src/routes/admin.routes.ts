@@ -1,6 +1,6 @@
 import { asyncRouter } from '../utils/asyncRouter';
 import { adminProtect, requireModule, requireSuperAdmin } from '../middleware/adminAuth.middleware';
-import { upload } from '../middleware/upload.middleware';
+import { upload, uploadDownload } from '../middleware/upload.middleware';
 import * as countries from '../controllers/admin/countries.controller';
 import * as visaTypes from '../controllers/admin/visaTypes.controller';
 import * as apps from '../controllers/admin/applications.controller';
@@ -57,6 +57,7 @@ router.delete('/countries/:id/images', countries.removeCountryImage);
 router.route('/visa-types').get(visaTypes.getVisaTypes).post(visaTypes.createVisaType);
 // Must stay above '/visa-types/:id', otherwise 'reorder' is matched as an id.
 router.put('/visa-types/reorder', visaTypes.reorderVisaTypes);
+router.post('/visa-types/downloads', uploadDownload.single('file'), visaTypes.uploadVisaDownload);
 router.route('/visa-types/:id').get(visaTypes.getVisaType).put(visaTypes.updateVisaType).delete(visaTypes.deleteVisaType);
 router.patch('/visa-types/:id/toggle', visaTypes.toggleVisaTypeStatus);
 

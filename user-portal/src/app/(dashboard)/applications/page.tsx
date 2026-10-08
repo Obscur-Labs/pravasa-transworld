@@ -60,7 +60,7 @@ export default function ApplicationsPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="page-container">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">My Applications</h1>
@@ -76,7 +76,7 @@ export default function ApplicationsPage() {
           <h2 id="drafts-heading" className="text-sm font-semibold text-slate-700 mb-3">
             Saved drafts <span className="text-slate-400 font-normal">({drafts.length})</span>
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {drafts.map((d) => {
               const travellers = d.adults + d.children;
               return (

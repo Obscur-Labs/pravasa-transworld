@@ -62,7 +62,7 @@ export default function PaymentHistoryPage() {
   const total = payments.reduce((sum, p) => sum + p.amount, 0);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="page-container">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Payment History</h1>
         <p className="text-slate-500 text-sm mt-1">All transactions with downloadable PDF receipts.</p>

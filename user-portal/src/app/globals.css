@@ -39,6 +39,14 @@
 
 html { scroll-behavior: smooth; }
 
+/* Signed-in page body: fills the space next to the sidebar up to a comfortable width.
+   Form and reading pages narrow it with a max-w-* utility, which wins over this. */
+@layer components {
+  .page-container {
+    @apply mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8;
+  }
+}
+
 @layer utilities {
   .glass {
     @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl;

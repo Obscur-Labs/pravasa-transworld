@@ -6,9 +6,9 @@ import { generateAiContent } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 export type AiPurpose =
-  | 'country.description' | 'country.heroTagline' | 'country.overview' | 'country.requirements'
+  | 'country.description' | 'country.overview' | 'country.requirements'
   | 'country.processingInfo' | 'country.tips' | 'country.faqAnswer'
-  | 'visaType.description' | 'visaType.additionalNotes';
+  | 'visaType.additionalNotes';
 
 interface Props {
   purpose: AiPurpose;

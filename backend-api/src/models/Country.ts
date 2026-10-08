@@ -6,9 +6,7 @@ export interface ICountryFaq {
 }
 
 export interface ICountryWebContent {
-  heroTagline: string;
   overview: string;
-  highlights: string[];
   requirements: string;
   processingInfo: string;
   tips: string;
@@ -46,9 +44,7 @@ const CountrySchema = new Schema<ICountry>(
     slug: { type: String, default: '', index: true },
     images: [{ type: String }],
     webContent: {
-      heroTagline: { type: String, default: '' },
       overview: { type: String, default: '' },
-      highlights: [{ type: String }],
       requirements: { type: String, default: '' },
       processingInfo: { type: String, default: '' },
       tips: { type: String, default: '' },

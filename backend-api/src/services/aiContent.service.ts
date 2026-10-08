@@ -9,7 +9,7 @@ const MODEL = process.env.GROQ_CONTENT_MODEL || 'openai/gpt-oss-120b';
 
 export const isAiConfigured = () => hasGroqKey(KEY_ENV);
 
-type Length = 'tagline' | 'short' | 'medium';
+type Length = 'short' | 'medium';
 
 interface Purpose {
   what: string;
@@ -23,10 +23,6 @@ export const PURPOSES: Record<string, Purpose> = {
   'country.description': {
     what: 'a short description of this destination for the country list in the admin portal and website',
     length: 'short', format: 'One or two plain sentences.',
-  },
-  'country.heroTagline': {
-    what: 'the hero tagline shown under the country name on its public visa page',
-    length: 'tagline', format: 'A single evocative phrase about the destination, no full stop, no quotes.',
   },
   'country.overview': {
     what: 'the Overview card on the public country visa page: the destination and what applying for its visa with us is like',
@@ -48,10 +44,6 @@ export const PURPOSES: Record<string, Purpose> = {
     what: 'the answer to one FAQ question on the public country visa page (the question is in the context)',
     length: 'short', format: 'Two to four plain sentences that directly answer the question.',
   },
-  'visaType.description': {
-    what: 'the short description of this visa type shown on its card and summary',
-    length: 'short', format: 'One or two plain sentences.',
-  },
   'visaType.additionalNotes': {
     what: 'the Additional Notes applicants read before applying for this visa type',
     length: 'medium', format: 'Short paragraphs or lines starting with "• " where a list reads better. No headings.',
@@ -59,7 +51,6 @@ export const PURPOSES: Record<string, Purpose> = {
 };
 
 const LENGTH_RULE: Record<Length, string> = {
-  tagline: 'At most 10 words.',
   short: 'Between 20 and 45 words.',
   medium: 'Between 90 and 150 words.',
 };
@@ -83,7 +74,7 @@ async function countryFacts(countryId: string): Promise<Context> {
   const [country, visaTypes, options] = await Promise.all([
     Country.findById(countryId).select('name description').lean<{ name: string; description?: string }>(),
     VisaType.find({ country: countryId, isActive: true })
-      .select('name visaCategory visaSubType processingTime validity stayDuration entry description')
+      .select('name visaCategory visaSubType processingTime validity stayDuration entry')
       .sort({ order: 1 })
       .lean(),
     VisaConfigOption.find({ isActive: true }).select('category value label').lean(),
@@ -138,7 +129,6 @@ function clean(text: string, length: Length): string {
     .replace(/[“”]/g, '"')
     .replace(/[ \t]+$/gm, '');
   if (/^["'“].*["'”]$/s.test(out)) out = out.slice(1, -1).trim();
-  if (length === 'tagline') out = out.replace(/[.\s]+$/, '');
   return out;
 }
 

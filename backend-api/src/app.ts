@@ -125,6 +125,12 @@ app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     return res.status(409).json({ success: false, message: field ? `That ${field} is already in use` : 'Duplicate value' });
   }
 
+  // Rejected upload: wrong file type (see upload.middleware.ts) or over the size limit.
+  if (err?.name === 'MulterError' || err?.code === 'UNSUPPORTED_FILE') {
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'File is too large (10 MB max)' : err.message;
+    return res.status(400).json({ success: false, message });
+  }
+
   if (err?.message === 'Not allowed by CORS') {
     return res.status(403).json({ success: false, message: 'Origin not allowed' });
   }

@@ -7,10 +7,11 @@ import Footer from '@/components/layout/Footer';
 import { getPublicCountryBySlug } from '@/lib/api';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useHasSession } from '@/lib/useHasSession';
+import VisaDownloads from '@/components/visa/VisaDownloads';
 import type { Country, VisaType } from '@/types';
 import {
   ArrowRight, ChevronRight, ChevronLeft, Clock, Shield, Globe, CreditCard,
-  Loader2, ArrowLeft, ChevronDown, BadgeCheck, Landmark,
+  Loader2, ArrowLeft, ChevronDown, Landmark,
 } from 'lucide-react';
 
 interface PageData { country: Country; visaTypes: VisaType[] }
@@ -160,11 +161,11 @@ function VisaInfoGrid({ vt }: { vt: VisaType }) {
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-slate-50 bg-slate-50/50">
+      <div className="px-4 sm:px-6 py-4 border-b border-slate-50 bg-slate-50/50">
         <h3 className="font-extrabold text-slate-800 text-base">Visa Information</h3>
         <p className="text-xs text-slate-400 mt-0.5 font-medium">Based on: {vt.name}</p>
       </div>
-      <div className="p-6 grid grid-cols-2 sm:grid-cols-3 gap-5">
+      <div className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-5">
         {items.map((item, i) => (
           <div key={item.label} className="flex items-start gap-2.5">
             <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${DOT_COLORS[i]}`} />
@@ -258,7 +259,7 @@ export default function CountryDetailPage() {
           </svg>
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           {/* Breadcrumb */}
           <nav className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-4">
             <Link href="/" className="hover:text-brand-600 transition-colors">Home</Link>
@@ -272,40 +273,33 @@ export default function CountryDetailPage() {
             <div className="relative w-14 h-10 rounded-lg overflow-hidden shadow-md border border-slate-100 flex-shrink-0">
               <img src={`https://flagcdn.com/w80/${country.flag}.png`} alt={country.name} className="w-full h-full object-cover" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-none">{country.name}</h1>
               <p className="text-sm font-semibold text-slate-400 mt-1.5 flex items-center gap-1.5">
                 <Globe className="w-3.5 h-3.5" /> Visa
-                {wc?.heroTagline && <span className="text-slate-300 mx-1">·</span>}
-                {wc?.heroTagline && <span className="text-slate-500 font-medium">{wc.heroTagline}</span>}
               </p>
             </div>
           </div>
-
-          {/* Highlights */}
-          {wc?.highlights && wc.highlights.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {wc.highlights.map((h, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 text-xs bg-brand-50 text-brand-700 font-semibold px-3 py-1 rounded-full border border-brand-100">
-                  <BadgeCheck className="w-3 h-3" /> {h}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
       {/* ── Main Layout ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] gap-6 lg:gap-8">
 
           {/* LEFT COLUMN */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="min-w-0 space-y-6">
             {/* Photo Slider */}
             <ImageSlider images={images} country={country} />
 
             {/* Visa Info Grid */}
             {vt && <VisaInfoGrid vt={vt} />}
+
+            {vt?.downloads && vt.downloads.length > 0 && (
+              <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4 sm:p-6">
+                <VisaDownloads downloads={vt.downloads} />
+              </div>
+            )}
 
             {/* Overview */}
             {wc?.overview && (
@@ -397,12 +391,7 @@ export default function CountryDetailPage() {
                       >
                         <div className="flex items-start gap-2.5">
                           <Globe className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isSelected ? 'text-brand-600' : 'text-slate-400'}`} />
-                          <div>
-                            <p className={`text-sm font-extrabold ${isSelected ? 'text-brand-700' : 'text-slate-800'}`}>{v.name}</p>
-                            {v.description && (
-                              <p className="text-xs text-slate-500 mt-0.5 leading-snug line-clamp-2">{v.description}</p>
-                            )}
-                          </div>
+                          <p className={`text-sm font-extrabold ${isSelected ? 'text-brand-700' : 'text-slate-800'}`}>{v.name}</p>
                         </div>
                       </button>
                     );
@@ -458,7 +447,7 @@ export default function CountryDetailPage() {
         </div>
 
         {/* Bottom nav */}
-        <div className="mt-10 pt-6 border-t border-slate-100 flex items-center justify-between">
+        <div className="mt-10 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <Link href="/countries" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 font-semibold text-sm transition-colors">
             <ArrowLeft className="w-4 h-4" /> All Destinations
           </Link>
