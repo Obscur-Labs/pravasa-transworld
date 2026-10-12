@@ -84,6 +84,7 @@ export const updateVisaType = (id: string, data: object) => api.put(`/admin/visa
 export const deleteVisaType = (id: string) => api.delete(`/admin/visa-types/${id}`);
 export const toggleVisaType = (id: string) => api.patch(`/admin/visa-types/${id}/toggle`);
 /** `ids` is one country's visa types in display order; index becomes their `order`. */
+export const getB2bAgents = () => api.get('/admin/visa-types/b2b-agents');
 export const reorderVisaTypes = (ids: string[]) => api.put('/admin/visa-types/reorder', { ids });
 export const uploadVisaDownload = (formData: FormData) =>
   api.post('/admin/visa-types/downloads', formData, { headers: { 'Content-Type': 'multipart/form-data' } });

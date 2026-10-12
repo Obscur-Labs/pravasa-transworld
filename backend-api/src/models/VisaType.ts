@@ -77,6 +77,14 @@ export type JurisdictionType = string;
 export type VisaCategoryType = string;
 export type ProcessType = 'normal' | 'express';
 
+// A B2B agent's own service fee. Off, or a blank fee, falls back to the common B2B fee.
+export interface IAgentServiceFee {
+  agent: mongoose.Types.ObjectId;
+  enabled: boolean;
+  adultFee?: number;
+  childFee?: number;
+}
+
 export interface IVisaType extends Document {
   country: mongoose.Types.ObjectId;
   name: string;
@@ -93,15 +101,11 @@ export interface IVisaType extends Document {
   childServiceFee: number;
   corporateAdultServiceFee?: number;
   corporateChildServiceFee?: number;
-  // Full separate price list for B2B agents (a corporate sub-type). Each unset component
-  // falls back to the standard one (the service fee to the corporate fee first).
-  // Admin-only: never sent to other customers.
-  b2bAdultPrice?: number;
-  b2bChildPrice?: number;
-  b2bAdultVfsFee?: number;
-  b2bChildVfsFee?: number;
+  // B2B agents (a corporate sub-type) share the visa and VFS fees and get their own service
+  // fee: a common one, plus optional per-agent fees. Admin-only, never sent to customers.
   b2bAdultServiceFee?: number;
   b2bChildServiceFee?: number;
+  agentServiceFees: IAgentServiceFee[];
   processingTime: string;
   validity: string;
   entry: EntryType[];
@@ -185,12 +189,18 @@ const VisaTypeSchema = new Schema<IVisaType>(
     childServiceFee: { type: Number, default: 0, min: 0 },
     corporateAdultServiceFee: { type: Number, min: 0 },
     corporateChildServiceFee: { type: Number, min: 0 },
-    b2bAdultPrice: { type: Number, min: 0 },
-    b2bChildPrice: { type: Number, min: 0 },
-    b2bAdultVfsFee: { type: Number, min: 0 },
-    b2bChildVfsFee: { type: Number, min: 0 },
     b2bAdultServiceFee: { type: Number, min: 0 },
     b2bChildServiceFee: { type: Number, min: 0 },
+    agentServiceFees: {
+      type: [{
+        _id: false,
+        agent: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        enabled: { type: Boolean, default: false },
+        adultFee: { type: Number, min: 0 },
+        childFee: { type: Number, min: 0 },
+      }],
+      default: [],
+    },
     processingTime: { type: String, required: true, default: '' },
     validity: { type: String, default: '' },
     entry: [{ type: String }],

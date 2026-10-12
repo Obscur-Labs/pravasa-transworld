@@ -134,7 +134,7 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: Cu
               <div className="grid grid-cols-2 gap-2">
                 {([
                   { value: 'corporate' as const, label: 'Corporate', desc: 'Corporate service fee, pays by any method' },
-                  { value: 'b2b_agent' as const, label: 'B2B Agent', desc: 'Uses the B2B price list set on each visa' },
+                  { value: 'b2b_agent' as const, label: 'B2B Agent', desc: 'Pays the B2B service fee set on each visa' },
                 ]).map(({ value, label, desc }) => (
                   <button
                     key={value}

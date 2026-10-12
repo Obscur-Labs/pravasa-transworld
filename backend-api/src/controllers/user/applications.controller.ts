@@ -9,10 +9,11 @@ import VisaConfigOption from '../../models/VisaConfigOption';
 import Payment from '../../models/Payment';
 import { loadPaymentConfig } from '../../services/payment.service';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
+import { isWordFile } from '../../middleware/upload.middleware';
 import { extractPassport } from '../../services/ocr.service';
 import { generateVisaSummaryPDF } from '../../services/pdf.service';
 import { sendSuccess, sendError } from '../../utils/response';
-import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf, type PricingTier } from '../../utils/pricing';
+import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf } from '../../utils/pricing';
 
 export const getDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user!._id;
@@ -76,7 +77,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   const numAdults = Math.max(1, Number(adults) || 1);
   const numChildren = Math.max(0, Number(children) || 0);
 
-  const breakdown = computeVisaPricing(visaType, pricingTier);
+  const breakdown = computeVisaPricing(visaType, pricingTier, req.user!._id);
   const { adultBase, adultVfs, adultFee, childBase, childVfs, childFee } = breakdown;
   const subtotal = computeSubtotal(breakdown, numAdults, numChildren);
   const gstAmount = computeGst(breakdown, numAdults, numChildren);
@@ -155,7 +156,7 @@ export const getApplication = async (req: AuthRequest, res: Response): Promise<v
   ]);
   // The populated visa type carries every price override; keep only this customer's own.
   const app = application.toJSON() as Record<string, any>;
-  if (app.visaType && typeof app.visaType === 'object') app.visaType = sanitizeVisaType(app.visaType, pricingTierOf(req.user));
+  if (app.visaType && typeof app.visaType === 'object') app.visaType = sanitizeVisaType(app.visaType, req.user);
   sendSuccess(res, {
     application: app, documents, visaFile, payment,
     verificationHours: paymentConfig.verificationHours,
@@ -185,7 +186,13 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
   }
 
   const userId = String(req.user!._id);
-  const { url, publicId } = await uploadToCloudinary(req.file.buffer, `users/${userId}/documents`, 'auto', { private: true });
+  // Word files are stored raw with their extension, so downloads and attachments open correctly.
+  const ext = req.file.originalname.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'docx';
+  const { url, publicId } = isWordFile(req.file.mimetype)
+    ? await uploadToCloudinary(req.file.buffer, `users/${userId}/documents`, 'raw', {
+      private: true, publicId: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.${ext}`,
+    })
+    : await uploadToCloudinary(req.file.buffer, `users/${userId}/documents`, 'auto', { private: true });
 
   // Auto-extract passport details from the image. The doc kind comes from the
   // requirement's docType when sent; otherwise we fall back to the name.
@@ -287,41 +294,30 @@ export const getActiveCountries = async (_req: AuthRequest, res: Response): Prom
   sendSuccess(res, countries);
 };
 
-const B2B_PRICE_FIELDS = ['b2bAdultPrice', 'b2bChildPrice', 'b2bAdultVfsFee', 'b2bChildVfsFee', 'b2bAdultServiceFee', 'b2bChildServiceFee'];
 const OVERRIDE_PRICE_FIELDS = [
-  ...B2B_PRICE_FIELDS,
-  'corporateAdultServiceFee', 'corporateChildServiceFee',
+  'corporateAdultServiceFee', 'corporateChildServiceFee', 'b2bAdultServiceFee', 'b2bChildServiceFee', 'agentServiceFees',
   // Retired overrides, dropped so stale values on older documents never leak.
+  'b2bAdultPrice', 'b2bChildPrice', 'b2bAdultVfsFee', 'b2bChildVfsFee',
   'corporateAdultPrice', 'corporateChildPrice', 'corporateAdultVfsFee', 'corporateChildVfsFee', 'corporatePrice',
 ];
 
 /**
  * Each account sees only its own prices. Individuals and visitors get no overrides;
- * corporate accounts get the corporate service fee. B2B agents get their B2B prices
- * written into the ordinary fields (visa/VFS into the standard ones, service fee into the
- * corporate ones), so the site prices them correctly without the B2B tier being exposed.
+ * corporate accounts and B2B agents get their service fee written into the corporate
+ * fields, so the site prices them correctly without the B2B tier being exposed.
  */
-function sanitizeVisaType(visaType: Record<string, unknown>, tier: PricingTier) {
+function sanitizeVisaType(visaType: Record<string, unknown>, user: AuthRequest['user']) {
   const v = visaType as Record<string, any>;
   const sanitized: Record<string, any> = { ...v };
   for (const field of OVERRIDE_PRICE_FIELDS) delete sanitized[field];
   delete sanitized.description;
   sanitized.downloads = (v.downloads || []).map((d: any) => ({ _id: d._id, name: d.name, url: d.url, fileName: d.fileName, size: d.size }));
+  const tier = pricingTierOf(user);
   if (tier === 'individual') return sanitized;
 
-  const b2b = tier === 'b2b_agent';
-  const use = (b2bValue: unknown, fallback: unknown) => (b2b && b2bValue != null ? b2bValue : fallback);
-  if (b2b) {
-    sanitized.adultPrice = use(v.b2bAdultPrice, v.adultPrice);
-    sanitized.price = sanitized.adultPrice || v.price;
-    sanitized.childPrice = use(v.b2bChildPrice, v.childPrice);
-    sanitized.adultVfsFee = use(v.b2bAdultVfsFee, v.adultVfsFee);
-    sanitized.childVfsFee = use(v.b2bChildVfsFee, v.childVfsFee);
-  }
-  const adultFee = use(v.b2bAdultServiceFee, v.corporateAdultServiceFee);
-  const childFee = use(v.b2bChildServiceFee, v.corporateChildServiceFee);
-  if (adultFee != null) sanitized.corporateAdultServiceFee = adultFee;
-  if (childFee != null) sanitized.corporateChildServiceFee = childFee;
+  const { adultFee, childFee } = computeVisaPricing(v as any, tier, user?._id);
+  sanitized.corporateAdultServiceFee = adultFee;
+  sanitized.corporateChildServiceFee = childFee;
   return sanitized;
 }
 
@@ -329,8 +325,7 @@ export const getPublicCountryBySlug = async (req: AuthRequest, res: Response): P
   const country = await Country.findOne({ slug: req.params.slug, isActive: true, showOnWebsite: true });
   if (!country) { sendError(res, 'Country not found', 404); return; }
   const visaTypes = await VisaType.find({ country: country._id, isActive: true }).sort({ order: 1, name: 1 }).lean();
-  const tier = pricingTierOf(req.user);
-  sendSuccess(res, { country, visaTypes: visaTypes.map((vt) => sanitizeVisaType(vt, tier)) });
+  sendSuccess(res, { country, visaTypes: visaTypes.map((vt) => sanitizeVisaType(vt, req.user)) });
 };
 
 export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -346,7 +341,7 @@ export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promi
   // Same admin-arranged sequence the dashboard shows, see VisaType.order. `order` is
   // scoped per country, so group by country first for the (unfiltered) all-countries case.
   const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ country: 1, order: 1, name: 1 }).lean();
-  sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, pricingTierOf(req.user))));
+  sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, req.user)));
 };
 
 // Public "Download PDF" button on the visa details view. Pricing is deliberately

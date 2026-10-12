@@ -318,6 +318,21 @@ export interface EmbassyMailDraft {
   history: EmbassyMail[];
 }
 
+export interface AgentServiceFee {
+  agent: string;
+  enabled: boolean;
+  adultFee?: number;
+  childFee?: number;
+}
+
+export interface B2bAgent {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  isActive: boolean;
+}
+
 export interface VisaType {
   _id: string;
   country: Country;
@@ -332,14 +347,11 @@ export interface VisaType {
   // Corporate accounts override only the service fee (0 waives it, unset charges standard).
   corporateAdultServiceFee?: number;
   corporateChildServiceFee?: number;
-  // B2B agents get their own price list. Unset visa/VFS fees charge standard; an unset
-  // service fee falls back to the corporate one, then standard.
-  b2bAdultPrice?: number;
-  b2bChildPrice?: number;
-  b2bAdultVfsFee?: number;
-  b2bChildVfsFee?: number;
+  // B2B agents pay the common B2B service fee (unset falls back to corporate, then
+  // standard), or their own fee when individual pricing is switched on for them.
   b2bAdultServiceFee?: number;
   b2bChildServiceFee?: number;
+  agentServiceFees?: AgentServiceFee[];
   processingTime: string;
   validity: string;
   entry: EntryType[];

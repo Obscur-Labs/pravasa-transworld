@@ -199,7 +199,7 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
   // Preserve the per-traveler total locked at creation; only recompute if it was never set.
   if (visaType && (!application.paymentAmount || application.paymentAmount <= 0)) {
     const fullUser = await (await import('../../models/User')).default.findById(application.user);
-    const breakdown = computeVisaPricing(visaType, pricingTierOf(fullUser));
+    const breakdown = computeVisaPricing(visaType, pricingTierOf(fullUser), fullUser?._id);
     const numAdults = application.adults || 1;
     const numChildren = application.children || 0;
     const subtotal = computeSubtotal(breakdown, numAdults, numChildren);

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncRouter } from '../utils/asyncRouter';
 import { protect } from '../middleware/auth.middleware';
-import { upload } from '../middleware/upload.middleware';
+import { upload, uploadApplicationDoc } from '../middleware/upload.middleware';
 import * as apps from '../controllers/user/applications.controller';
 import * as notifs from '../controllers/user/notifications.controller';
 import * as vault from '../controllers/user/documentVault.controller';
@@ -29,7 +29,7 @@ router.get('/applications', apps.getApplications);
 router.post('/applications', apps.createApplication);
 router.get('/applications/:id', apps.getApplication);
 router.post('/ocr/passport', upload.single('file'), apps.scanPassport);
-router.post('/applications/:id/documents', upload.single('file'), apps.uploadDocument);
+router.post('/applications/:id/documents', uploadApplicationDoc.single('file'), apps.uploadDocument);
 router.post('/applications/:id/documents/from-vault', apps.addDocumentFromVault);
 router.put('/applications/:id/courier', apps.submitCourierDetails);
 router.post('/applications/:id/payment/start', payments.startPayment);

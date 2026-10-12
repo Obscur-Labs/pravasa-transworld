@@ -1,5 +1,5 @@
 'use client';
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, GripVertical, Search as SearchIcon, ArrowUpDown, ArrowLeft, Globe, FileText, Upload, ExternalLink, Paperclip } from 'lucide-react';
@@ -23,11 +23,11 @@ import { useStoredPrefs } from '@/lib/useStoredPrefs';
 import {
   getCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite,
   getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType, reorderVisaTypes, uploadVisaDownload,
-  getFormPresets, createFormPreset, deleteFormPreset, getVisaConfig,
+  getFormPresets, createFormPreset, deleteFormPreset, getVisaConfig, getB2bAgents,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { orderedFormArrays } from '@/types';
-import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory, VisaTerm, VisaDownload } from '@/types';
+import type { Country, VisaType, AgentServiceFee, B2bAgent, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory, VisaTerm, VisaDownload } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
 
@@ -71,44 +71,44 @@ function TabButton({ step, label, active, onClick }: { step: number; label: stri
   );
 }
 
-// Visa and VFS fees are pass-through charges; the service fee is our margin. Corporate
-// accounts override only the service fee, B2B agents get a full price list of their own.
+// Visa and VFS fees are pass-through charges, the same for everyone. Only the service fee
+// (our margin) varies: individual, corporate, B2B common, and optional per-agent fees.
 type PriceField =
   | 'adultPrice' | 'childPrice'
   | 'adultVfsFee' | 'childVfsFee'
   | 'adultServiceFee' | 'childServiceFee'
   | 'corporateAdultServiceFee' | 'corporateChildServiceFee'
-  | 'b2bAdultPrice' | 'b2bChildPrice'
-  | 'b2bAdultVfsFee' | 'b2bChildVfsFee'
   | 'b2bAdultServiceFee' | 'b2bChildServiceFee';
 
 // Optional overrides: blank means "inherit", so they go to the server as '' (clears it).
 const OPTIONAL_PRICE_FIELDS = [
-  'corporateAdultServiceFee', 'corporateChildServiceFee',
-  'b2bAdultPrice', 'b2bChildPrice', 'b2bAdultVfsFee', 'b2bChildVfsFee', 'b2bAdultServiceFee', 'b2bChildServiceFee',
+  'corporateAdultServiceFee', 'corporateChildServiceFee', 'b2bAdultServiceFee', 'b2bChildServiceFee',
 ] as const;
 
 const optPrice = (v: string) => (v === '' ? '' : Number(v));
+// Digits and one decimal point only, so price inputs can be plain text (no spinner arrows).
+const priceText = (v: string) => v.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
 
 const PASS_THROUGH_ROWS: { label: string; required?: boolean; fields: [PriceField, PriceField] }[] = [
-  { label: 'Visa fee', required: true, fields: ['adultPrice', 'childPrice'] },
-  { label: 'VFS fee', fields: ['adultVfsFee', 'childVfsFee'] },
+  { label: 'Visa Fee', required: true, fields: ['adultPrice', 'childPrice'] },
+  { label: 'VFS Fee', fields: ['adultVfsFee', 'childVfsFee'] },
 ];
 
-// Shared label | Adult | Child column template, so all three pricing blocks line up.
-const PRICE_GRID = 'grid grid-cols-[minmax(7rem,1fr)_minmax(6.5rem,9rem)_minmax(6.5rem,9rem)] gap-x-3 gap-y-2.5 items-center';
+// Shared Category | Adult | Child row template, so every pricing table lines up.
+const PRICE_ROW = 'grid grid-cols-[minmax(9rem,1fr)_minmax(6.5rem,9rem)_minmax(6.5rem,9rem)] gap-x-3 items-center py-2';
 
-const SERVICE_FEE_ROWS: { label: string; hint?: string; fields: [PriceField, PriceField] }[] = [
-  { label: 'Individual', fields: ['adultServiceFee', 'childServiceFee'] },
-  { label: 'Corporate', hint: 'blank = same as individual', fields: ['corporateAdultServiceFee', 'corporateChildServiceFee'] },
-];
+type AgentFeeForm = { enabled: boolean; adultFee: string; childFee: string };
+type AgentFeeMap = Record<string, AgentFeeForm>;
 
-// B2B rows with the fields each one inherits from when left blank.
-const B2B_ROWS: { label: string; fields: [PriceField, PriceField]; inherits: [PriceField, PriceField] }[] = [
-  { label: 'Visa fee', fields: ['b2bAdultPrice', 'b2bChildPrice'], inherits: ['adultPrice', 'childPrice'] },
-  { label: 'VFS fee', fields: ['b2bAdultVfsFee', 'b2bChildVfsFee'], inherits: ['adultVfsFee', 'childVfsFee'] },
-  { label: 'Service fee', fields: ['b2bAdultServiceFee', 'b2bChildServiceFee'], inherits: ['corporateAdultServiceFee', 'corporateChildServiceFee'] },
-];
+const toAgentFeeMap = (rows: AgentServiceFee[] = []): AgentFeeMap =>
+  Object.fromEntries(rows.map((a) => [a.agent, {
+    enabled: a.enabled,
+    adultFee: a.adultFee != null ? String(a.adultFee) : '',
+    childFee: a.childFee != null ? String(a.childFee) : '',
+  }]));
+
+const fromAgentFeeMap = (map: AgentFeeMap) =>
+  Object.entries(map).map(([agent, a]) => ({ agent, enabled: a.enabled, adultFee: optPrice(a.adultFee), childFee: optPrice(a.childFee) }));
 
 // Dialog steps, in order. Any tab can be opened at any time; required fields are checked on save.
 const TABS = ['info', 'pricing', 'form', 'downloads', 'terms', 'notes'] as const;
@@ -135,8 +135,8 @@ const DEFAULT_LIST_PREFS = {
 const emptyForm = () => ({
   country: '', name: '',
   adultPrice: '', childPrice: '', adultVfsFee: '', childVfsFee: '', adultServiceFee: '', childServiceFee: '',
-  corporateAdultServiceFee: '', corporateChildServiceFee: '',
-  b2bAdultPrice: '', b2bChildPrice: '', b2bAdultVfsFee: '', b2bChildVfsFee: '', b2bAdultServiceFee: '', b2bChildServiceFee: '',
+  corporateAdultServiceFee: '', corporateChildServiceFee: '', b2bAdultServiceFee: '', b2bChildServiceFee: '',
+  agentFees: {} as AgentFeeMap,
   processingTime: '', validity: '',
   entry: [] as EntryType[],
   visaSubType: 'e-visa' as string,
@@ -180,7 +180,7 @@ export default function CountryDetailPage() {
 
   // ── Country header (basic info edit + outer toggles) ──
   const [showCountryForm, setShowCountryForm] = useState(false);
-  const [countryForm, setCountryForm] = useState({ name: '', flag: '', description: '' });
+  const [countryForm, setCountryForm] = useState({ name: '', flag: '' });
   const [savingCountry, setSavingCountry] = useState(false);
   const [togglingCountry, setTogglingCountry] = useState(false);
   const [togglingWeb, setTogglingWeb] = useState(false);
@@ -194,6 +194,8 @@ export default function CountryDetailPage() {
 
   // Jurisdiction / category / sub-type / entry option lists, managed on the Visa Config page.
   const [configOptions, setConfigOptions] = useState<VisaConfigOption[]>([]);
+  const [agents, setAgents] = useState<B2bAgent[]>([]);
+  const [agentsOpen, setAgentsOpen] = useState(false);
 
   const loadVisaTypes = () =>
     getVisaTypes(countryId).then((r) => setVisaTypes(r.data.data)).finally(() => setVisaTypesLoading(false));
@@ -206,6 +208,7 @@ export default function CountryDetailPage() {
     loadVisaTypes();
     getFormPresets().then((r) => setPresets(r.data.data)).catch(() => {});
     getVisaConfig().then((r) => setConfigOptions(r.data.data)).catch(() => {});
+    getB2bAgents().then((r) => setAgents(r.data.data)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countryId]);
 
@@ -302,8 +305,9 @@ export default function CountryDetailPage() {
     }
     setSaving(true);
     try {
+      const { agentFees, ...rest } = form;
       const payload = {
-        ...form,
+        ...rest,
         country: countryId,
         adultPrice: Number(form.adultPrice),
         childPrice: Number(form.childPrice || 0),
@@ -312,6 +316,7 @@ export default function CountryDetailPage() {
         adultServiceFee: Number(form.adultServiceFee || 0),
         childServiceFee: Number(form.childServiceFee || 0),
         ...Object.fromEntries(OPTIONAL_PRICE_FIELDS.map((f) => [f, optPrice(form[f])])),
+        agentServiceFees: fromAgentFeeMap(agentFees),
         ...orderedFormArrays(form.formFields, form.documentRequirements),
         terms: form.terms.filter((t) => t.text.trim()).map((t, i) => ({ ...t, text: t.text.trim(), order: i })),
       };
@@ -351,6 +356,7 @@ export default function CountryDetailPage() {
         childServiceFee: vt.childServiceFee || 0,
         // '' clears the override on the server; `undefined` would silently keep it unset anyway.
         ...Object.fromEntries(OPTIONAL_PRICE_FIELDS.map((f) => [f, vt[f] ?? ''])),
+        agentServiceFees: vt.agentServiceFees || [],
         processingTime: vt.processingTime,
         validity: vt.validity || '',
         entry: vt.entry || [],
@@ -403,7 +409,7 @@ export default function CountryDetailPage() {
   // ── Country header actions ──
   const startCountryEdit = () => {
     if (!country) return;
-    setCountryForm({ name: country.name, flag: country.flag, description: country.description });
+    setCountryForm({ name: country.name, flag: country.flag });
     setShowCountryForm(true);
   };
 
@@ -541,6 +547,7 @@ export default function CountryDetailPage() {
     setPresetName('');
     setActiveTab('info');
     setInfoErrors({});
+    setAgentsOpen(false);
     setShowForm(true);
   };
 
@@ -555,6 +562,7 @@ export default function CountryDetailPage() {
       adultServiceFee: vt.adultServiceFee ? String(vt.adultServiceFee) : '',
       childServiceFee: vt.childServiceFee ? String(vt.childServiceFee) : '',
       ...(Object.fromEntries(OPTIONAL_PRICE_FIELDS.map((f) => [f, vt[f] != null ? String(vt[f]) : ''])) as Record<(typeof OPTIONAL_PRICE_FIELDS)[number], string>),
+      agentFees: toAgentFeeMap(vt.agentServiceFees),
       processingTime: vt.processingTime || '',
       validity: vt.validity || '',
       entry: vt.entry?.length ? [vt.entry[0]] : [],
@@ -572,6 +580,7 @@ export default function CountryDetailPage() {
     setEditId(vt._id);
     setActiveTab('info');
     setInfoErrors({});
+    setAgentsOpen((vt.agentServiceFees || []).some((a) => a.enabled));
     setShowForm(true);
   };
 
@@ -579,64 +588,59 @@ export default function CountryDetailPage() {
   const GST_RATE = 0.18;
   const num = (s: string) => Number(s || 0);
   const gstOnFee = (fee: number) => Math.round(fee * GST_RATE);
-  // Live "customer pays" preview for the pricing card. Visa + VFS are shared by both
-  // account types; only the service fee differs (and is the sole GST-taxed component), and
-  // a blank corporate service fee falls back to the individual one, same rule as backend.
-  const corpOrStd = (corp: string, std: string) => (corp !== '' ? num(corp) : num(std));
+  // Blank overrides fall through: agent -> B2B common -> corporate -> individual, same as backend.
+  const orFee = (value: string, fallback: number) => (value !== '' ? num(value) : fallback);
   const passThroughAdult = num(form.adultPrice) + num(form.adultVfsFee);
   const passThroughChild = num(form.childPrice) + num(form.childVfsFee);
-  const corpAdultFee = corpOrStd(form.corporateAdultServiceFee, form.adultServiceFee);
-  const corpChildFee = corpOrStd(form.corporateChildServiceFee, form.childServiceFee);
-  // Customer-pays totals = pass-through charges + service fee + GST on that service fee.
-  const subIndivAdult = passThroughAdult + num(form.adultServiceFee) + gstOnFee(num(form.adultServiceFee));
-  const subIndivChild = passThroughChild + num(form.childServiceFee) + gstOnFee(num(form.childServiceFee));
-  const subCorpAdult = passThroughAdult + corpAdultFee + gstOnFee(corpAdultFee);
-  const subCorpChild = passThroughChild + corpChildFee + gstOnFee(corpChildFee);
+  const corpAdultFee = orFee(form.corporateAdultServiceFee, num(form.adultServiceFee));
+  const corpChildFee = orFee(form.corporateChildServiceFee, num(form.childServiceFee));
+  const b2bAdultFee = orFee(form.b2bAdultServiceFee, corpAdultFee);
+  const b2bChildFee = orFee(form.b2bChildServiceFee, corpChildFee);
+  // Customer-pays total = pass-through charges + service fee + GST on that service fee.
+  const adultPays = (fee: number) => passThroughAdult + fee + gstOnFee(fee);
+  const childPays = (fee: number) => passThroughChild + fee + gstOnFee(fee);
   const corpFeeDiffers = form.corporateAdultServiceFee !== '' || form.corporateChildServiceFee !== '';
-  // B2B: each blank component inherits; the service fee inherits corporate, then individual.
-  const b2bAdultFee = form.b2bAdultServiceFee !== '' ? num(form.b2bAdultServiceFee) : corpAdultFee;
-  const b2bChildFee = form.b2bChildServiceFee !== '' ? num(form.b2bChildServiceFee) : corpChildFee;
-  const subB2bAdult = corpOrStd(form.b2bAdultPrice, form.adultPrice) + corpOrStd(form.b2bAdultVfsFee, form.adultVfsFee) + b2bAdultFee + gstOnFee(b2bAdultFee);
-  const subB2bChild = corpOrStd(form.b2bChildPrice, form.childPrice) + corpOrStd(form.b2bChildVfsFee, form.childVfsFee) + b2bChildFee + gstOnFee(b2bChildFee);
-  const b2bDiffers = B2B_ROWS.some((r) => r.fields.some((f) => form[f] !== ''));
-  // What a blank B2B input would inherit, shown as its placeholder.
-  const b2bInherited = (name: PriceField): string => {
-    if (name === 'corporateAdultServiceFee') return String(corpAdultFee);
-    if (name === 'corporateChildServiceFee') return String(corpChildFee);
-    return form[name] || '0';
-  };
+  const b2bFeeDiffers = form.b2bAdultServiceFee !== '' || form.b2bChildServiceFee !== '';
+  const agentFee = (id: string): AgentFeeForm => form.agentFees[id] || { enabled: false, adultFee: '', childFee: '' };
+  const setAgentFee = (id: string, patch: Partial<AgentFeeForm>) =>
+    setForm((f) => ({ ...f, agentFees: { ...f.agentFees, [id]: { ...(f.agentFees[id] || { enabled: false, adultFee: '', childFee: '' }), ...patch } } }));
+  const customAgentCount = agents.filter((a) => agentFee(a._id).enabled).length;
 
   // Plain function (not a component) so React keeps the same input instances between
   // renders, a nested component here would remount and steal focus on every keystroke.
-  const priceInput = (name: PriceField, placeholder = '0') => (
-    <div key={name} className="relative">
+  const moneyInput = (key: string, value: string, onChange: (v: string) => void, placeholder = '0', opts: { disabled?: boolean; invalid?: boolean } = {}) => (
+    <div key={key} className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">₹</span>
       <Input
-        type="number"
-        min="0"
-        className={`pl-7 pr-3 text-right tabular-nums ${name === 'adultPrice' && infoErrors.adultPrice ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+        type="text"
+        inputMode="decimal"
+        className={`pl-7 pr-3 text-right tabular-nums ${opts.invalid ? 'border-destructive focus-visible:ring-destructive' : ''}`}
         placeholder={placeholder}
-        value={form[name]}
-        onChange={(e) => { setForm({ ...form, [name]: e.target.value }); if (name === 'adultPrice') clearInfoError('adultPrice'); }}
+        value={value}
+        disabled={opts.disabled}
+        onChange={(e) => onChange(priceText(e.target.value))}
       />
     </div>
   );
 
+  const priceInput = (name: PriceField, placeholder = '0') => moneyInput(
+    name,
+    form[name],
+    (v) => { setForm((f) => ({ ...f, [name]: v })); if (name === 'adultPrice') clearInfoError('adultPrice'); },
+    placeholder,
+    { invalid: name === 'adultPrice' && !!infoErrors.adultPrice },
+  );
+
   // Charged total = visa + VFS + service fee + GST (18% of the service fee only).
-  const stdAdultTotal = (vt: VisaType) => (vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0) + gstOnFee(vt.adultServiceFee || 0);
-  const stdChildTotal = (vt: VisaType) => (vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0) + gstOnFee(vt.childServiceFee || 0);
-  // Corporate differs from standard only by the service fee component (and its GST).
-  const corpAdultTotal = (vt: VisaType) => { const fee = vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0; return (vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + fee + gstOnFee(fee); };
-  const corpChildTotal = (vt: VisaType) => { const fee = vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0; return (vt.childPrice || 0) + (vt.childVfsFee || 0) + fee + gstOnFee(fee); };
-  const hasB2bPricing = (vt: VisaType) => B2B_ROWS.some((r) => r.fields.some((f) => vt[f as keyof VisaType] != null));
-  const b2bAdultTotal = (vt: VisaType) => {
-    const fee = vt.b2bAdultServiceFee ?? vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0;
-    return (vt.b2bAdultPrice ?? (vt.adultPrice || vt.price)) + (vt.b2bAdultVfsFee ?? (vt.adultVfsFee || 0)) + fee + gstOnFee(fee);
-  };
-  const b2bChildTotal = (vt: VisaType) => {
-    const fee = vt.b2bChildServiceFee ?? vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0;
-    return (vt.b2bChildPrice ?? (vt.childPrice || 0)) + (vt.b2bChildVfsFee ?? (vt.childVfsFee || 0)) + fee + gstOnFee(fee);
-  };
+  const listTotal = (base: number, vfs: number, fee: number) => base + vfs + fee + gstOnFee(fee);
+  const stdAdultTotal = (vt: VisaType) => listTotal(vt.adultPrice || vt.price, vt.adultVfsFee || 0, vt.adultServiceFee || 0);
+  const stdChildTotal = (vt: VisaType) => listTotal(vt.childPrice || 0, vt.childVfsFee || 0, vt.childServiceFee || 0);
+  const corpAdultTotal = (vt: VisaType) => listTotal(vt.adultPrice || vt.price, vt.adultVfsFee || 0, vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0);
+  const corpChildTotal = (vt: VisaType) => listTotal(vt.childPrice || 0, vt.childVfsFee || 0, vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0);
+  const hasB2bPricing = (vt: VisaType) => vt.b2bAdultServiceFee != null || vt.b2bChildServiceFee != null;
+  const customAgentsOf = (vt: VisaType) => (vt.agentServiceFees || []).filter((a) => a.enabled).length;
+  const b2bAdultTotal = (vt: VisaType) => listTotal(vt.adultPrice || vt.price, vt.adultVfsFee || 0, vt.b2bAdultServiceFee ?? vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0);
+  const b2bChildTotal = (vt: VisaType) => listTotal(vt.childPrice || 0, vt.childVfsFee || 0, vt.b2bChildServiceFee ?? vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0);
 
   const displayedVisaTypes = visaTypes
     .filter((vt) => {
@@ -747,7 +751,7 @@ export default function CountryDetailPage() {
           </div>
 
           {showCountryForm && (
-            <form onSubmit={handleCountrySubmit} className="mt-5 pt-5 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <form onSubmit={handleCountrySubmit} className="mt-5 pt-5 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Country Name</Label>
                 <Input className="mt-1" placeholder="e.g. Canada" value={countryForm.name} onChange={(e) => setCountryForm({ ...countryForm, name: e.target.value })} required />
@@ -756,21 +760,7 @@ export default function CountryDetailPage() {
                 <Label>Flag Code (ISO 2-letter)</Label>
                 <Input className="mt-1" placeholder="e.g. ca, us, gb" value={countryForm.flag} onChange={(e) => setCountryForm({ ...countryForm, flag: e.target.value.toLowerCase() })} required />
               </div>
-              <div>
-                <Label>Description</Label>
-                <div className="relative mt-1">
-                  <Input className="pr-12" placeholder="Short description" value={countryForm.description} onChange={(e) => setCountryForm({ ...countryForm, description: e.target.value })} />
-                  <AiGenerateButton
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2"
-                    purpose="country.description"
-                    value={countryForm.description}
-                    onChange={(text) => setCountryForm((f) => ({ ...f, description: text }))}
-                    getContext={() => ({ country: countryForm.name })}
-                    countryId={countryId}
-                  />
-                </div>
-              </div>
-              <div className="sm:col-span-3 flex gap-2">
+              <div className="sm:col-span-2 flex gap-2">
                 <Button type="submit" disabled={savingCountry}>
                   {savingCountry ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update'}
                 </Button>
@@ -891,115 +881,135 @@ export default function CountryDetailPage() {
               </div>
 
               {/* ── Step 2: Pricing ──
-                  Split by who the charge belongs to: visa + VFS are pass-through and
-                  identical for everyone, so they're entered once; the service fee is our
-                  margin and gets its own individual/corporate grid. B2B agents get a
-                  full price list below that. ── */}
+                  Visa + VFS are pass-through and identical for everyone, so they're entered
+                  once. Only the service fee varies: individual, corporate, B2B common, and
+                  per-agent fees for B2B agents switched to individual pricing. ── */}
               <div className={activeTab === 'pricing' ? '' : 'hidden'}>
-                <div className="rounded-xl border border-border overflow-hidden max-w-2xl">
+                <div className="rounded-xl border border-border overflow-hidden max-w-3xl">
                   <div className="px-5 py-3.5 bg-muted/40 border-b border-border">
                     <p className="text-sm font-semibold text-foreground">Pricing</p>
                     <p className="text-xs text-muted-foreground mt-0.5">All fees are per traveler. 18% GST applies to the service fee only.</p>
                   </div>
 
-                  <div className="p-5 space-y-6">
+                  <div className="p-5 space-y-7">
                     {/* Pass-through charges, one set of values, everyone pays them */}
                     <div>
-                      <div className="flex items-baseline justify-between gap-3 mb-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Government &amp; VFS charges</p>
-                        <p className="text-xs text-muted-foreground">Same for individual &amp; corporate</p>
+                      <div className="flex items-baseline justify-between gap-3 mb-1">
+                        <p className="text-base font-semibold text-foreground">Visa &amp; VFS</p>
+                        <p className="text-xs text-muted-foreground">Same for every customer</p>
                       </div>
-                      <div className={PRICE_GRID}>
-                        <span />
-                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
-                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
-
-                        {PASS_THROUGH_ROWS.map((row) => (
-                          <Fragment key={row.label}>
-                            <span className="text-sm text-foreground">
-                              {row.label}
-                              {row.required && <span className="text-destructive ml-0.5">*</span>}
-                            </span>
-                            {row.fields.map((name) => priceInput(name))}
-                          </Fragment>
-                        ))}
+                      <div className={`${PRICE_ROW} border-b border-border`}>
+                        <span className="text-xs font-semibold text-foreground">Category</span>
+                        <span className="text-xs font-semibold text-foreground text-right pr-3">Adult</span>
+                        <span className="text-xs font-semibold text-foreground text-right pr-3">Child</span>
                       </div>
+                      {PASS_THROUGH_ROWS.map((row) => (
+                        <div key={row.label} className={`${PRICE_ROW} border-b border-border/60 last:border-0`}>
+                          <span className="text-sm text-foreground">
+                            {row.label}
+                            {row.required && <span className="text-destructive ml-0.5">*</span>}
+                          </span>
+                          {row.fields.map((name) => priceInput(name))}
+                        </div>
+                      ))}
                       {infoErrors.adultPrice && <p className="text-xs text-destructive mt-2">{infoErrors.adultPrice}</p>}
                     </div>
 
-                    {/* Service fee, the only component that varies by account type */}
-                    <div className="pt-5 border-t border-border">
-                      <div className="flex items-baseline justify-between gap-3 mb-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Service fee</p>
-                        <p className="text-xs text-muted-foreground">Optional. Enter 0 to waive</p>
+                    {/* Service fee, the only component that varies by customer */}
+                    <div>
+                      <div className="flex items-baseline justify-between gap-3 mb-1">
+                        <p className="text-base font-semibold text-foreground">Service Fee</p>
+                        <p className="text-xs text-muted-foreground">Enter 0 to waive. Blank = row above</p>
                       </div>
-                      <div className={PRICE_GRID}>
-                        <span />
-                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
-                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
-
-                        {SERVICE_FEE_ROWS.map((row, rowIdx) => (
-                          <Fragment key={row.label}>
-                            <span className="text-sm text-foreground">
-                              {row.label}
-                              {row.hint && <span className="block text-xs text-muted-foreground">{row.hint}</span>}
-                            </span>
-                            {row.fields.map((name, i) => priceInput(
-                              name,
-                              // Corporate inputs preview the individual fee they'd inherit.
-                              rowIdx === 1 ? (form[SERVICE_FEE_ROWS[0].fields[i]] || '0') : '0',
-                            ))}
-                          </Fragment>
-                        ))}
+                      <div className={`${PRICE_ROW} border-b border-border`}>
+                        <span className="text-xs font-semibold text-foreground">Category</span>
+                        <span className="text-xs font-semibold text-foreground text-right pr-3">Adult</span>
+                        <span className="text-xs font-semibold text-foreground text-right pr-3">Child</span>
                       </div>
-                    </div>
-
-                    {/* B2B agents: their own price list, blank inherits */}
-                    <div className="pt-5 border-t border-border">
-                      <div className="flex items-baseline justify-between gap-3 mb-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">B2B agent price list</p>
-                        <p className="text-xs text-muted-foreground">Blank = same as above. Only B2B agents see it</p>
-                      </div>
-                      <div className={PRICE_GRID}>
-                        <span />
-                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
-                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
-
-                        {B2B_ROWS.map((row) => (
-                          <Fragment key={row.label}>
-                            <span className="text-sm text-foreground">{row.label}</span>
-                            {row.fields.map((name, i) => priceInput(name, b2bInherited(row.inherits[i])))}
-                          </Fragment>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* What each account type ends up paying */}
-                    <div className="pt-5 border-t border-border">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Customer pays <span className="font-normal normal-case tracking-normal">(incl. 18% GST)</span></p>
-                      <div className={PRICE_GRID}>
-                        <span />
-                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
-                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
-
+                      <div className={`${PRICE_ROW} border-b border-border/60`}>
                         <span className="text-sm text-foreground">Individual</span>
-                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivAdult > 0 ? formatCurrency(subIndivAdult) : '-'}</span>
-                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivChild > 0 ? formatCurrency(subIndivChild) : '-'}</span>
-
-                        <span className="text-sm text-foreground flex items-center gap-1.5">
-                          Corporate
-                          {corpFeeDiffers && <span className="w-1.5 h-1.5 rounded-full bg-warning" title="A corporate service fee is set" />}
-                        </span>
-                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpAdult > 0 ? formatCurrency(subCorpAdult) : '-'}</span>
-                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpChild > 0 ? formatCurrency(subCorpChild) : '-'}</span>
-
-                        <span className="text-sm text-foreground flex items-center gap-1.5">
-                          B2B agent
-                          {b2bDiffers && <span className="w-1.5 h-1.5 rounded-full bg-violet-500" title="B2B prices are set" />}
-                        </span>
-                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${b2bDiffers ? 'text-violet-600 dark:text-violet-400' : 'text-primary'}`}>{subB2bAdult > 0 ? formatCurrency(subB2bAdult) : '-'}</span>
-                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${b2bDiffers ? 'text-violet-600 dark:text-violet-400' : 'text-primary'}`}>{subB2bChild > 0 ? formatCurrency(subB2bChild) : '-'}</span>
+                        {priceInput('adultServiceFee')}
+                        {priceInput('childServiceFee')}
                       </div>
+                      <div className={`${PRICE_ROW} border-b border-border/60`}>
+                        <span className="text-sm text-foreground">Corporate</span>
+                        {priceInput('corporateAdultServiceFee', form.adultServiceFee || '0')}
+                        {priceInput('corporateChildServiceFee', form.childServiceFee || '0')}
+                      </div>
+                      <div className={PRICE_ROW}>
+                        <button
+                          type="button"
+                          onClick={() => setAgentsOpen((o) => !o)}
+                          className="flex items-center gap-1.5 text-left text-sm text-foreground hover:text-primary transition-colors min-w-0"
+                          aria-expanded={agentsOpen}
+                        >
+                          <ChevronDown className={`w-4 h-4 flex-shrink-0 text-muted-foreground transition-transform ${agentsOpen ? '' : '-rotate-90'}`} />
+                          <span className="min-w-0">
+                            B2B Agent
+                            <span className="block text-xs text-muted-foreground truncate">
+                              Common for all agents{customAgentCount > 0 ? `, ${customAgentCount} custom` : ''}
+                            </span>
+                          </span>
+                        </button>
+                        {priceInput('b2bAdultServiceFee', String(corpAdultFee))}
+                        {priceInput('b2bChildServiceFee', String(corpChildFee))}
+                      </div>
+
+                      {/* Per-agent pricing: switched off, the agent pays the common B2B fee */}
+                      {agentsOpen && (
+                        <div className="mt-2 rounded-lg border border-border bg-muted/30 divide-y divide-border/60">
+                          {agents.length === 0 ? (
+                            <p className="px-4 py-5 text-center text-xs text-muted-foreground">
+                              No B2B agents registered yet. Set a corporate customer&apos;s type to B2B Agent in Customers.
+                            </p>
+                          ) : agents.map((agent) => {
+                            const fee = agentFee(agent._id);
+                            return (
+                              <div key={agent._id} className={`${PRICE_ROW} px-3`}>
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <Switch
+                                    checked={fee.enabled}
+                                    onChange={() => setAgentFee(agent._id, { enabled: !fee.enabled })}
+                                    tone="violet"
+                                    title={fee.enabled ? 'Individual pricing on' : 'Uses the common B2B fee'}
+                                  />
+                                  <div className="min-w-0">
+                                    <p className={`text-sm truncate ${agent.isActive ? 'text-foreground' : 'text-muted-foreground line-through'}`}>{agent.name || agent.email}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{fee.enabled ? 'Individual pricing' : 'Common pricing'}</p>
+                                  </div>
+                                </div>
+                                {moneyInput(`${agent._id}-adult`, fee.enabled ? fee.adultFee : '', (v) => setAgentFee(agent._id, { adultFee: v }), String(b2bAdultFee), { disabled: !fee.enabled })}
+                                {moneyInput(`${agent._id}-child`, fee.enabled ? fee.childFee : '', (v) => setAgentFee(agent._id, { childFee: v }), String(b2bChildFee), { disabled: !fee.enabled })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* What each customer ends up paying */}
+                    <div className="pt-5 border-t border-border">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Customer pays <span className="font-normal normal-case tracking-normal">(incl. 18% GST)</span></p>
+                      {[
+                        { key: 'individual', label: 'Individual', fees: [num(form.adultServiceFee), num(form.childServiceFee)] as const, tone: '' },
+                        { key: 'corporate', label: 'Corporate', fees: [corpAdultFee, corpChildFee] as const, tone: corpFeeDiffers ? 'text-warning' : '' },
+                        { key: 'b2b', label: 'B2B Agent', fees: [b2bAdultFee, b2bChildFee] as const, tone: b2bFeeDiffers ? 'text-violet-600 dark:text-violet-400' : '' },
+                        ...agents.filter((a) => agentFee(a._id).enabled).map((a) => {
+                          const fee = agentFee(a._id);
+                          return {
+                            key: a._id,
+                            label: a.name || a.email,
+                            fees: [orFee(fee.adultFee, b2bAdultFee), orFee(fee.childFee, b2bChildFee)] as const,
+                            tone: 'text-violet-600 dark:text-violet-400',
+                          };
+                        }),
+                      ].map((row) => (
+                        <div key={row.key} className={`${PRICE_ROW} border-b border-border/60 last:border-0`}>
+                          <span className="text-sm text-foreground truncate">{row.label}</span>
+                          <span className={`text-sm font-bold text-right pr-3 tabular-nums ${row.tone || 'text-primary'}`}>{adultPays(row.fees[0]) > 0 ? formatCurrency(adultPays(row.fees[0])) : '-'}</span>
+                          <span className={`text-sm font-bold text-right pr-3 tabular-nums ${row.tone || 'text-primary'}`}>{childPays(row.fees[1]) > 0 ? formatCurrency(childPays(row.fees[1])) : '-'}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1298,6 +1308,11 @@ export default function CountryDetailPage() {
                     {hasB2bPricing(vt) && (
                       <span className="block text-violet-600 dark:text-violet-400 font-semibold" title="B2B agent price: visa + VFS + service fee, incl. 18% GST">
                         B2B {formatCurrency(b2bAdultTotal(vt))}{vt.childPrice ? ` / ${formatCurrency(b2bChildTotal(vt))}` : ''}
+                      </span>
+                    )}
+                    {customAgentsOf(vt) > 0 && (
+                      <span className="block text-violet-600/80 dark:text-violet-400/80" title="B2B agents with their own service fee">
+                        {customAgentsOf(vt)} agent{customAgentsOf(vt) === 1 ? '' : 's'} custom
                       </span>
                     )}
                   </TableCell>

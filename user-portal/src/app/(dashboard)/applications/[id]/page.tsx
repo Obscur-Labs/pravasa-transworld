@@ -54,7 +54,7 @@ const docStatusIcon = (status: string) => {
 function triggerFileUpload(onFile: (file: File) => void) {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.jpg,.jpeg,.png,.pdf';
+  input.accept = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
   input.onchange = (e: any) => {
     const file = e.target?.files?.[0];
     if (file) onFile(file);

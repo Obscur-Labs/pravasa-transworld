@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
+import mongoose from 'mongoose';
 import VisaType from '../../models/VisaType';
+import User from '../../models/User';
 import { sendSuccess, sendError } from '../../utils/response';
 import { moveToTrash } from '../../utils/trash';
 import { logActivity } from '../../utils/activityLog';
@@ -38,9 +40,33 @@ const optNum = (v: unknown): number | undefined =>
 
 // Optional overrides: blank means "use the standard price", 0 is a real (waived) price.
 const OPTIONAL_PRICE_FIELDS = [
-  'corporateAdultServiceFee', 'corporateChildServiceFee',
-  'b2bAdultPrice', 'b2bChildPrice', 'b2bAdultVfsFee', 'b2bChildVfsFee', 'b2bAdultServiceFee', 'b2bChildServiceFee',
+  'corporateAdultServiceFee', 'corporateChildServiceFee', 'b2bAdultServiceFee', 'b2bChildServiceFee',
 ] as const;
+
+interface AgentFeeInput { agent?: unknown; enabled?: unknown; adultFee?: unknown; childFee?: unknown }
+
+// One row per agent with a valid id; blank fees mean "use the common B2B fee".
+function cleanAgentFees(input: unknown) {
+  if (!Array.isArray(input)) return undefined;
+  const seen = new Set<string>();
+  return (input as AgentFeeInput[])
+    .filter((a) => {
+      const id = String(a?.agent || '');
+      if (!mongoose.isValidObjectId(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .map((a) => ({ agent: String(a.agent), enabled: !!a.enabled, adultFee: optNum(a.adultFee), childFee: optNum(a.childFee) }));
+}
+
+// Registered B2B agents, for the per-agent service fees in the visa pricing editor.
+export const getB2bAgents = async (_req: AdminRequest, res: Response): Promise<void> => {
+  const agents = await User.find({ accountType: 'corporate', corporateType: 'b2b_agent' })
+    .select('name email phone isActive')
+    .sort({ name: 1 })
+    .lean();
+  sendSuccess(res, agents);
+};
 
 /**
  * Stores a downloadable file for the visa editor. It is attached to the visa type only
@@ -109,6 +135,7 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
     adultServiceFee: Number(adultServiceFee || 0),
     childServiceFee: Number(childServiceFee || 0),
     ...Object.fromEntries(OPTIONAL_PRICE_FIELDS.map((f) => [f, optNum(req.body[f])])),
+    agentServiceFees: cleanAgentFees(req.body.agentServiceFees) || [],
     processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
     terms: (terms || []).map((t: any, i: number) => ({ ...t, order: i })),
     jurisdiction, visaCategory, process, validity, additionalNotes: additionalNotes || '',
@@ -139,6 +166,8 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
     const value = optNum(body[field]);
     if (value === undefined) { delete body[field]; unset[field] = ''; } else { body[field] = value; }
   }
+  const agentFees = cleanAgentFees(body.agentServiceFees);
+  if (agentFees) body.agentServiceFees = agentFees; else delete body.agentServiceFees;
   if (Array.isArray(body.terms)) body.terms = body.terms.map((t: any, i: number) => ({ ...t, order: i }));
   delete body.description;
   const downloads = cleanDownloads(body.downloads);

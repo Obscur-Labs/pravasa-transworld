@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
-import { getCountries, updateCountryWebContent, uploadCountryImage, removeCountryImage } from '@/lib/api';
+import { getCountries, updateCountry, updateCountryWebContent, uploadCountryImage, removeCountryImage } from '@/lib/api';
 import { AiGenerateButton, type AiPurpose } from '@/components/shared/ai-generate-button';
 import type { Country, CountryWebContent, CountryFaq } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +24,7 @@ const emptyContent: CountryWebContent = {
 /* Where each form section appears on the live country page. */
 const LOC = {
   slider: 'Photo Slider',
+  description: 'Destination Card',
   overview: 'Overview Card',
   requirements: 'Requirements Card',
   processing: 'Processing Card',
@@ -187,6 +188,7 @@ export default function CountryContentPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [removingImage, setRemovingImage] = useState<string | null>(null);
   const [images, setImages] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -196,6 +198,7 @@ export default function CountryContentPage() {
         if (found) {
           setCountry(found);
           setImages(found.images || []);
+          setDescription(found.description || '');
           const { heroTagline: _t, highlights: _h, ...saved } = (found.webContent || {}) as CountryWebContent & { heroTagline?: string; highlights?: string[] };
           setContent({ ...emptyContent, ...saved, faqs: saved.faqs || [] });
         }
@@ -211,7 +214,7 @@ export default function CountryContentPage() {
     const { faqs, ...fields } = content;
     return {
       country: country?.name,
-      countryDescription: country?.description,
+      countryDescription: description,
       ...Object.fromEntries(Object.entries(fields).filter(([k]) => k !== skip)),
       faqQuestions: (faqs || []).map((f) => f.question),
       ...extra,
@@ -272,7 +275,11 @@ export default function CountryContentPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateCountryWebContent(id, content);
+      await Promise.all([
+        updateCountryWebContent(id, content),
+        description !== (country?.description || '') ? updateCountry(id, { description }) : null,
+      ]);
+      setCountry((c) => (c ? { ...c, description } : c));
       toast({ title: 'Content saved', description: 'Website page updated.', variant: 'success' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.response?.data?.message || 'Failed to save', variant: 'destructive' });
@@ -376,6 +383,25 @@ export default function CountryContentPage() {
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
                 : <><ImagePlus className="w-4 h-4" /> Upload Photo</>}
             </Button>
+          </Section>
+
+          {/* Description */}
+          <Section loc="description" title="Description" subtitle="A short line about the country, shown on its card in the destinations list.">
+            <TA
+              value={description}
+              onChange={setDescription}
+              ai={
+                <AiGenerateButton
+                  purpose="country.description"
+                  value={description}
+                  onChange={setDescription}
+                  getContext={() => ({ country: country.name })}
+                  countryId={id}
+                />
+              }
+              placeholder="e.g. A Caspian nation blending European and Asian culture..."
+              rows={3}
+            />
           </Section>
 
           {/* Overview */}
@@ -519,6 +545,7 @@ export default function CountryContentPage() {
             <p className="text-xs font-extrabold text-foreground/80 uppercase tracking-wider mb-3">Content Status</p>
             {[
               { label: 'Photos',           filled: images.length > 0,           hint: `${images.length} uploaded` },
+              { label: 'Description',      filled: !!description.trim(),         hint: description.trim() ? '✓ set' : 'empty' },
               { label: 'Overview',         filled: !!content.overview.trim(),    hint: content.overview.trim() ? '✓ set' : 'empty' },
               { label: 'Requirements',     filled: !!content.requirements.trim(),hint: content.requirements.trim() ? '✓ set' : 'empty' },
               { label: 'Processing Info',  filled: !!content.processingInfo.trim(), hint: content.processingInfo.trim() ? '✓ set' : 'empty' },

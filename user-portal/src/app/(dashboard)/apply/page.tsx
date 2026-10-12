@@ -30,12 +30,16 @@ import type { Country, VisaType, FormField, FormItem, DocumentRequirement, Vault
 type Step = 1 | 2 | 3 | 4;
 type DocSource =
   | { type: 'vault'; vaultDocId: string; label: string; url: string }
-  | { type: 'file'; file: File };
+  | { type: 'file'; file: File }
+  | { type: 'files'; files: File[] };
 type Traveler = { key: string; label: string; type: 'adult' | 'child' };
 
 const STEPS = ['Country', 'Visa Type', 'Applicant Details', 'Review & Pay'];
 const DRAFT_KEY = 'visa_app_draft';
-const ACCEPTED = '.jpg,.jpeg,.png,.pdf';
+const ACCEPTED = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// The first file keeps the requirement's name, extras get "(2)", "(3)" so they share its slot.
+const partName = (label: string, i: number) => (i === 0 ? label : `${label} (${i + 1})`);
 // Fixed 18% GST applied to the service fee only (visa + VFS are untaxed), mirrors backend.
 const GST_RATE = 0.18;
 
@@ -835,7 +839,7 @@ export default function ApplyPage() {
     }
   };
 
-  const hasUploadedFiles = Object.values(docSources).some((s) => s.type === 'file');
+  const hasUploadedFiles = Object.values(docSources).some((s) => s.type !== 'vault');
 
   // Only ask when there's something to lose.
   const startOver = () => {
@@ -922,15 +926,36 @@ export default function ApplyPage() {
 
   const docKey = (tr: Traveler, reqName: string, suffix = '') => `${tr.key}::${reqName}${suffix}`;
 
-  const pickFileFor = (storeKey: string) => {
+  // Adds files to a document slot; a slot holds several files or one vault pick.
+  const pickFilesFor = (storeKey: string) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = ACCEPTED;
+    input.multiple = true;
     input.onchange = (e: any) => {
-      const file = e.target?.files?.[0];
-      if (file) setDocSources((prev) => ({ ...prev, [storeKey]: { type: 'file', file } }));
+      const picked: File[] = Array.from(e.target?.files || []);
+      const tooBig = picked.filter((f) => f.size > MAX_FILE_BYTES);
+      if (tooBig.length) toast({ title: 'File too large', description: `${tooBig.map((f) => f.name).join(', ')} is over 10 MB.`, variant: 'destructive' });
+      const ok = picked.filter((f) => f.size <= MAX_FILE_BYTES);
+      if (!ok.length) return;
+      setDocSources((prev) => {
+        const cur = prev[storeKey];
+        const existing = cur?.type === 'files' ? cur.files : [];
+        return { ...prev, [storeKey]: { type: 'files', files: [...existing, ...ok] } };
+      });
     };
     input.click();
+  };
+
+  const removeFileAt = (storeKey: string, index: number) => {
+    setDocSources((prev) => {
+      const cur = prev[storeKey];
+      if (cur?.type !== 'files') return prev;
+      const files = cur.files.filter((_, i) => i !== index);
+      const next = { ...prev };
+      if (files.length) next[storeKey] = { type: 'files', files }; else delete next[storeKey];
+      return next;
+    });
   };
 
   const clearDocSource = (storeKey: string) => {
@@ -1014,6 +1039,8 @@ export default function ApplyPage() {
               uploadIdx++;
               setSubmitStatus(`Uploading documents (${uploadIdx})…`);
               await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName: label });
+            } else if (source.type === 'files') {
+              for (const [i, file] of source.files.entries()) await doUpload(file, partName(label, i), req.docType || '');
             } else {
               const pv = passportValues[tr.key] || {};
               const ocrData = req.ocrEnabled !== false
@@ -1193,15 +1220,24 @@ export default function ApplyPage() {
           </div>
         </div>
 
-        {source && (
+        {source?.type === 'vault' && (
           <div className="flex items-center gap-2 mb-3 ml-11">
-            {source.type === 'vault' ? (
-              <span className="text-xs text-green-700 font-medium flex items-center gap-1"><Vault className="w-3 h-3" /> From vault: {source.label}</span>
-            ) : (
-              <span className="text-xs text-green-700 font-medium truncate max-w-[200px]">{source.file.name}<span className="text-slate-400 ml-1">· {formatBytes(source.file.size)}</span></span>
-            )}
+            <span className="text-xs text-green-700 font-medium flex items-center gap-1"><Vault className="w-3 h-3" /> From vault: {source.label}</span>
             <button onClick={() => clearDocSource(sk)} className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"><X className="w-3.5 h-3.5" /></button>
           </div>
+        )}
+
+        {source?.type === 'files' && (
+          <ul className="ml-11 mb-3 space-y-1.5">
+            {source.files.map((f, i) => (
+              <li key={`${f.name}-${f.size}-${i}`} className="flex items-center gap-2 rounded-lg bg-white border border-green-200 px-2.5 py-1.5">
+                <FileText className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                <span className="text-xs text-green-800 font-medium truncate min-w-0 flex-1">{f.name}</span>
+                <span className="text-[11px] text-slate-400 flex-shrink-0">{formatBytes(f.size)}</span>
+                <button onClick={() => removeFileAt(sk, i)} title="Remove file" className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"><X className="w-3.5 h-3.5" /></button>
+              </li>
+            ))}
+          </ul>
         )}
 
         {vaultMatches.length > 0 && (
@@ -1220,9 +1256,9 @@ export default function ApplyPage() {
         )}
 
         <div className="ml-11">
-          <button onClick={() => pickFileFor(sk)} className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg border border-brand-100 transition-colors">
+          <button onClick={() => pickFilesFor(sk)} className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg border border-brand-100 transition-colors">
             <Upload className="w-3.5 h-3.5" />
-            {source?.type === 'file' ? 'Replace file' : 'Upload file'}
+            {source?.type === 'files' ? 'Add more files' : 'Upload files'}
           </button>
         </div>
       </div>
@@ -1621,7 +1657,7 @@ export default function ApplyPage() {
                               return (
                                 <div key={req._id || req.name} className="flex items-center justify-between text-xs">
                                   <span className="text-slate-600">{req.name}{req.required && <span className="text-red-400 ml-1">*</span>}</span>
-                                  {src ? <span className="text-green-700 font-medium flex items-center gap-1">{src.type === 'vault' ? <Vault className="w-3 h-3" /> : <Check className="w-3 h-3" />} {src.type === 'vault' ? src.label : src.file.name}</span> : <span className="text-slate-400 italic">Not provided</span>}
+                                  {src ? <span className="text-green-700 font-medium flex items-center gap-1">{src.type === 'vault' ? <Vault className="w-3 h-3" /> : <Check className="w-3 h-3" />} {src.type === 'vault' ? src.label : src.type === 'files' ? (src.files.length === 1 ? src.files[0].name : `${src.files.length} files`) : src.file.name}</span> : <span className="text-slate-400 italic">Not provided</span>}
                                 </div>
                               );
                             })}
