@@ -36,7 +36,7 @@ export default function FAQ() {
     <section className="py-24 bg-gradient-to-b from-slate-50 to-white relative overflow-hidden border-t border-slate-100">
       {/* Light background blobs */}
       <div className="absolute top-0 left-10 w-96 h-96 bg-brand-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute bottom-0 right-10 w-80 h-80 bg-indigo-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
+      <div className="absolute bottom-0 right-10 w-80 h-80 bg-gold-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
 
       <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">

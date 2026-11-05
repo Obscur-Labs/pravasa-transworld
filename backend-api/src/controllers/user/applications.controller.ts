@@ -12,8 +12,9 @@ import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { isWordFile } from '../../middleware/upload.middleware';
 import { extractPassport } from '../../services/ocr.service';
 import { generateVisaSummaryPDF } from '../../services/pdf.service';
+import { buildTravellers } from '../../utils/travellers';
 import { sendSuccess, sendError } from '../../utils/response';
-import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf } from '../../utils/pricing';
+import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf, GST_RATE } from '../../utils/pricing';
 
 export const getDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user!._id;
@@ -43,7 +44,7 @@ export const getApplications = async (req: AuthRequest, res: Response): Promise<
 };
 
 export const createApplication = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { visaTypeId, formResponses, adults, children, travelDate, acceptedTerms } = req.body;
+  const { visaTypeId, formResponses, adults, children, travelDate, travelEndDate, acceptedTerms, travellers } = req.body;
   if (!visaTypeId) { sendError(res, 'Visa type is required'); return; }
 
   const visaType = await VisaType.findById(visaTypeId);
@@ -92,6 +93,8 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     adults: numAdults,
     children: numChildren,
     travelDate: travelDate || (formResponses?.travelDate ?? ''),
+    travelEndDate: String(travelEndDate || ''),
+    travellers: buildTravellers(referenceId, numAdults, numChildren, travellers),
     paymentAmount,
     adultBase, adultVfs, adultFee, childBase, childVfs, childFee, gstAmount,
     pricingTier,
@@ -108,7 +111,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   
   const notif = await AdminNotification.create({
     title: 'New Application Submitted',
-    message: `A new application (${application.referenceId}) was submitted for ${visaType.name}.`,
+    message: `A new application (${application.referenceId}) was submitted for ${visaType.name}${numAdults + numChildren > 1 ? `, family of ${numAdults + numChildren}` : ''}.`,
     type: 'new_application',
     application: application._id,
   });
@@ -218,6 +221,8 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
     }
   }
 
+  const triggeredBy = String(req.body.triggeredBy || '').slice(0, 200);
+
   // Mongoose Map rejects keys containing ".", strip dots from all keys before DB write.
   const safeData = Object.fromEntries(
     Object.entries(extractedData).map(([k, v]) => [k.replace(/\./g, ''), v])
@@ -233,9 +238,10 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
     existing.reviewedAt = null;
     if (docType) existing.docType = docType;
     existing.extractedData = safeData as any;
+    existing.triggeredBy = triggeredBy;
     doc = await existing.save();
   } else {
-    doc = await Document.create({ application: application._id, requirementName, url, publicId, docType, extractedData: safeData });
+    doc = await Document.create({ application: application._id, requirementName, url, publicId, docType, extractedData: safeData, triggeredBy });
   }
 
   sendSuccess(res, doc, 'Document uploaded');
@@ -282,9 +288,36 @@ export const submitCourierDetails = async (req: AuthRequest, res: Response): Pro
   sendSuccess(res, application, 'Courier details saved');
 };
 
+// Per-adult public price incl. GST on the service fee, the figure every listing shows.
+const adultDisplayPrice = (v: Parameters<typeof computeVisaPricing>[0]) => {
+  const b = computeVisaPricing(v, 'individual');
+  return b.adultBase + b.adultVfs + b.adultFee + Math.round(b.adultFee * GST_RATE);
+};
+
+/**
+ * Website countries with a listing summary: the cheapest adult price ("from"), that
+ * visa's processing time, how many visa types are live and which kinds (e-visa, sticker).
+ */
 export const getPublicCountries = async (_req: AuthRequest, res: Response): Promise<void> => {
-  const countries = await Country.find({ isActive: true, showOnWebsite: true }).sort({ name: 1 });
-  sendSuccess(res, countries);
+  const countries = await Country.find({ isActive: true, showOnWebsite: true }).sort({ name: 1 }).lean();
+  const visas = await VisaType.find({ country: { $in: countries.map((c) => c._id) }, isActive: true })
+    .select('country price adultPrice adultVfsFee adultServiceFee processingTime visaSubType')
+    .lean();
+
+  sendSuccess(res, countries.map((c) => {
+    const own = visas.filter((v) => String(v.country) === String(c._id));
+    const cheapest = own
+      .map((v) => ({ v, price: adultDisplayPrice(v as any) }))
+      .filter((x) => x.price > 0)
+      .sort((a, b) => a.price - b.price)[0];
+    return {
+      ...c,
+      visaTypeCount: own.length,
+      fromPrice: cheapest?.price ?? null,
+      processingTime: cheapest?.v.processingTime || own[0]?.processingTime || '',
+      visaSubTypes: [...new Set(own.map((v) => v.visaSubType).filter(Boolean))],
+    };
+  }));
 };
 
 // All active countries, for logged-in users applying for a visa.
@@ -411,6 +444,7 @@ export const addDocumentFromVault = async (req: AuthRequest, res: Response): Pro
   const vaultDoc = await DocumentVault.findOne({ _id: vaultDocId, user: req.user!._id });
   if (!vaultDoc) { sendError(res, 'Vault document not found', 404); return; }
 
+  const triggeredBy = String(req.body.triggeredBy || '').slice(0, 200);
   const existing = await Document.findOne({ application: application._id, requirementName });
   let doc;
   if (existing) {
@@ -419,9 +453,10 @@ export const addDocumentFromVault = async (req: AuthRequest, res: Response): Pro
     existing.status = 'pending';
     existing.rejectionReason = '';
     existing.reviewedAt = null;
+    existing.triggeredBy = triggeredBy;
     doc = await existing.save();
   } else {
-    doc = await Document.create({ application: application._id, requirementName, url: vaultDoc.url, publicId: vaultDoc.publicId });
+    doc = await Document.create({ application: application._id, requirementName, url: vaultDoc.url, publicId: vaultDoc.publicId, triggeredBy });
   }
   sendSuccess(res, doc, 'Document linked from vault');
 };

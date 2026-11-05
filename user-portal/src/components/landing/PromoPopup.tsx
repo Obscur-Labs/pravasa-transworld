@@ -51,7 +51,7 @@ export default function PromoPopup() {
     <div className="fixed bottom-6 right-6 z-[9999] animate-in slide-in-from-bottom-4 fade-in duration-300">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-80 overflow-hidden">
         {/* Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-violet-600 to-brand-600 flex items-center justify-between">
+        <div className="px-5 py-4 bg-gradient-to-r from-gold-600 to-brand-600 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
               <Tag className="w-4 h-4 text-white" />
@@ -70,7 +70,7 @@ export default function PromoPopup() {
         <div className="px-5 py-4">
           {/* Discount badge */}
           <div className="flex items-center gap-2 mb-3">
-            <span className={`inline-flex items-center gap-1 text-xl font-bold px-3 py-1 rounded-xl ${promo.discountType === 'percentage' ? 'bg-violet-100 text-violet-700' : 'bg-brand-100 text-brand-700'}`}>
+            <span className={`inline-flex items-center gap-1 text-xl font-bold px-3 py-1 rounded-xl ${promo.discountType === 'percentage' ? 'bg-gold-100 text-gold-700' : 'bg-brand-100 text-brand-700'}`}>
               {promo.discountType === 'percentage' ? <Percent className="w-4 h-4" /> : <IndianRupee className="w-4 h-4" />}
               {promo.discountValue}
               <span className="text-sm font-semibold ml-0.5">{promo.discountType === 'percentage' ? '% OFF' : ' OFF'}</span>
@@ -102,7 +102,7 @@ export default function PromoPopup() {
               <button
                 key={i}
                 onClick={() => setIdx(i)}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? 'bg-violet-600 w-3' : 'bg-slate-300'}`}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? 'bg-gold-600 w-3' : 'bg-slate-300'}`}
               />
             ))}
           </div>

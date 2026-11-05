@@ -5,6 +5,7 @@ import { submitContactLead } from '../controllers/admin/contactLeads.controller'
 import { getWebsitePromos } from '../controllers/public/promoCodes.controller';
 import { getPublicVisaConfig } from '../controllers/public/visaConfig.controller';
 import { submitServiceInquiry } from '../controllers/public/serviceInquiries.controller';
+import { getBusinessInfo } from '../controllers/public/businessInfo.controller';
 import { optionalAuth } from '../middleware/auth.middleware';
 import { inquiryLimiter } from '../middleware/rateLimiter';
 
@@ -18,5 +19,6 @@ router.post('/contact', inquiryLimiter, submitContactLead);
 router.post('/inquiries/:service', inquiryLimiter, submitServiceInquiry);
 router.get('/promos', getWebsitePromos);
 router.get('/visa-config', getPublicVisaConfig);
+router.get('/business-info', getBusinessInfo);
 
 export default router;

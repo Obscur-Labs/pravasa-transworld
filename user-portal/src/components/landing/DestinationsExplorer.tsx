@@ -52,7 +52,7 @@ export default function DestinationsExplorer() {
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight leading-tight">
             Where Are You<br />
-            <span className="text-brand-600">Travelling Next?</span>
+            <span className="text-gold-600">Travelling Next?</span>
           </h1>
           <p className="text-slate-500 font-medium max-w-xl mb-8 text-[15px] leading-relaxed">
             Apply for your visa online with expert immigration assistance. Explore every country we support:

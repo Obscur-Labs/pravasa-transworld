@@ -90,7 +90,7 @@ export default function ProfilePage() {
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploadingPhoto}
-            className="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-600 hover:bg-brand-700 text-white rounded-full flex items-center justify-center shadow-md transition-colors disabled:opacity-60"
+            className="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-900 hover:bg-brand-800 text-white rounded-full flex items-center justify-center shadow-md transition-colors disabled:opacity-60"
             title="Change photo"
           >
             {uploadingPhoto ? (
@@ -115,7 +115,7 @@ export default function ProfilePage() {
             variant="outline"
             className={`mt-2 text-xs capitalize ${
               user.accountType === 'corporate'
-                ? 'border-violet-300 text-violet-700 bg-violet-50'
+                ? 'border-gold-300 text-gold-700 bg-gold-50'
                 : 'border-brand-300 text-brand-700 bg-brand-50'
             }`}
           >
@@ -186,7 +186,7 @@ export default function ProfilePage() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="w-full h-10 bg-brand-600 hover:bg-brand-700 text-white font-medium"
+          className="w-full h-10 bg-brand-900 hover:bg-brand-800 text-white font-medium"
         >
           {saving ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />

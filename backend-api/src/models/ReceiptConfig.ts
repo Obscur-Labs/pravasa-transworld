@@ -1,7 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 // Singleton, always exactly one document, upserted via findOneAndUpdate({}, ...).
-// Holds the seller-side details printed on every generated receipt/tax invoice.
+// Holds the seller-side details printed on every generated receipt/tax invoice, and the
+// public contact details (phones, address, hours, website) the website shows everywhere.
 export interface IReceiptConfig extends Document {
   companyName: string;
   addressLine1: string;
@@ -15,6 +16,9 @@ export interface IReceiptConfig extends Document {
   stateCode: string;
   sacCode: string;
   logoUrl: string;
+  phone2: string;
+  website: string;
+  businessHours: string;
 }
 
 const ReceiptConfigSchema = new Schema<IReceiptConfig>(
@@ -31,6 +35,9 @@ const ReceiptConfigSchema = new Schema<IReceiptConfig>(
     stateCode: { type: String, default: '' },
     sacCode: { type: String, default: '998555' },
     logoUrl: { type: String, default: '' },
+    phone2: { type: String, default: '' },
+    website: { type: String, default: '' },
+    businessHours: { type: String, default: '' },
   },
   { timestamps: true }
 );

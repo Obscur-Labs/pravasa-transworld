@@ -1,13 +1,13 @@
 'use client';
 import { useState } from 'react';
-import { Plus, X, ChevronUp, ChevronDown, TextCursorInput, Paperclip, GripVertical, CornerDownRight } from 'lucide-react';
+import { Plus, X, ChevronUp, ChevronDown, TextCursorInput, Paperclip, GripVertical, CornerDownRight, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { OptionListEditor } from './option-list-editor';
 import { ApplicantTypeSelector } from './applicant-type-selector';
 import { DOC_TYPE_OPTIONS, hasOptions, mergeFormItems, toFieldName } from '@/types';
-import type { FormField, FormItem, DocumentRequirement, DocumentType, FieldType, SubField } from '@/types';
+import type { FormField, FormItem, DocumentRequirement, DocumentShowWhen, DocumentType, FieldType, SubField } from '@/types';
 import { NativeSelect } from '@/components/ui/native-select';
 
 const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea'];
@@ -16,7 +16,7 @@ const selectClass = 'mt-0.5 h-8 px-2 text-xs';
 
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult', subFields: [] });
 const emptySubField = (): SubField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', showWhen: [] });
-const emptyDoc = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false, order: 0 });
+const emptyDoc = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false, order: 0, showWhen: null });
 
 // Keeps fieldName in step with the label until the admin types their own.
 const withLabel = <T extends { label: string; fieldName: string }>(q: T, label: string): T => {
@@ -95,6 +95,84 @@ function SubFieldEditor({ parent, sub, onChange, onRemove }: {
   );
 }
 
+/**
+ * Makes a document row conditional on a select/radio question, so e.g. a marriage
+ * certificate is asked for only when Marital Status = Married. Several documents can
+ * share one answer, and a hidden upload never blocks the applicant's submission.
+ */
+function DocShowWhenEditor({ rule, questions, onChange }: {
+  rule: DocumentShowWhen | null | undefined;
+  questions: FormField[];
+  onChange: (next: DocumentShowWhen | null) => void;
+}) {
+  const [open, setOpen] = useState(!!rule);
+  const trigger = questions.find((q) => q.fieldName === rule?.field);
+  const values = (rule?.values || []).filter((v) => trigger?.options.includes(v));
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} disabled={!questions.length}
+        title={questions.length ? undefined : 'Add a select or radio question first'}
+        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline">
+        <Eye className="w-3 h-3" />Show when
+      </button>
+    );
+  }
+
+  const toggle = (opt: string) => {
+    if (!trigger) return;
+    const next = values.includes(opt) ? values.filter((v) => v !== opt) : [...values, opt];
+    onChange({ field: trigger.fieldName, values: next });
+  };
+
+  return (
+    <div className="w-full mt-2 pt-2 border-t border-border space-y-2">
+      <div className="flex items-center gap-1.5 flex-wrap text-xs">
+        <CornerDownRight className="w-3.5 h-3.5 text-primary" />
+        <span className="text-muted-foreground">Ask for this document only when</span>
+        <NativeSelect
+          value={trigger?.fieldName || ''}
+          onChange={(e) => onChange(e.target.value ? { field: e.target.value, values: [] } : null)}
+          className="h-7 px-2 text-xs w-auto"
+        >
+          <option value="">Pick a question</option>
+          {questions.map((q) => <option key={q.fieldName} value={q.fieldName}>{q.label || q.fieldName}</option>)}
+        </NativeSelect>
+        {trigger && <span className="text-muted-foreground">is</span>}
+        <button type="button" onClick={() => { onChange(null); setOpen(false); }} aria-label="Remove rule"
+          className="ml-auto p-1 rounded text-destructive/70 hover:text-destructive hover:bg-destructive/10">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {trigger && (
+        <div className="flex items-center gap-1.5 flex-wrap text-xs pl-5">
+          {trigger.options.map((opt) => (
+            <button key={opt} type="button" aria-pressed={values.includes(opt)} onClick={() => toggle(opt)}
+              className={cn(
+                'px-2 py-0.5 rounded-md border font-medium transition-colors',
+                values.includes(opt)
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground',
+              )}>
+              {opt}
+            </button>
+          ))}
+          {!values.length && <span className="text-warning font-medium">Pick at least one answer, or the document is always asked for.</span>}
+        </div>
+      )}
+      {rule?.field && !trigger && (
+        <p className="text-xs text-warning pl-5">That question was removed or is no longer a select/radio. The document is always asked for.</p>
+      )}
+    </div>
+  );
+}
+
+const ruleLabel = (rule: DocumentShowWhen | null | undefined, questions: FormField[]) => {
+  const trigger = questions.find((q) => q.fieldName === rule?.field);
+  const values = (rule?.values || []).filter((v) => trigger?.options.includes(v));
+  return trigger && values.length ? `If ${trigger.label || trigger.fieldName} = ${values.join(' / ')}` : '';
+};
+
 /** Questions and document uploads as one ordered list, shared by Visa Types and Form Presets. */
 export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFormBuilderProps) {
   const items = mergeFormItems(fields, docs);
@@ -126,8 +204,24 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
     setDropIndex(null);
   };
 
-  const setField = (i: number, fn: (f: FormField) => FormField) =>
-    commit(items.map((it, idx) => (idx === i && it.kind === 'field' ? { ...it, field: fn(it.field) } : it)));
+  // Select/radio questions a document can be made conditional on.
+  const triggerQuestions = fields.filter((f) => hasOptions(f.type) && f.fieldName && f.options.length);
+
+  // Renaming a question's key carries its document rules along with it.
+  const setField = (i: number, fn: (f: FormField) => FormField) => {
+    const current = items[i];
+    if (current?.kind !== 'field') return;
+    const next = fn(current.field);
+    const from = current.field.fieldName;
+    const to = next.fieldName;
+    commit(items.map((it, idx) => {
+      if (idx === i) return { ...current, field: next };
+      if (it.kind === 'document' && from && from !== to && it.doc.showWhen?.field === from) {
+        return { ...it, doc: { ...it.doc, showWhen: { ...it.doc.showWhen, field: to } } };
+      }
+      return it;
+    }));
+  };
 
   const updateField = (i: number, key: keyof FormField, value: unknown) => setField(i, (f) => ({ ...f, [key]: value }));
 
@@ -170,7 +264,7 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
       <p className="text-xs text-muted-foreground mb-2">
         {items.length === 0
           ? 'Nothing yet. Add the questions applicants answer and the documents they upload, in any order.'
-          : <>Use <span className="font-medium">Applies to</span> to pick which travellers see each row, and <span className="font-medium">Follow-up</span> to ask more only for certain answers.</>}
+          : <>Use <span className="font-medium">Applies to</span> to pick which travellers see each row, <span className="font-medium">Follow-up</span> to ask more questions for certain answers, and <span className="font-medium">Show when</span> on a document to ask for it only for certain answers.</>}
       </p>
 
       <div className="space-y-2">
@@ -205,6 +299,11 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
                 {item.kind === 'field' ? 'Field' : 'Document'}
               </span>
               <span className="text-xs font-semibold text-muted-foreground tabular-nums">#{i + 1}</span>
+              {item.kind === 'document' && ruleLabel(item.doc.showWhen, triggerQuestions) && (
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-warning/10 text-warning truncate max-w-[50%]">
+                  {ruleLabel(item.doc.showWhen, triggerQuestions)}
+                </span>
+              )}
               <div className="ml-auto flex items-center gap-0.5">
                 <button type="button" onClick={() => reorder(i, i - 1)} disabled={i === 0} aria-label="Move up"
                   className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:hover:bg-transparent">
@@ -304,7 +403,15 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
                       OCR extraction
                     </label>
                   )}
+                  {!item.doc.showWhen && (
+                    <span className="ml-auto">
+                      <DocShowWhenEditor key="closed" rule={null} questions={triggerQuestions} onChange={(r) => updateDoc(i, 'showWhen', r)} />
+                    </span>
+                  )}
                 </div>
+                {item.doc.showWhen && (
+                  <DocShowWhenEditor key="open" rule={item.doc.showWhen} questions={triggerQuestions} onChange={(r) => updateDoc(i, 'showWhen', r)} />
+                )}
               </>
             )}
           </div>

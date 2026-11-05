@@ -36,7 +36,7 @@ export default function CountriesSection() {
   return (
     <section id="destinations" className="py-24 bg-gradient-to-b from-slate-50 via-brand-50/30 to-white relative overflow-hidden">
       <div className="absolute top-0 left-10 w-[400px] h-[400px] bg-brand-200/30 rounded-full blur-3xl pointer-events-none animate-float" />
-      <div className="absolute bottom-0 right-10 w-[350px] h-[350px] bg-indigo-100/40 rounded-full blur-3xl pointer-events-none animate-float-reverse" />
+      <div className="absolute bottom-0 right-10 w-[350px] h-[350px] bg-gold-100/40 rounded-full blur-3xl pointer-events-none animate-float-reverse" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
@@ -89,7 +89,7 @@ export default function CountriesSection() {
           </Button>
           <Button
             asChild
-            className="group bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white shadow-xl shadow-brand-500/10 hover:shadow-brand-500/20 hover:scale-105 transition-all duration-300 border-0"
+            className="group bg-brand-900 hover:bg-brand-800 text-white shadow-xl shadow-brand-500/10 hover:shadow-brand-500/20 hover:scale-105 transition-all duration-300 border-0"
           >
             <Link href={hasSession ? '/apply' : '/login'}>
               Apply Now

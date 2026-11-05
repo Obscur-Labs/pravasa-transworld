@@ -119,7 +119,7 @@ export default function ServiceInquiryForm({ serviceKey }: { serviceKey: Service
           <button type="button" onClick={reset} className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
             Send another request
           </button>
-          <Link href="/" className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-700">
+          <Link href="/" className="rounded-xl bg-brand-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-800">
             Explore visas
           </Link>
         </div>
@@ -152,7 +152,7 @@ export default function ServiceInquiryForm({ serviceKey }: { serviceKey: Service
                 aria-checked={v === o}
                 onClick={() => set(f.key, o)}
                 className={`rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ${
-                  v === o ? 'border-brand-600 bg-brand-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700'
+                  v === o ? 'border-brand-600 bg-brand-900 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700'
                 }`}
               >
                 {o}
@@ -302,7 +302,7 @@ export default function ServiceInquiryForm({ serviceKey }: { serviceKey: Service
       <button
         type="submit"
         disabled={submitting}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-brand-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-brand-600/15 transition-colors hover:bg-brand-700 disabled:opacity-60"
+        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-brand-900 py-3.5 text-sm font-bold text-white shadow-lg shadow-brand-600/15 transition-colors hover:bg-brand-800 disabled:opacity-60"
       >
         {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Sending...</> : <><Send className="w-4 h-4" />{service.submitLabel}</>}
       </button>

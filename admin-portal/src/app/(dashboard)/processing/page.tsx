@@ -16,6 +16,7 @@ import type { Application, ApplicationStatus } from '@/types';
 
 const BOARD_COLUMNS: { status: ApplicationStatus; tone: string }[] = [
   { status: 'payment_completed', tone: 'text-violet-600 bg-violet-500/10 border-violet-500/20' },
+  { status: 'documents_under_review', tone: 'text-primary bg-primary/10 border-primary/20' },
   { status: 'visa_processing', tone: 'text-info bg-info/10 border-info/20' },
   { status: 'embassy_review', tone: 'text-warning bg-warning/10 border-warning/20' },
   { status: 'visa_approved', tone: 'text-success bg-success/10 border-success/20' },

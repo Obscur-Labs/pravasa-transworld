@@ -931,7 +931,7 @@ export default function DocumentVaultPage() {
           <p className="text-slate-400 text-xs mb-7 flex items-center flex-wrap gap-2">
             {active === 'other' ? 'Add as many documents as you need. Each gets its own name.' : CFG[active].sublabel}
             {CFG[active].ocr && <span className="inline-flex items-center gap-1 bg-brand-50 text-brand-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"><Scan className="w-2.5 h-2.5" />OCR auto-extract</span>}
-            {active === 'other' && <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">Unlimited uploads</span>}
+            {active === 'other' && <span className="inline-flex items-center gap-1 bg-gold-50 text-gold-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">Unlimited uploads</span>}
           </p>
           {renderUploader(active)}
         </div>

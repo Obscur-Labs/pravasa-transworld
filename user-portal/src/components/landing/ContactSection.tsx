@@ -1,9 +1,11 @@
-﻿'use client';
+'use client';
 import { useState } from 'react';
-import { Mail, Phone, MapPin, Send, CheckCircle, Loader2 } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, CheckCircle, Loader2, Clock, Globe } from 'lucide-react';
 import { submitContactLead } from '@/lib/api';
+import { telHref, useBusinessInfo, websiteHref } from '@/lib/business';
 
 export default function ContactSection() {
+  const biz = useBusinessInfo();
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -28,7 +30,7 @@ export default function ContactSection() {
     <section id="contact" className="py-24 bg-gradient-to-b from-white to-brand-50/20 relative overflow-hidden border-t border-slate-100">
       {/* Decorative light glowing blobs with very slow & gentle animations */}
       <div className="absolute top-0 left-1/3 w-96 h-96 bg-brand-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute bottom-0 right-10 w-80 h-80 bg-indigo-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
+      <div className="absolute bottom-0 right-10 w-80 h-80 bg-gold-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
@@ -46,11 +48,13 @@ export default function ContactSection() {
           <div>
             <div className="space-y-4 mb-10">
               {[
-                { icon: Mail, label: 'Email Us', value: 'support.pravasatransworld@gmail.com', href: 'mailto:support.pravasatransworld@gmail.com' },
-                { icon: Phone, label: 'Call Us', value: '+91 84693 24000', href: 'tel:+918469324000' },
-                { icon: MapPin, label: 'Hours', value: 'Mon–Fri, 9AM–6PM EST' },
+                { icon: Mail, label: 'Email Us', value: biz.email, href: `mailto:${biz.email}` },
+                ...biz.phones.map((p, i) => ({ icon: Phone, label: i === 0 ? 'Call Us' : 'Or Call', value: p, href: telHref(p) })),
+                { icon: MapPin, label: 'Office', value: biz.address },
+                { icon: Clock, label: 'Hours', value: biz.businessHours },
+                { icon: Globe, label: 'Website', value: biz.website, href: websiteHref(biz.website) },
               ].map(({ icon: Icon, label, value, href }) => (
-                <div key={label} className="bg-white rounded-3xl px-5 py-4 flex items-center gap-4 border border-slate-100 hover:border-brand-200 shadow-sm transition-all duration-300">
+                <div key={`${label}-${value}`} className="bg-white rounded-3xl px-5 py-4 flex items-center gap-4 border border-slate-100 hover:border-brand-200 shadow-sm transition-all duration-300">
                   <div className="w-10 h-10 bg-brand-50 border border-brand-100/50 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Icon className="w-5 h-5 text-brand-600" />
                   </div>
@@ -123,7 +127,7 @@ export default function ContactSection() {
                       <label className="block text-sm font-bold text-slate-700 mb-1.5">Phone</label>
                       <input
                         type="tel"
-                        placeholder="+1 (000) 000-0000"
+                        placeholder="+91 98xxx xxxxx"
                         value={form.phone}
                         onChange={(e) => setForm({ ...form, phone: e.target.value })}
                         className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all duration-300 focus:bg-white font-medium"
@@ -155,7 +159,7 @@ export default function ContactSection() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold py-3 rounded-2xl transition-all duration-300 text-sm shadow-lg shadow-brand-600/10 hover:shadow-brand-600/20 hover:scale-[1.02] active:scale-[0.98] border-0"
+                    className="w-full flex items-center justify-center gap-2 bg-brand-900 hover:bg-brand-800 disabled:opacity-60 text-white font-bold py-3 rounded-2xl transition-all duration-300 text-sm shadow-lg shadow-brand-600/10 hover:shadow-brand-600/20 hover:scale-[1.02] active:scale-[0.98] border-0"
                   >
                     {submitting ? (
                       <><Loader2 className="w-4 h-4 animate-spin text-white" />Sending...</>

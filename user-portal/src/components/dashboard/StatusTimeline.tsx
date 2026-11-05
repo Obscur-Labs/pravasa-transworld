@@ -1,30 +1,26 @@
 'use client';
 import { CheckCircle2, Circle, XCircle, Clock } from 'lucide-react';
+import { PIPELINE_STAGES, stageIndexOf } from '@/types';
 import type { ApplicationStatus } from '@/types';
 
-const STEPS: { label: string; statuses: ApplicationStatus[] }[] = [
-  { label: 'Application Submitted', statuses: ['submitted', 'documents_under_review', 'documents_approved', 'payment_pending'] },
-  { label: 'Payment Completed', statuses: ['payment_completed'] },
-  { label: 'Visa Processing', statuses: ['visa_processing', 'embassy_review'] },
-  { label: 'Visa Approved', statuses: ['visa_approved', 'visa_delivered'] },
-];
+const STEPS = PIPELINE_STAGES;
 
-function getStepState(status: ApplicationStatus, stepIdx: number): 'done' | 'active' | 'pending' {
-  for (let i = 0; i < STEPS.length; i++) {
-    if (STEPS[i].statuses.includes(status)) {
-      if (i > stepIdx) return 'done';
-      if (i === stepIdx) return 'active';
-      return 'pending';
-    }
-  }
+// The payment stage only reads as done once the payment is verified, so an older
+// application reviewed before paying still shows its payment as outstanding.
+function getStepState(status: ApplicationStatus, paid: boolean, stepIdx: number): 'done' | 'active' | 'pending' {
+  const current = stageIndexOf(status);
+  if (stepIdx === 1 && !paid) return current === 1 ? 'active' : 'pending';
+  if (current > stepIdx) return 'done';
+  if (current === stepIdx) return 'active';
   return 'pending';
 }
 
 interface Props {
   currentStatus: ApplicationStatus;
+  paid?: boolean;
 }
 
-export default function StatusTimeline({ currentStatus }: Props) {
+export default function StatusTimeline({ currentStatus, paid = false }: Props) {
   if (currentStatus === 'visa_rejected') {
     return (
       <div className="flex items-center gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
@@ -40,14 +36,14 @@ export default function StatusTimeline({ currentStatus }: Props) {
   return (
     <div className="relative">
       {STEPS.map((step, idx) => {
-        const state = getStepState(currentStatus, idx);
+        const state = getStepState(currentStatus, paid, idx);
         const isLast = idx === STEPS.length - 1;
         return (
           <div key={step.label} className="flex items-start gap-4 relative">
             <div className="flex flex-col items-center">
               <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors border-2 ${
                 state === 'done' ? 'bg-green-500 border-green-500' :
-                state === 'active' ? 'bg-brand-600 border-brand-600' :
+                state === 'active' ? 'bg-brand-900 border-brand-600' :
                 'bg-white border-slate-200'
               }`}>
                 {state === 'done' ? (

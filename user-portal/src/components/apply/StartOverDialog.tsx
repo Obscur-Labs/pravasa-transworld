@@ -46,7 +46,7 @@ export default function StartOverDialog({ open, onOpenChange, fromDraft, hasUplo
               type="button"
               onClick={onSave}
               disabled={saving}
-              className="flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2"
+              className="flex items-center justify-center gap-2 rounded-xl bg-brand-900 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookmarkPlus className="h-4 w-4" />}
               {fromDraft ? 'Save changes & start over' : 'Save to My Applications'}

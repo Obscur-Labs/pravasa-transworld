@@ -13,6 +13,8 @@ export interface IDocument extends Document {
   docType: string;
   // Structured fields read from the uploaded image (e.g. passport OCR), keyed by display label.
   extractedData: Map<string, string>;
+  // The answer that made a conditional upload appear, e.g. "Marital Status = Married".
+  triggeredBy: string;
   uploadedAt: Date;
   reviewedAt: Date | null;
 }
@@ -27,6 +29,7 @@ const DocumentSchema = new Schema<IDocument>(
     rejectionReason: { type: String, default: '' },
     docType: { type: String, default: '' },
     extractedData: { type: Map, of: String, default: {} },
+    triggeredBy: { type: String, default: '' },
     reviewedAt: { type: Date, default: null },
   },
   { timestamps: true, toJSON: withDeliveryUrl }

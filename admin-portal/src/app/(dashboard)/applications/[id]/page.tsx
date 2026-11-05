@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, Upload, ExternalLink, Download, Trash2,
-  Circle, Receipt, FileText, PencilLine, AlertTriangle, Package, Mail, Paperclip,
+  Circle, Receipt, FileText, PencilLine, AlertTriangle, Package, Mail, Paperclip, Users, Link2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,28 +23,27 @@ import { PAYMENT_METHOD_LABELS, formatDate, formatCurrency } from '@/lib/utils';
 import { PaymentProofLink } from '@/components/shared/payment-proof-link';
 import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import type { Application, Document, EmbassyMail, Payment, PaymentStatus, VisaFile } from '@/types';
-import { STATUS_LABELS, SELECTABLE_STATUSES } from '@/types';
+import { STATUS_LABELS, SELECTABLE_STATUSES, PIPELINE_STAGES, stageIndexOf } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
 
-// ── 4-step simplified status ──
-const SIMPLIFIED_STEPS = [
-  { label: 'Application Submitted', statuses: ['submitted', 'documents_under_review', 'documents_approved', 'payment_pending'] },
-  { label: 'Payment Completed', statuses: ['payment_completed'] },
-  { label: 'Visa Processing', statuses: ['visa_processing', 'embassy_review'] },
-  { label: 'Visa Approved', statuses: ['visa_approved', 'visa_delivered'] },
-] as const;
-
-function getStepState(status: string, stepIdx: number): 'done' | 'active' | 'pending' {
-  for (let i = 0; i < SIMPLIFIED_STEPS.length; i++) {
-    if ((SIMPLIFIED_STEPS[i].statuses as readonly string[]).includes(status)) {
-      if (i > stepIdx) return 'done';
-      if (i === stepIdx) return 'active';
-      return 'pending';
-    }
-  }
+// The payment stage only counts as done once a payment is verified, so an older
+// application reviewed before paying still shows its payment as outstanding.
+function getStageState(application: Application, paid: boolean, stepIdx: number): 'done' | 'active' | 'pending' {
+  const current = stageIndexOf(application.status);
+  if (stepIdx === 1 && !paid) return current === 1 ? 'active' : 'pending';
+  if (current > stepIdx) return 'done';
+  if (current === stepIdx) return 'active';
   return 'pending';
 }
+
+const RELATION_LABELS = { father: 'Father', mother: 'Mother', guardian: 'Guardian' } as const;
+
+// Traveller names live in the answers, read from their passport scan at submission.
+const travellerName = (application: Application, label: string) => {
+  const r = application.formResponses || {};
+  return [r[`${label} - Given Name(s)`], r[`${label} - Surname`]].filter(Boolean).join(' ');
+};
 
 const PAYMENT_BADGE: Record<PaymentStatus, { label: string; variant: 'success' | 'destructive' | 'warning' | 'secondary' }> = {
   completed: { label: 'Paid', variant: 'success' },
@@ -338,7 +337,7 @@ export default function AdminApplicationDetailPage() {
     && !application.courier.receivedAt
     && application.courier.expectedDate < todayStr;
 
-  // Manual dropdown mirrors the 4-step progress (+ Rejected). Keep the current status
+  // Manual dropdown has one status per pipeline stage (+ Rejected). Keep the current status
   // visible even if it's an internal sub-status set automatically by the workflow.
   const statusOptions = SELECTABLE_STATUSES.includes(application.status)
     ? SELECTABLE_STATUSES
@@ -411,6 +410,52 @@ export default function AdminApplicationDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Family group: one ID per traveller under the order, children linked to their parents */}
+          {(application.travellers?.length ?? 0) > 1 && (
+            <Card>
+              <div className="p-5 border-b border-border flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-foreground">Family group</h3>
+                <span className="text-xs font-mono text-muted-foreground">{application.referenceId}</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {application.adults} adult{application.adults === 1 ? '' : 's'}
+                  {application.children ? ` + ${application.children} child${application.children === 1 ? '' : 'ren'}` : ''}
+                </span>
+              </div>
+              <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {application.travellers!.map((t) => {
+                  const name = travellerName(application, t.label);
+                  const childrenOf = application.travellers!.filter((c) => c.parents.some((p) => p.key === t.key));
+                  return (
+                    <div key={t.key} className={`rounded-xl border p-3 text-sm ${t.kind === 'child' ? 'border-success/30 bg-success/5' : 'border-border'}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t.label}</p>
+                      <p className="font-mono text-xs font-semibold text-foreground mt-0.5">{t.ref}</p>
+                      {name && <p className="font-medium text-foreground mt-1">{name}</p>}
+                      {t.parents.map((p) => {
+                        const parent = application.travellers!.find((x) => x.key === p.key);
+                        return parent ? (
+                          <p key={p.key} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/10 rounded-md px-1.5 py-0.5 mr-1">
+                            <Link2 className="w-3 h-3" />{RELATION_LABELS[p.relation]}: {parent.label}
+                          </p>
+                        ) : null;
+                      })}
+                      {childrenOf.map((c) => (
+                        <p key={c.key} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-success bg-success/10 rounded-md px-1.5 py-0.5 mr-1">
+                          <Link2 className="w-3 h-3" />Linked child: {c.label}
+                        </p>
+                      ))}
+                    </div>
+                  );
+                })}
+              </CardContent>
+              {application.travellers!.some((t) => t.kind === 'child' && t.parents.length > 0) && (
+                <p className="px-5 pb-4 -mt-1 text-xs text-muted-foreground">
+                  Linked children use their parents&apos; passport copies from this same application.
+                </p>
+              )}
+            </Card>
+          )}
 
           {/* Submitted Form, uploads and answers replayed in the order they were filled */}
           {(documents.length > 0 || Object.keys(application.formResponses).length > 0) && (
@@ -523,6 +568,9 @@ export default function AdminApplicationDetailPage() {
                           : <Clock className="w-4 h-4 text-warning flex-shrink-0" />}
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-foreground text-sm">{row.label}</p>
+                          {doc.triggeredBy && (
+                            <p className="text-[11px] font-medium text-warning">Asked because {doc.triggeredBy}</p>
+                          )}
                           {doc.status === 'rejected' && doc.rejectionReason && (
                             <p className="text-xs text-destructive">Reason: {doc.rejectionReason}</p>
                           )}
@@ -611,13 +659,13 @@ export default function AdminApplicationDetailPage() {
 
         {/* Right Panel */}
         <div className="space-y-5">
-          {/* 4-Step Status + Update */}
+          {/* Pipeline stages + Update */}
           <Card>
             <div className="p-4 border-b border-border">
               <h3 className="font-semibold text-foreground">Application Progress</h3>
             </div>
             <CardContent className="p-4 space-y-4">
-              {/* 4-step visual */}
+              {/* 6-stage visual */}
               {application.status === 'visa_rejected' ? (
                 <div className="flex items-center gap-3 p-3 bg-destructive/10 rounded-xl border border-destructive/20">
                   <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
@@ -625,9 +673,9 @@ export default function AdminApplicationDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {SIMPLIFIED_STEPS.map((step, idx) => {
-                    const state = getStepState(application.status, idx);
-                    const isLast = idx === SIMPLIFIED_STEPS.length - 1;
+                  {PIPELINE_STAGES.map((step, idx) => {
+                    const state = getStageState(application, payments.some((p) => p.status === 'completed'), idx);
+                    const isLast = idx === PIPELINE_STAGES.length - 1;
                     return (
                       <div key={step.label} className="flex items-start gap-3">
                         <div className="flex flex-col items-center">

@@ -391,56 +391,56 @@ export default function ApplicationDetailPage() {
 
           {/* Courier the original documents */}
           {application.courier?.requested && (
-            <Card className="border-violet-200 bg-violet-50">
+            <Card className="border-gold-200 bg-gold-50">
               <CardContent className="p-5">
                 <div className="flex items-start gap-3">
-                  <Package className="w-5 h-5 text-violet-600 flex-shrink-0 mt-0.5" />
+                  <Package className="w-5 h-5 text-gold-600 flex-shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-violet-900 mb-1">
+                    <h3 className="font-bold text-gold-900 mb-1">
                       {application.courier.receivedAt ? 'Documents Received' : 'Send Your Original Documents'}
                     </h3>
                     {application.courier.receivedAt ? (
-                      <p className="text-violet-700 text-sm">
+                      <p className="text-gold-700 text-sm">
                         We received your documents on {formatDate(application.courier.receivedAt)}. Nothing more is needed here.
                       </p>
                     ) : (
-                      <p className="text-violet-700 text-sm">
+                      <p className="text-gold-700 text-sm">
                         Please courier the original documents to the address below, then share the consignment details so we can track them.
                       </p>
                     )}
 
                     {application.courier.instructions && (
-                      <div className="mt-3 rounded-xl bg-white border border-violet-200 p-3">
-                        <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide mb-1">What to send</p>
+                      <div className="mt-3 rounded-xl bg-white border border-gold-200 p-3">
+                        <p className="text-[10px] font-bold text-gold-500 uppercase tracking-wide mb-1">What to send</p>
                         <p className="text-sm text-slate-700 whitespace-pre-line">{application.courier.instructions}</p>
                       </div>
                     )}
                     {application.courier.address && (
-                      <div className="mt-2 rounded-xl bg-white border border-violet-200 p-3">
-                        <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide mb-1">Send to</p>
+                      <div className="mt-2 rounded-xl bg-white border border-gold-200 p-3">
+                        <p className="text-[10px] font-bold text-gold-500 uppercase tracking-wide mb-1">Send to</p>
                         <p className="text-sm text-slate-700 whitespace-pre-line">{application.courier.address}</p>
                       </div>
                     )}
 
                     {application.courier.submittedAt && !editingCourier ? (
-                      <div className="mt-3 rounded-xl bg-white border border-violet-200 p-3">
+                      <div className="mt-3 rounded-xl bg-white border border-gold-200 p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 space-y-1.5">
                             {application.courier.trackingNumber && (
                               <div>
-                                <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide">Consignment number</p>
+                                <p className="text-[10px] font-bold text-gold-500 uppercase tracking-wide">Consignment number</p>
                                 <p className="text-sm font-semibold text-slate-900 font-mono">{application.courier.trackingNumber}</p>
                               </div>
                             )}
                             {application.courier.phone && (
                               <div>
-                                <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide">Contact number</p>
+                                <p className="text-[10px] font-bold text-gold-500 uppercase tracking-wide">Contact number</p>
                                 <p className="text-sm font-semibold text-slate-900">{application.courier.phone}</p>
                               </div>
                             )}
                             {application.courier.expectedDate && (
                               <div>
-                                <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide">Expected Date</p>
+                                <p className="text-[10px] font-bold text-gold-500 uppercase tracking-wide">Expected Date</p>
                                 <p className="text-sm font-semibold text-slate-900">{formatDate(application.courier.expectedDate)}</p>
                               </div>
                             )}
@@ -451,7 +451,7 @@ export default function ApplicationDetailPage() {
                             </Badge>
                             {!application.courier.receivedAt && (
                               <button onClick={() => setEditingCourier(true)}
-                                className="text-xs font-semibold text-violet-700 hover:text-violet-900">
+                                className="text-xs font-semibold text-gold-700 hover:text-gold-900">
                                 Update details
                               </button>
                             )}
@@ -459,42 +459,42 @@ export default function ApplicationDetailPage() {
                         </div>
                       </div>
                     ) : !application.courier.receivedAt ? (
-                      <div className="mt-3 rounded-xl bg-white border border-violet-200 p-3 space-y-2.5">
+                      <div className="mt-3 rounded-xl bg-white border border-gold-200 p-3 space-y-2.5">
                         <div>
-                          <label className="text-xs font-semibold text-violet-800 block mb-1">Consignment number</label>
+                          <label className="text-xs font-semibold text-gold-800 block mb-1">Consignment number</label>
                           <input
                             type="text"
                             value={courierTracking}
                             onChange={(e) => setCourierTracking(e.target.value)}
                             placeholder="Tracking number from your courier receipt"
-                            className="w-full h-9 px-3 rounded-lg border border-violet-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            className="w-full h-9 px-3 rounded-lg border border-gold-200 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500"
                           />
                         </div>
                         <div>
-                          <label className="text-xs font-semibold text-violet-800 block mb-1">Contact number</label>
+                          <label className="text-xs font-semibold text-gold-800 block mb-1">Contact number</label>
                           <input
                             type="tel"
                             value={courierPhone}
                             onChange={(e) => setCourierPhone(e.target.value)}
                             placeholder="Number we can reach you on about this shipment"
-                            className="w-full h-9 px-3 rounded-lg border border-violet-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            className="w-full h-9 px-3 rounded-lg border border-gold-200 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500"
                           />
                         </div>
                         <div>
-                          <label className="text-xs font-semibold text-violet-800 block mb-1">Expected Date</label>
+                          <label className="text-xs font-semibold text-gold-800 block mb-1">Expected Date</label>
                           <input
                             type="date"
                             value={courierExpected}
                             onChange={(e) => setCourierExpected(e.target.value)}
                             min={new Date().toISOString().slice(0, 10)}
-                            className="w-full h-9 px-3 rounded-lg border border-violet-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            className="w-full h-9 px-3 rounded-lg border border-gold-200 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500"
                           />
-                          <p className="text-[11px] text-violet-500 mt-1">The delivery date your courier estimated.</p>
+                          <p className="text-[11px] text-gold-500 mt-1">The delivery date your courier estimated.</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Button size="sm" onClick={handleCourierSubmit}
                             disabled={savingCourier || (!courierTracking.trim() && !courierPhone.trim() && !courierExpected)}
-                            className="bg-violet-600 hover:bg-violet-700">
+                            className="bg-gold-600 hover:bg-gold-700">
                             {savingCourier ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Share details'}
                           </Button>
                           {editingCourier && (
@@ -738,7 +738,7 @@ export default function ApplicationDetailPage() {
                               ) : (
                                 <button
                                   onClick={() => triggerFileUpload((file) => handleUpload(file, row.requirementName))}
-                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-600 border-brand-600 text-white hover:bg-brand-700 transition-colors flex-shrink-0"
+                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-900 border-brand-600 text-white hover:bg-brand-800 transition-colors flex-shrink-0"
                                 >
                                   <Upload className="w-3.5 h-3.5" /> Upload
                                 </button>
@@ -836,8 +836,8 @@ export default function ApplicationDetailPage() {
                               onClick={() => setExtraVaultOpen(!extraVaultOpen)}
                               className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
                                 extraVaultOpen
-                                  ? 'bg-purple-100 border-purple-300 text-purple-700'
-                                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700'
+                                  ? 'bg-gold-100 border-gold-300 text-gold-700'
+                                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-gold-300 hover:bg-gold-50 hover:text-gold-700'
                               }`}
                             >
                               <Archive className="w-3.5 h-3.5" />
@@ -847,7 +847,7 @@ export default function ApplicationDetailPage() {
                             <button
                               disabled={!extraDocName.trim() || uploading !== null}
                               onClick={() => triggerFileUpload((file) => handleUpload(file, extraDocName))}
-                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-600 border-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-900 border-brand-600 text-white hover:bg-brand-800 disabled:opacity-50 transition-colors"
                             >
                               {uploading === extraDocName
                                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -856,32 +856,32 @@ export default function ApplicationDetailPage() {
                           </div>
                         )}
                         {extraVaultOpen && extraDocName.trim() && (
-                          <div className="rounded-xl border border-purple-200 bg-purple-50 overflow-hidden">
-                            <div className="px-4 py-2 border-b border-purple-200 bg-purple-100/60">
-                              <p className="text-xs font-semibold text-purple-800 flex items-center gap-1.5">
+                          <div className="rounded-xl border border-gold-200 bg-gold-50 overflow-hidden">
+                            <div className="px-4 py-2 border-b border-gold-200 bg-gold-100/60">
+                              <p className="text-xs font-semibold text-gold-800 flex items-center gap-1.5">
                                 <Archive className="w-3.5 h-3.5" /> Select from Document Vault
                               </p>
                             </div>
                             {vaultDocs.length === 0 ? (
                               <p className="text-xs text-slate-500 text-center py-4">No documents in vault.</p>
                             ) : (
-                              <div className="divide-y divide-purple-100 max-h-48 overflow-y-auto">
+                              <div className="divide-y divide-gold-100 max-h-48 overflow-y-auto">
                                 {vaultDocs.map((vd) => (
                                   <button
                                     key={vd._id}
                                     onClick={() => handleVaultImport(vd, extraDocName)}
-                                    className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-purple-100 transition-colors text-left"
+                                    className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gold-100 transition-colors text-left"
                                   >
                                     <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className="w-7 h-7 rounded-lg bg-purple-200 flex items-center justify-center flex-shrink-0">
-                                        <FileText className="w-3.5 h-3.5 text-purple-700" />
+                                      <div className="w-7 h-7 rounded-lg bg-gold-200 flex items-center justify-center flex-shrink-0">
+                                        <FileText className="w-3.5 h-3.5 text-gold-700" />
                                       </div>
                                       <div className="min-w-0">
                                         <p className="text-sm font-medium text-slate-900 truncate">{vd.label}</p>
                                         <p className="text-xs text-slate-500">{VAULT_TYPE_LABELS[vd.type] || vd.type}</p>
                                       </div>
                                     </div>
-                                    <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                                    <span className="text-xs font-semibold text-gold-700 bg-gold-100 px-2 py-0.5 rounded-full flex-shrink-0">
                                       Use this
                                     </span>
                                   </button>
@@ -950,7 +950,7 @@ export default function ApplicationDetailPage() {
                                     <button
                                       onClick={() => setVaultPickerFor(pickerOpen ? null : req.name)}
                                       className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
-                                        pickerOpen ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700'
+                                        pickerOpen ? 'bg-gold-100 border-gold-300 text-gold-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-gold-300 hover:bg-gold-50 hover:text-gold-700'
                                       }`}
                                     >
                                       <Archive className="w-3.5 h-3.5" />
@@ -959,7 +959,7 @@ export default function ApplicationDetailPage() {
                                     </button>
                                     <button
                                       onClick={() => triggerFileUpload((file) => handleUpload(file, req.name))}
-                                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-600 border-brand-600 text-white hover:bg-brand-700 transition-colors"
+                                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-900 border-brand-600 text-white hover:bg-brand-800 transition-colors"
                                     >
                                       <Upload className="w-3.5 h-3.5" />
                                       {doc ? 'Replace' : 'Upload New'}
@@ -975,35 +975,35 @@ export default function ApplicationDetailPage() {
                             </div>
                           </div>
                           {pickerOpen && (
-                            <div className="mx-4 mb-4 rounded-xl border border-purple-200 bg-purple-50 overflow-hidden">
-                              <div className="flex items-center justify-between px-4 py-2.5 border-b border-purple-200 bg-purple-100/60">
-                                <p className="text-xs font-semibold text-purple-800 flex items-center gap-1.5">
+                            <div className="mx-4 mb-4 rounded-xl border border-gold-200 bg-gold-50 overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gold-200 bg-gold-100/60">
+                                <p className="text-xs font-semibold text-gold-800 flex items-center gap-1.5">
                                   <Archive className="w-3.5 h-3.5" /> Select from Document Vault
                                 </p>
-                                <button onClick={() => setVaultPickerFor(null)} className="text-purple-400 hover:text-purple-700">
+                                <button onClick={() => setVaultPickerFor(null)} className="text-gold-400 hover:text-gold-700">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                               {vaultDocs.length === 0 ? (
                                 <p className="text-xs text-slate-500 text-center py-4">No documents in vault.</p>
                               ) : (
-                                <div className="divide-y divide-purple-100 max-h-56 overflow-y-auto">
+                                <div className="divide-y divide-gold-100 max-h-56 overflow-y-auto">
                                   {suggested.length > 0 && (
                                     <>
-                                      <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide px-4 pt-2.5 pb-1">Suggested for &quot;{req.name}&quot;</p>
+                                      <p className="text-[10px] font-semibold text-gold-600 uppercase tracking-wide px-4 pt-2.5 pb-1">Suggested for &quot;{req.name}&quot;</p>
                                       {suggested.map((vd) => (
                                         <button key={vd._id} onClick={() => handleVaultImport(vd, req.name)}
-                                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-purple-100 transition-colors text-left">
+                                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gold-100 transition-colors text-left">
                                           <div className="flex items-center gap-2.5 min-w-0">
-                                            <div className="w-7 h-7 rounded-lg bg-purple-200 flex items-center justify-center flex-shrink-0">
-                                              <FileText className="w-3.5 h-3.5 text-purple-700" />
+                                            <div className="w-7 h-7 rounded-lg bg-gold-200 flex items-center justify-center flex-shrink-0">
+                                              <FileText className="w-3.5 h-3.5 text-gold-700" />
                                             </div>
                                             <div className="min-w-0">
                                               <p className="text-sm font-medium text-slate-900 truncate">{vd.label}</p>
                                               <p className="text-xs text-slate-500">{VAULT_TYPE_LABELS[vd.type] || vd.type}</p>
                                             </div>
                                           </div>
-                                          <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full flex-shrink-0">Use this</span>
+                                          <span className="text-xs font-semibold text-gold-700 bg-gold-100 px-2 py-0.5 rounded-full flex-shrink-0">Use this</span>
                                         </button>
                                       ))}
                                     </>
@@ -1013,7 +1013,7 @@ export default function ApplicationDetailPage() {
                                       {suggested.length > 0 && <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-4 pt-2.5 pb-1">Other Documents</p>}
                                       {others.map((vd) => (
                                         <button key={vd._id} onClick={() => handleVaultImport(vd, req.name)}
-                                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-purple-100 transition-colors text-left">
+                                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gold-100 transition-colors text-left">
                                           <div className="flex items-center gap-2.5 min-w-0">
                                             <div className="w-7 h-7 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
                                               <FileText className="w-3.5 h-3.5 text-slate-500" />
@@ -1057,7 +1057,7 @@ export default function ApplicationDetailPage() {
                         </div>
                         {extraDocName.trim() && (
                           <button disabled={uploading !== null} onClick={() => triggerFileUpload((file) => handleUpload(file, extraDocName))}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-600 border-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 transition-colors">
+                            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-900 border-brand-600 text-white hover:bg-brand-800 disabled:opacity-50 transition-colors">
                             {uploading === extraDocName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Upload className="w-3.5 h-3.5" /> Upload New</>}
                           </button>
                         )}
@@ -1116,9 +1116,44 @@ export default function ApplicationDetailPage() {
               <h3 className="font-semibold text-slate-900">Application Progress</h3>
             </div>
             <CardContent className="p-5">
-              <StatusTimeline currentStatus={application.status} />
+              <StatusTimeline
+                currentStatus={application.status}
+                paid={!!receiptPaymentId || payment?.status === 'completed' || !PRE_PAYMENT_STAGES.includes(application.status)}
+              />
             </CardContent>
           </Card>
+
+          {/* One ID per traveller, all under this application's number */}
+          {(application.travellers?.length ?? 0) > 1 && (
+            <Card className="mt-5">
+              <div className="p-5 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900">Your application IDs</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Family group {application.referenceId}</p>
+              </div>
+              <CardContent className="p-5 space-y-2.5">
+                {application.travellers!.map((t) => {
+                  const r = application.formResponses || {};
+                  const name = [r[`${t.label} - Given Name(s)`], r[`${t.label} - Surname`]].filter(Boolean).join(' ');
+                  const parents = t.parents
+                    .map((p) => application.travellers!.find((x) => x.key === p.key)?.label)
+                    .filter(Boolean);
+                  return (
+                    <div key={t.key} className="flex items-start justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs font-semibold text-slate-900">{t.ref}</p>
+                        <p className="text-xs text-slate-500">{name || t.label} · {t.kind === 'adult' ? 'Adult' : 'Child'}</p>
+                      </div>
+                      {parents.length > 0 && (
+                        <span className="text-[11px] font-semibold text-gold-700 bg-gold-50 border border-gold-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                          Linked to {parents.join(' & ')}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 

@@ -3,8 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, Search,
-  Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy,
+  Vault, CreditCard, Calendar, Globe, Clock, MapPin, Tag, Copy,
   Users, Minus, Plus, Shield, ArrowRight, Download, Info, PencilLine,
+  AlertTriangle, Link2, Mail, Phone, Save, CircleCheck, Circle,
 } from 'lucide-react';
 import VisaDownloads from '@/components/visa/VisaDownloads';
 import { Button } from '@/components/ui/button';
@@ -24,17 +25,17 @@ import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@
 import { formatCurrency } from '@/lib/utils';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useAuthStore } from '@/store/auth.store';
-import { mergeFormItems, shownSubFields } from '@/types';
+import { docRuleMet, mergeFormItems, shownSubFields } from '@/types';
 import type { Country, VisaType, FormField, FormItem, DocumentRequirement, VaultDocument, SubField } from '@/types';
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 type DocSource =
   | { type: 'vault'; vaultDocId: string; label: string; url: string }
   | { type: 'file'; file: File }
   | { type: 'files'; files: File[] };
 type Traveler = { key: string; label: string; type: 'adult' | 'child' };
 
-const STEPS = ['Country', 'Visa Type', 'Applicant Details', 'Review & Pay'];
+const STEPS = ['Country', 'Visa Type', 'Application Form'];
 const DRAFT_KEY = 'visa_app_draft';
 const ACCEPTED = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -105,15 +106,70 @@ const fieldsForTraveler = (fields: FormField[], tr: Traveler) =>
 const questionsForTraveler = (fields: FormField[], tr: Traveler, formData: Record<string, string>) =>
   fieldsForTraveler(fields, tr).flatMap((f): (FormField | SubField)[] => [f, ...shownSubFields(f, formData[`${tr.key}__${f.fieldName}`])]);
 
-const docsForTraveler = (docs: DocumentRequirement[], tr: Traveler) =>
-  docs.filter((d) => appliesToTraveler(d.applicantType, tr.type));
+// Conditional uploads appear only while the traveller's answer asks for them; a hidden
+// one is never required and is left out of the submission.
+const docsForTraveler = (docs: DocumentRequirement[], tr: Traveler, formData: Record<string, string>) =>
+  docs.filter((d) => appliesToTraveler(d.applicantType, tr.type)
+    && docRuleMet(d, (field) => formData[`${tr.key}__${field}`]));
 
 // Questions and document uploads are one list for the applicant, the admin authors
 // them in a single sequence, so they render interleaved in exactly that order.
-const itemsForTraveler = (fields: FormField[], docs: DocumentRequirement[], tr: Traveler): FormItem[] =>
-  mergeFormItems(fieldsForTraveler(fields, tr), docsForTraveler(docs, tr));
+const itemsForTraveler = (fields: FormField[], docs: DocumentRequirement[], tr: Traveler, formData: Record<string, string>): FormItem[] =>
+  mergeFormItems(fieldsForTraveler(fields, tr), docsForTraveler(docs, tr, formData));
 
-function Counter({ value, onChange, min }: { value: number; onChange: (v: number) => void; min: number }) {
+// Form-wide values ride along in formData under reserved keys, so local and server
+// drafts keep them without a schema change. Real field keys always contain "__" after a traveller key.
+const CONTACT_EMAIL_KEY = '__contact__email';
+const CONTACT_MOBILE_KEY = '__contact__mobile';
+const parentsKey = (childKey: string) => `__parents__${childKey}`;
+
+type ParentRelation = 'father' | 'mother' | 'guardian';
+type ParentLink = { key: string; relation: ParentRelation };
+const RELATIONS: { value: ParentRelation; label: string }[] = [
+  { value: 'father', label: 'Father' }, { value: 'mother', label: 'Mother' }, { value: 'guardian', label: 'Guardian' },
+];
+const MAX_TRAVELLERS = 10;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// Indian mobile: 10 digits starting 6-9, typed with or without +91.
+const mobileDigits = (v: string) => v.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
+const MOBILE_RE = /^[6-9]\d{9}$/;
+
+/** Upper bound of a processing time like "3-4 working days", "24-48 hours" or "2 weeks", in working days. */
+function processingWorkingDays(text: string | undefined): number {
+  const t = (text || '').toLowerCase();
+  const nums = (t.match(/\d+/g) || []).map(Number);
+  if (!nums.length) return 0;
+  const max = Math.max(...nums);
+  if (/hour|hrs?\b/.test(t)) return Math.ceil(max / 24);
+  if (/week/.test(t)) return max * 5;
+  return max;
+}
+
+/** Allowed stay in days from a label like "30 days" or "Up to 90 Days"; 0 when not stated in days. */
+function allowedStayDays(text: string | undefined): number {
+  const t = (text || '').toLowerCase();
+  const n = Number(t.match(/\d+/)?.[0] || 0);
+  if (!n) return 0;
+  if (/day/.test(t)) return n;
+  if (/month/.test(t)) return n * 30;
+  return 0;
+}
+
+const addWorkingDays = (from: Date, n: number) => {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  for (let added = 0; added < n;) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+  }
+  return d;
+};
+
+// Both the departure and the return day count, so 26 Oct to 1 Nov is a 7-day stay.
+const stayLength = (from: string, to: string) =>
+  Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1;
+
+function Counter({ value, onChange, min, max = 99 }: { value: number; onChange: (v: number) => void; min: number; max?: number }) {
   return (
     <div className="flex items-center gap-3">
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min}
@@ -121,11 +177,29 @@ function Counter({ value, onChange, min }: { value: number; onChange: (v: number
         <Minus className="w-4 h-4" />
       </button>
       <span className="w-5 text-center text-base font-bold text-slate-900 tabular-nums">{value}</span>
-      <button type="button" onClick={() => onChange(value + 1)}
-        className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 hover:border-brand-400 hover:text-brand-600 transition-colors">
+      <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max}
+        className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 hover:border-brand-400 hover:text-brand-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
         <Plus className="w-4 h-4" />
       </button>
     </div>
+  );
+}
+
+/** One numbered card of the single-page form; the sidebar progress links to its id. */
+function FormSection({ id, n, title, done, aside, children }: {
+  id: string; n: number; title: string; done: boolean; aside?: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-24 bg-white rounded-2xl border border-slate-200 p-5 sm:p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${done ? 'bg-green-600 text-white' : 'bg-brand-900 text-white'}`}>
+          {done ? <Check className="w-3.5 h-3.5" /> : n}
+        </span>
+        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        {aside && <div className="ml-auto">{aside}</div>}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -253,7 +327,7 @@ function TravelPlanModal({
               </button>
             </div>
             <div className="grid grid-cols-7 mb-1">
-              {WEEK_DAYS.map((d) => <div key={d} className="text-center text-xs font-semibold text-violet-600 py-1">{d}</div>)}
+              {WEEK_DAYS.map((d) => <div key={d} className="text-center text-xs font-semibold text-gold-600 py-1">{d}</div>)}
             </div>
             <div className="grid grid-cols-7 gap-y-1">
               {cells.map((d, i) => {
@@ -272,7 +346,7 @@ function TravelPlanModal({
                       onMouseEnter={() => startDate && !endDate && setHoverDate(d)}
                       onMouseLeave={() => setHoverDate(null)}
                       className={`w-9 h-9 rounded-full text-sm flex items-center justify-center transition-colors z-10 relative ${
-                        isStart || isEnd ? 'bg-brand-600 text-white font-bold shadow' :
+                        isStart || isEnd ? 'bg-brand-900 text-white font-bold shadow' :
                         disabled ? 'text-slate-300 cursor-not-allowed' :
                         'text-slate-700 hover:bg-brand-50'
                       }`}>
@@ -456,9 +530,9 @@ function VisaOverviewModal({
           {/* Details grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {visa.visaSubType && (
-              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3.5">
-                <p className="text-xs text-indigo-500 font-semibold mb-1">Visa Type</p>
-                <p className="text-sm font-bold text-indigo-900">{labelFor('visaSubType', visa.visaSubType)}</p>
+              <div className="bg-gold-50 border border-gold-100 rounded-2xl p-3.5">
+                <p className="text-xs text-brand-800 font-semibold mb-1">Visa Type</p>
+                <p className="text-sm font-bold text-brand-950">{labelFor('visaSubType', visa.visaSubType)}</p>
               </div>
             )}
             {visa.visaCategory && (
@@ -541,7 +615,7 @@ function VisaOverviewModal({
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{isDoc ? 'Upload' : 'Answer'}</span>
                           {applicantType === 'child' && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
-                          {applicantType === 'both' && <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
+                          {applicantType === 'both' && <span className="text-[10px] font-semibold text-gold-600 bg-gold-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
                         </div>
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${required ? 'font-bold text-red-500 bg-red-100' : 'font-medium text-slate-400 bg-slate-200'}`}>
@@ -568,7 +642,7 @@ function VisaOverviewModal({
         {/* Footer CTA */}
         <div className="px-5 sm:px-6 py-4 border-t border-slate-100 bg-white flex-shrink-0">
           <button onClick={handleContinue}
-            className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md">
+            className="w-full py-3.5 bg-brand-900 hover:bg-brand-800 active:bg-brand-800 text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md">
             Continue with {visa.name}
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -597,7 +671,7 @@ function VisaCard({ visa, selected, adultPrice, childPrice, onClick }: {
       }`}
     >
       {/* Card header */}
-      <div className="relative overflow-hidden px-5 py-5 bg-gradient-to-br from-slate-800 via-brand-900 to-indigo-900">
+      <div className="relative overflow-hidden px-5 py-5 bg-gradient-to-br from-slate-800 via-brand-900 to-brand-950">
         <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/5" />
         <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
         <div className="relative z-10">
@@ -653,7 +727,7 @@ function VisaCard({ visa, selected, adultPrice, childPrice, onClick }: {
             </div>
           )}
           <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-            selected ? 'bg-brand-600' : 'bg-slate-100 group-hover:bg-brand-100'
+            selected ? 'bg-brand-900' : 'bg-slate-100 group-hover:bg-brand-100'
           }`}>
             <ArrowRight className={`w-4 h-4 ${selected ? 'text-white' : 'text-slate-400 group-hover:text-brand-600'}`} />
           </div>
@@ -754,7 +828,15 @@ export default function ApplyPage() {
       .catch(() => []);
 
     // Resuming from My Applications: the saved draft replaces whatever was in progress here.
-    const savedDraftId = new URLSearchParams(window.location.search).get('draft');
+    const params = new URLSearchParams(window.location.search);
+    const savedDraftId = params.get('draft');
+    // Arriving from a country page: start that country (and visa, when given) fresh.
+    const linkCountry = params.get('country');
+    if (linkCountry && !savedDraftId) {
+      window.history.replaceState(null, '', '/apply');
+      startFromLink(linkCountry, params.get('visa')).finally(() => setDraftRestored(true));
+      return;
+    }
     if (savedDraftId) {
       window.history.replaceState(null, '', '/apply');
       resumeSavedDraft(savedDraftId, vaultPromise).finally(() => setDraftRestored(true));
@@ -768,7 +850,7 @@ export default function ApplyPage() {
         if (d.selectedCountry) setSelectedCountry(d.selectedCountry);
         if (d.formData) setFormData(d.formData);
         if (d.passportValues) setPassportValues(d.passportValues);
-        if (d.step) setStep(d.step as Step);
+        if (d.step) setStep(Math.min(d.step, 3) as Step);
         if (d.travelStartDate) setTravelStartDate(d.travelStartDate);
         if (d.travelEndDate) setTravelEndDate(d.travelEndDate);
         if (d.adults) setAdults(d.adults);
@@ -830,10 +912,30 @@ export default function ApplyPage() {
         return doc ? [[p.key, { type: 'vault' as const, vaultDocId: doc._id, label: doc.label, url: doc.url }]] : [];
       })));
       // A visa that's since been withdrawn sends the user back to choosing one.
-      setStep((visa ? d.step : Math.min(d.step, 2)) as Step);
+      setStep(Math.min(visa ? d.step : 2, 3) as Step);
       setDraftId(id);
     } catch {
       toast({ title: 'Could not open this draft', description: 'It may have been deleted. Starting a new application.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startFromLink = async (countryId: string, visaId: string | null) => {
+    setLoading(true);
+    try {
+      const list: Country[] = (await getActiveCountries()).data.data;
+      const country = list.find((c) => c._id === countryId || c.slug === countryId);
+      if (!country) return;
+      const fresh: VisaType[] = (await getPublicVisaTypes(country._id)).data.data;
+      localStorage.removeItem(DRAFT_KEY);
+      setSelectedCountry(country);
+      setVisaTypes(fresh);
+      const visa = visaId ? fresh.find((v) => v._id === visaId) ?? null : null;
+      setSelectedVisa(visa);
+      setStep(visa ? 3 : 2);
+    } catch {
+      toast({ title: 'Could not open that visa', description: 'Pick your destination below.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -847,28 +949,46 @@ export default function ApplyPage() {
     else resetWizard();
   };
 
-  const saveAndStartOver = async () => {
-    if (!selectedCountry) return;
-    setSavingDraft(true);
+  // Saves progress to My Applications. Uploaded files stay on this device; vault picks are kept.
+  const saveDraftToServer = async (): Promise<boolean> => {
+    if (!selectedCountry) return false;
     const payload = {
       country: selectedCountry._id,
       visaType: selectedVisa?._id ?? null,
       step, formData, passportValues, travelStartDate, travelEndDate, adults, children,
       vaultPicks: Object.entries(docSources).flatMap(([key, s]) => (s.type === 'vault' ? [{ key, vaultDocId: s.vaultDocId }] : [])),
     };
+    // The draft may have been deleted from another tab; save it fresh then.
+    const r = draftId
+      ? await updateDraft(draftId, payload).catch((err) => {
+        if (err.response?.status === 404) return createDraft(payload);
+        throw err;
+      })
+      : await createDraft(payload);
+    const savedId = r?.data?.data?._id;
+    if (savedId) setDraftId(savedId);
+    return true;
+  };
+
+  const saveAndStartOver = async () => {
+    setSavingDraft(true);
     try {
-      if (draftId) {
-        // The draft may have been deleted from another tab; save it fresh then.
-        await updateDraft(draftId, payload).catch((err) => {
-          if (err.response?.status === 404) return createDraft(payload);
-          throw err;
-        });
-      } else {
-        await createDraft(payload);
-      }
+      if (!(await saveDraftToServer())) return;
       toast({ title: 'Saved to My Applications', description: 'Pick it up anytime from My Applications.', variant: 'success' });
       setShowStartOver(false);
       resetWizard();
+    } catch (err: any) {
+      toast({ title: 'Could not save', description: err.response?.data?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const saveDraftNow = async () => {
+    setSavingDraft(true);
+    try {
+      await saveDraftToServer();
+      toast({ title: 'Draft saved', description: 'Find it in My Applications. Uploaded files stay on this device until you submit.', variant: 'success' });
     } catch (err: any) {
       toast({ title: 'Could not save', description: err.response?.data?.message || 'Please try again.', variant: 'destructive' });
     } finally {
@@ -995,6 +1115,8 @@ export default function ApplyPage() {
       }
       if (travelStartDate) responses['Travel Start Date'] = travelStartDate;
       if (travelEndDate) responses['Travel End Date'] = travelEndDate;
+      responses['Contact Email'] = contactEmail.trim().toLowerCase();
+      responses['Contact Mobile (WhatsApp)'] = `+91 ${mobileDigits(contactMobile)}`;
 
       const r = await createApplication({
         visaTypeId: selectedVisa._id,
@@ -1002,6 +1124,8 @@ export default function ApplyPage() {
         adults,
         children,
         travelDate: travelStartDate,
+        travelEndDate,
+        travellers: travelers.map((tr) => ({ key: tr.key, parents: tr.type === 'child' ? parentLinksOf(tr.key) : [] })),
         acceptedTerms: visaTerms.filter((_, i) => termsAccepted[i]).map((t) => t.text),
       });
       const appId = r.data.data._id;
@@ -1009,13 +1133,14 @@ export default function ApplyPage() {
       const reqs = withDefaultPassport(selectedVisa.documentRequirements);
       let uploadIdx = 0;
 
-      const doUpload = async (file: File, requirementName: string, docType = '', extractedData?: Record<string, string>) => {
+      const doUpload = async (file: File, requirementName: string, docType = '', extractedData?: Record<string, string>, triggeredBy = '') => {
         uploadIdx++;
         setSubmitStatus(`Uploading documents (${uploadIdx})…`);
         const fd = new FormData();
         fd.append('file', file);
         fd.append('requirementName', requirementName);
         if (docType) fd.append('docType', docType);
+        if (triggeredBy) fd.append('triggeredBy', triggeredBy);
         if (extractedData && Object.keys(extractedData).length > 0) fd.append('extractedData', JSON.stringify(extractedData));
         await uploadDocument(appId, fd);
       };
@@ -1024,8 +1149,9 @@ export default function ApplyPage() {
         Object.fromEntries(keys.filter((k) => pv[k]?.trim()).map((k) => [k, pv[k].trim()]));
 
       for (const tr of travelers) {
-        for (const req of docsForTraveler(reqs, tr)) {
+        for (const req of docsForTraveler(reqs, tr, formData)) {
           const label = `${tr.label} - ${req.name}`;
+          const because = triggerText(req, tr);
           if (isPassportPair(req) && req.ocrEnabled !== false) {
             const frontSrc = docSources[docKey(tr, req.name, '__front')];
             const backSrc = docSources[docKey(tr, req.name, '__back')];
@@ -1038,9 +1164,9 @@ export default function ApplyPage() {
             if (source.type === 'vault') {
               uploadIdx++;
               setSubmitStatus(`Uploading documents (${uploadIdx})…`);
-              await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName: label });
+              await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName: label, triggeredBy: because });
             } else if (source.type === 'files') {
-              for (const [i, file] of source.files.entries()) await doUpload(file, partName(label, i), req.docType || '');
+              for (const [i, file] of source.files.entries()) await doUpload(file, partName(label, i), req.docType || '', undefined, because);
             } else {
               const pv = passportValues[tr.key] || {};
               const ocrData = req.ocrEnabled !== false
@@ -1048,7 +1174,7 @@ export default function ApplyPage() {
                   : req.docType === 'passport_back' ? pickFields(pv, PASSPORT_BACK_FIELDS)
                   : undefined)
                 : undefined;
-              await doUpload(source.file, label, req.docType || '', ocrData);
+              await doUpload(source.file, label, req.docType || '', ocrData, because);
             }
           }
         }
@@ -1068,7 +1194,7 @@ export default function ApplyPage() {
     }
   };
 
-  const goNext = () => setStep((s) => Math.min(s + 1, 4) as Step);
+  const goNext = () => setStep((s) => Math.min(s + 1, 3) as Step);
   const goBack = () => setStep((s) => Math.max(s - 1, 1) as Step);
 
   const handleApplyPromo = async () => {
@@ -1096,19 +1222,125 @@ export default function ApplyPage() {
   const sortedFields = selectedVisa ? [...selectedVisa.formFields].sort((a, b) => a.order - b.order) : [];
   const requirements: DocumentRequirement[] = withDefaultPassport(selectedVisa?.documentRequirements || []);
 
+  // ── Single-page form state ──
+  const contactEmail = formData[CONTACT_EMAIL_KEY] ?? '';
+  const contactMobile = formData[CONTACT_MOBILE_KEY] ?? '';
+  const setFormValue = (key: string, value: string) => setFormData((prev) => ({ ...prev, [key]: value }));
+
+  // Contact details start from the account and stay editable.
+  const contactUnset = formData[CONTACT_EMAIL_KEY] === undefined;
+  useEffect(() => {
+    if (!draftRestored || !user || !contactUnset) return;
+    setFormData((prev) => ({
+      ...prev,
+      [CONTACT_EMAIL_KEY]: prev[CONTACT_EMAIL_KEY] ?? user.email ?? '',
+      [CONTACT_MOBILE_KEY]: prev[CONTACT_MOBILE_KEY] ?? (user.phone ? mobileDigits(user.phone) : ''),
+    }));
+  }, [draftRestored, user, contactUnset]);
+
+  // Parent links point at adults on this same order; links to an adult since removed drop out.
+  const parentLinksOf = (childKey: string): ParentLink[] => {
+    try {
+      const raw: ParentLink[] = JSON.parse(formData[parentsKey(childKey)] || '[]');
+      return raw.filter((l) => travelers.some((t) => t.type === 'adult' && t.key === l.key));
+    } catch {
+      return [];
+    }
+  };
+  const setParentLinks = (childKey: string, links: ParentLink[]) => setFormValue(parentsKey(childKey), JSON.stringify(links));
+  const toggleParent = (childKey: string, adultKey: string) => {
+    const links = parentLinksOf(childKey);
+    setParentLinks(childKey, links.some((l) => l.key === adultKey)
+      ? links.filter((l) => l.key !== adultKey)
+      : [...links, { key: adultKey, relation: (links.some((l) => l.relation === 'father') ? 'mother' : 'father') as ParentRelation }].slice(-2));
+  };
+  const setRelation = (childKey: string, adultKey: string, relation: ParentRelation) =>
+    setParentLinks(childKey, parentLinksOf(childKey).map((l) => (l.key === adultKey ? { ...l, relation } : l)));
+  const needsParentLink = (tr: Traveler) => tr.type === 'child' && adults > 0;
+
+  // The answer that made a conditional upload appear, e.g. "Marital Status = Married".
+  const triggerText = (req: DocumentRequirement, tr: Traveler) => {
+    if (!req.showWhen?.field || !selectedVisa) return '';
+    const q = selectedVisa.formFields.find((f) => f.fieldName === req.showWhen!.field);
+    const answer = formData[`${tr.key}__${req.showWhen.field}`];
+    return q && answer ? `${q.label || q.fieldName} = ${answer}` : '';
+  };
+
   const travelerComplete = (tr: Traveler) => {
     const fieldsOk = questionsForTraveler(sortedFields, tr, formData).filter((f) => f.required).every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim());
-    const docsOk = docsForTraveler(requirements, tr).filter((r) => r.required).every((r) => {
+    const docsOk = docsForTraveler(requirements, tr, formData).filter((r) => r.required).every((r) => {
       if (isPassportPair(r) && r.ocrEnabled !== false) return !!docSources[docKey(tr, r.name, '__front')] && !!docSources[docKey(tr, r.name, '__back')];
       return !!docSources[docKey(tr, r.name)];
     });
-    return fieldsOk && docsOk;
+    const parentOk = !needsParentLink(tr) || parentLinksOf(tr.key).length > 0;
+    return fieldsOk && docsOk && parentOk;
   };
+
+  // ── Travel date rules ──
+  const today = useMemo(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }, []);
+  const procDays = processingWorkingDays(selectedVisa?.processingTime);
+  const earliestDeparture = useMemo(() => addWorkingDays(today, Math.max(1, procDays)), [today, procDays]);
+  const latestDeparture = useMemo(() => { const d = new Date(today); d.setDate(d.getDate() + 180); return d; }, [today]);
+  const allowedStay = allowedStayDays(selectedVisa?.stayDuration);
+  const singleEntry = (selectedVisa?.entry || []).some((e) => /single/i.test(e)) && !(selectedVisa?.entry || []).some((e) => /multi/i.test(e));
+  const stayDays = travelStartDate && travelEndDate ? stayLength(travelStartDate, travelEndDate) : 0;
+  const dateErrors = {
+    departure: !travelStartDate ? 'Choose your departure date'
+      : travelStartDate < fmtDate(earliestDeparture) ? `Earliest possible departure is ${fmtDisplay(fmtDate(earliestDeparture))}`
+      : travelStartDate > fmtDate(latestDeparture) ? `Departure must be within 180 days (by ${fmtDisplay(fmtDate(latestDeparture))})`
+      : '',
+    return: !travelEndDate ? 'Choose your return date'
+      : travelStartDate && travelEndDate <= travelStartDate ? 'Return date must be after the departure date'
+      : '',
+  };
+  const stayTooLong = !!allowedStay && stayDays > allowedStay;
+  const datesOk = !dateErrors.departure && !dateErrors.return && !(stayTooLong && singleEntry);
+
+  const contactErrors = {
+    email: !EMAIL_RE.test(contactEmail.trim()) ? 'Enter a valid email address' : '',
+    mobile: !MOBILE_RE.test(mobileDigits(contactMobile)) ? 'Mobile must be 10 digits starting with 6, 7, 8 or 9' : '',
+  };
+
+  const sections = [
+    { id: 'sec-visa', label: 'Visa & travellers', done: !!selectedVisa && adults >= 1 && adults + children <= MAX_TRAVELLERS },
+    { id: 'sec-dates', label: 'Travel dates', done: datesOk },
+    { id: 'sec-travellers', label: 'Travellers & documents', done: travelers.every(travelerComplete) },
+    { id: 'sec-contact', label: 'Contact details', done: !contactErrors.email && !contactErrors.mobile },
+    { id: 'sec-review', label: 'Review & pay', done: allRequiredTermsAccepted },
+  ];
+  const doneCount = sections.filter((x) => x.done).length;
+  const allDone = doneCount === sections.length;
+  const [showErrors, setShowErrors] = useState(false);
+
+  const scrollToSection = (id: string) =>
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Submit jumps to the first unfinished section instead of failing silently.
+  const trySubmit = () => {
+    if (!allDone) {
+      setShowErrors(true);
+      const first = sections.find((x) => !x.done)!;
+      if (first.id === 'sec-travellers') {
+        const idx = travelers.findIndex((t) => !travelerComplete(t));
+        if (idx >= 0) setActiveTraveler(idx);
+      }
+      scrollToSection(first.id);
+      toast({ title: `Finish "${first.label}"`, description: 'Fields that still need attention are marked in red.', variant: 'destructive' });
+      return;
+    }
+    handleSubmit();
+  };
+
+  // Autosave every 20 seconds once a draft exists in My Applications.
+  useEffect(() => {
+    if (step !== 3 || !draftId || submitting) return;
+    const t = setTimeout(() => { saveDraftToServer().catch(() => {}); }, 20000);
+    return () => clearTimeout(t);
+  }, [step, draftId, submitting, formData, passportValues, travelStartDate, travelEndDate, adults, children]);
 
   const canProceed = () => {
     if (step === 1) return !!selectedCountry;
     if (step === 2) return !!selectedVisa && !loading;
-    if (step === 3) return travelers.every(travelerComplete);
     return true;
   };
 
@@ -1214,7 +1446,7 @@ export default function ApplyPage() {
               {req.required && <span className="text-red-500">*</span>}
               {!req.required && <span className="text-slate-400 text-xs font-normal">(optional)</span>}
               {applicantType === 'child' && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
-              {applicantType === 'both' && <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
+              {applicantType === 'both' && <span className="text-[10px] font-semibold text-gold-600 bg-gold-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
             </p>
             {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
           </div>
@@ -1267,6 +1499,435 @@ export default function ApplyPage() {
 
   const activeTr = travelers[Math.min(activeTraveler, travelers.length - 1)] || travelers[0];
 
+  const travellerName = (tr: Traveler) => {
+    const pv = passportValues[tr.key] || {};
+    return [pv['Given Name(s)'], pv['Surname']].filter(Boolean).join(' ');
+  };
+
+  const renderSinglePage = (visa: VisaType, country: Country) => {
+    const r = rateParts(visa);
+    const subtotal = orderSubtotal(visa);
+    const gst = orderGst(visa);
+    const base = subtotal + gst;
+    const discount = promoResult?.discount || 0;
+    const finalTotal = promoResult ? promoResult.finalAmount : base;
+    const fieldError = (msg: string) => showErrors && msg ? <p className="text-xs text-red-600 mt-1" role="alert">{msg}</p> : null;
+
+    const docTotals = travelers.reduce((acc, tr) => {
+      for (const req of docsForTraveler(requirements, tr, formData).filter((x) => x.required)) {
+        acc.total++;
+        const ok = isPassportPair(req) && req.ocrEnabled !== false
+          ? !!docSources[docKey(tr, req.name, '__front')] && !!docSources[docKey(tr, req.name, '__back')]
+          : !!docSources[docKey(tr, req.name)];
+        if (ok) acc.done++;
+      }
+      return acc;
+    }, { done: 0, total: 0 });
+
+    const familyText = travelers.map((tr) => {
+      const name = travellerName(tr) || tr.label;
+      const links = parentLinksOf(tr.key)
+        .map((l) => `${travelers.find((t) => t.key === l.key)?.label} (${RELATIONS.find((x) => x.value === l.relation)?.label})`);
+      return links.length ? `${name}, linked to ${links.join(' & ')}` : name;
+    }).join(' · ');
+
+    const submitButton = (className = '') => (
+      <Button onClick={trySubmit} disabled={submitting} className={`w-full ${allDone ? '' : 'opacity-60'} ${className}`}>
+        {submitting
+          ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">{submitStatus || 'Submitting…'}</span></span>
+          : <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Submit &amp; Pay {formatCurrency(finalTotal)}</span>}
+      </Button>
+    );
+
+    const reviewRow = (label: string, value: React.ReactNode, target: string) => (
+      <div className="flex items-start gap-3 py-2 border-b border-slate-100 last:border-0 text-sm">
+        <span className="w-24 flex-shrink-0 text-slate-500">{label}</span>
+        <span className="flex-1 min-w-0 text-slate-900 font-medium break-words">{value}</span>
+        <button type="button" onClick={() => (target === 'visa' ? setStep(2) : scrollToSection(target))}
+          className="text-xs font-semibold text-brand-700 hover:underline flex-shrink-0">Edit</button>
+      </div>
+    );
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start pb-24 lg:pb-0">
+        <div className="space-y-5 min-w-0">
+          {/* 1 · Visa & travellers */}
+          <FormSection id="sec-visa" n={1} title="Visa & travellers" done={sections[0].done}
+            aside={<button type="button" onClick={() => setStep(2)} className="text-xs font-semibold text-brand-700 hover:underline">Change visa</button>}>
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 mb-4">
+              <img src={`https://flagcdn.com/w40/${country.flag}.png`} alt="" className="w-8 h-5 object-cover rounded mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">{country.name} · {visa.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {formatCurrency(adultRate(visa))} per adult{children > 0 ? ` · ${formatCurrency(childRate(visa))} per child` : ''} · GST included
+                  {visa.processingTime && <> · processing {visa.processingTime}</>}
+                  {visa.stayDuration && <> · stay up to {visa.stayDuration}</>}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Adults</p>
+                  <p className="text-xs text-slate-400">18+ years on departure</p>
+                </div>
+                <Counter value={adults} min={1} max={MAX_TRAVELLERS - children} onChange={setAdults} />
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Children</p>
+                  <p className="text-xs text-slate-400">Under 18 on departure</p>
+                </div>
+                <Counter value={children} min={0} max={Math.min(9, MAX_TRAVELLERS - adults)} onChange={setChildren} />
+              </div>
+            </div>
+          </FormSection>
+
+          {/* 2 · Travel dates */}
+          <FormSection id="sec-dates" n={2} title="Travel dates" done={sections[1].done}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="departure">Departure date <span className="text-red-500">*</span></Label>
+                <Input id="departure" type="date" className="mt-1" value={travelStartDate}
+                  min={fmtDate(earliestDeparture)} max={fmtDate(latestDeparture)}
+                  aria-invalid={showErrors && !!dateErrors.departure}
+                  onChange={(e) => setTravelStartDate(e.target.value)} />
+                <p className="text-xs text-slate-400 mt-1">
+                  Earliest: {fmtDisplay(fmtDate(earliestDeparture))}{procDays ? ` (today + ${procDays} working days for processing)` : ''}
+                </p>
+                {(showErrors || !!travelStartDate) && dateErrors.departure && (
+                  <p className="text-xs text-red-600 mt-1" role="alert">{dateErrors.departure}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="return">Return date <span className="text-red-500">*</span></Label>
+                <Input id="return" type="date" className="mt-1" value={travelEndDate}
+                  min={travelStartDate || fmtDate(earliestDeparture)}
+                  aria-invalid={showErrors && !!dateErrors.return}
+                  onChange={(e) => setTravelEndDate(e.target.value)} />
+                <p className="text-xs text-slate-400 mt-1">Must be after departure</p>
+                {(showErrors || !!travelEndDate) && dateErrors.return && (
+                  <p className="text-xs text-red-600 mt-1" role="alert">{dateErrors.return}</p>
+                )}
+              </div>
+            </div>
+            {stayDays > 0 && !dateErrors.return && (
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <span className="text-xs font-semibold text-brand-900 bg-brand-50 border border-brand-100 rounded-full px-2.5 py-1">
+                  Stay: {stayDays} day{stayDays === 1 ? '' : 's'}
+                </span>
+                {allowedStay > 0 && !stayTooLong && (
+                  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-100 rounded-full px-2.5 py-1">
+                    <Check className="inline w-3 h-3 mr-0.5" />Within {allowedStay} days allowed
+                  </span>
+                )}
+              </div>
+            )}
+            {stayTooLong && (
+              <div className={`mt-3 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs ${singleEntry ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`} role="alert">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>
+                  Your {stayDays}-day trip is longer than the {allowedStay} days this visa allows.
+                  {singleEntry ? ' Shorten the trip or choose a longer visa to continue.' : ' Consider a longer visa type.'}
+                  {' '}<button type="button" onClick={() => setStep(2)} className="font-semibold underline">See other visas</button>
+                </span>
+              </div>
+            )}
+          </FormSection>
+
+          {/* 3 · Travellers: answers and uploads, one tab per person */}
+          <FormSection id="sec-travellers" n={3} title="Travellers & documents" done={sections[2].done}
+            aside={<span className="text-xs text-slate-400">PDF, JPG, PNG, DOC · max 10 MB</span>}>
+            <div className="flex flex-wrap gap-2 mb-5 border-b border-slate-100 pb-3" role="tablist">
+              {travelers.map((tr, idx) => {
+                const isActive = idx === Math.min(activeTraveler, travelers.length - 1);
+                const complete = travelerComplete(tr);
+                return (
+                  <button key={tr.key} type="button" role="tab" aria-selected={isActive} onClick={() => setActiveTraveler(idx)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border-2 transition-all ${
+                      isActive ? (tr.type === 'adult' ? 'border-brand-900 bg-brand-50 text-brand-900' : 'border-emerald-600 bg-emerald-50 text-emerald-800')
+                      : showErrors && !complete ? 'border-red-200 text-red-600' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                    }`}>
+                    {complete ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Users className="w-3.5 h-3.5" />}
+                    {tr.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeTr && (() => {
+              const items = itemsForTraveler(sortedFields, requirements, activeTr, formData);
+              const links = parentLinksOf(activeTr.key);
+              return (
+                <div className="space-y-5">
+                  {needsParentLink(activeTr) && (
+                    <div className={`rounded-xl border-2 p-4 ${showErrors && !links.length ? 'border-red-200 bg-red-50/40' : 'border-gold-200 bg-gold-50/40'}`}>
+                      <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                        <Link2 className="w-4 h-4 text-gold-600" /> Link with parent (same application) <span className="text-red-500">*</span>
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 mb-3">Tick the adult(s) on this application who are {activeTr.label}&apos;s parents or guardian.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {travelers.filter((t) => t.type === 'adult').map((adult) => {
+                          const link = links.find((l) => l.key === adult.key);
+                          return (
+                            <div key={adult.key} className={`rounded-lg border p-3 ${link ? 'border-gold-400 bg-white' : 'border-slate-200 bg-white'}`}>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={!!link} onChange={() => toggleParent(activeTr.key, adult.key)} className="w-4 h-4 rounded" />
+                                <span className="text-sm font-semibold text-slate-900">{adult.label}</span>
+                                {travellerName(adult) && <span className="text-xs text-slate-500 truncate">{travellerName(adult)}</span>}
+                              </label>
+                              {link && (
+                                <div className="flex gap-1.5 mt-2" role="radiogroup" aria-label={`Relation of ${adult.label}`}>
+                                  {RELATIONS.map((rel) => (
+                                    <button key={rel.value} type="button" role="radio" aria-checked={link.relation === rel.value}
+                                      onClick={() => setRelation(activeTr.key, adult.key, rel.value)}
+                                      className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${link.relation === rel.value ? 'bg-brand-900 text-white border-brand-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
+                                      {rel.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {links.length > 0 && (
+                        <p className="text-xs text-green-700 mt-3 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> Parent passport copies are taken from this same application, no need to upload them again.
+                        </p>
+                      )}
+                      {showErrors && !links.length && <p className="text-xs text-red-600 mt-2" role="alert">Link this child to at least one parent or guardian.</p>}
+                    </div>
+                  )}
+
+                  {items.map((item) =>
+                    item.kind === 'field' ? (
+                      <div key={`f:${item.field._id || item.field.fieldName}`}>
+                        <Label htmlFor={`${activeTr.key}__${item.field.fieldName}`}>
+                          {item.field.label}
+                          {item.field.required && <span className="text-red-500 ml-1">*</span>}
+                        </Label>
+                        <div className="mt-1">{renderField(item.field, activeTr.key)}</div>
+                        {item.field.required && fieldError(formData[`${activeTr.key}__${item.field.fieldName}`]?.trim() ? '' : 'This answer is required')}
+                        {shownSubFields(item.field, formData[`${activeTr.key}__${item.field.fieldName}`]).map((sub) => (
+                          <div key={sub.fieldName} className="mt-3 ml-1 pl-4 border-l-2 border-brand-200 animate-fade-in">
+                            <Label htmlFor={`${activeTr.key}__${sub.fieldName}`}>
+                              {sub.label}
+                              {sub.required && <span className="text-red-500 ml-1">*</span>}
+                            </Label>
+                            <div className="mt-1">{renderField(sub, activeTr.key)}</div>
+                            {sub.required && fieldError(formData[`${activeTr.key}__${sub.fieldName}`]?.trim() ? '' : 'This answer is required')}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div key={`d:${item.doc._id || item.doc.name}`} className={item.doc.showWhen ? 'animate-fade-in' : undefined}>
+                        {item.doc.showWhen && triggerText(item.doc, activeTr) && (
+                          <p className="text-[11px] font-semibold text-gold-700 mb-1.5">Because: {triggerText(item.doc, activeTr)}</p>
+                        )}
+                        {renderDocCard(activeTr, item.doc)}
+                      </div>
+                    ),
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <button type="button" disabled={activeTraveler === 0} onClick={() => setActiveTraveler((i) => Math.max(0, i - 1))}
+                      className="text-sm text-slate-500 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1">
+                      <ChevronLeft className="w-4 h-4" /> Previous traveller
+                    </button>
+                    {activeTraveler < travelers.length - 1 ? (
+                      <button type="button" onClick={() => setActiveTraveler((i) => Math.min(travelers.length - 1, i + 1))}
+                        className="text-sm font-semibold text-brand-700 hover:text-brand-900 flex items-center gap-1">
+                        Next traveller <ChevronRight className="w-4 h-4" />
+                      </button>
+                    ) : <span className="text-xs text-slate-400">Last traveller</span>}
+                  </div>
+                </div>
+              );
+            })()}
+          </FormSection>
+
+          {/* 4 · Contact */}
+          <FormSection id="sec-contact" n={4} title="Contact details" done={sections[3].done}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="contact-email">Email <span className="text-red-500">*</span></Label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input id="contact-email" type="email" className="pl-9" placeholder="name@email.com" value={contactEmail}
+                    aria-invalid={showErrors && !!contactErrors.email}
+                    onChange={(e) => setFormValue(CONTACT_EMAIL_KEY, e.target.value)} />
+                </div>
+                {fieldError(contactErrors.email)}
+              </div>
+              <div>
+                <Label htmlFor="contact-mobile">Mobile (WhatsApp) <span className="text-red-500">*</span></Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-slate-500">+91</span>
+                  <Input id="contact-mobile" type="tel" inputMode="numeric" className="pl-[4.25rem]" placeholder="98xxx xxxxx" value={contactMobile}
+                    aria-invalid={showErrors && !!contactErrors.mobile}
+                    onChange={(e) => setFormValue(CONTACT_MOBILE_KEY, e.target.value.replace(/[^\d\s+]/g, '').slice(0, 16))} />
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Application updates are sent on this WhatsApp number</p>
+                {fieldError(contactErrors.mobile)}
+              </div>
+            </div>
+          </FormSection>
+
+          {/* 5 · Review, promo, terms, submit */}
+          <FormSection id="sec-review" n={5} title="Review & confirm" done={sections[4].done}>
+            <div className="mb-4">
+              {reviewRow('Visa', `${country.name} · ${visa.name}`, 'visa')}
+              {reviewRow('Dates', travelStartDate && travelEndDate ? `${fmtDisplay(travelStartDate)} to ${fmtDisplay(travelEndDate)} (${stayDays} day${stayDays === 1 ? '' : 's'})` : <span className="text-slate-400">Not chosen yet</span>, 'sec-dates')}
+              {reviewRow(travelers.length > 1 ? 'Family' : 'Traveller', familyText, 'sec-travellers')}
+              {reviewRow('Documents', `${docTotals.done} of ${docTotals.total} required uploaded`, 'sec-travellers')}
+              {reviewRow('Contact', `${contactEmail || 'no email'} · +91 ${mobileDigits(contactMobile) || '...'}`, 'sec-contact')}
+            </div>
+
+            {user?.promoApplicable !== false && (
+              <div className="border border-gold-200 bg-gold-50/50 rounded-xl p-4 mb-4">
+                <p className="text-xs font-semibold text-gold-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Tag className="w-3 h-3" /> Promo Code
+                </p>
+                {promoResult ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-green-700 flex items-center gap-1.5">
+                        <Check className="w-4 h-4" />
+                        <span className="font-mono tracking-widest">{promoResult.code}</span> applied
+                      </p>
+                      <p className="text-xs text-green-600 mt-0.5">
+                        You save {promoResult.discountType === 'percentage' ? `${promoResult.discountValue}%` : formatCurrency(promoResult.discountValue)} ({formatCurrency(promoResult.discount)} off)
+                      </p>
+                    </div>
+                    <button type="button" onClick={removePromo} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                      <X className="w-3 h-3" />Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex gap-2">
+                      <input
+                        value={promoInput}
+                        onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(''); }}
+                        onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
+                        placeholder="Enter promo code"
+                        aria-label="Promo code"
+                        className="flex-1 h-9 px-3 text-sm font-mono font-semibold tracking-widest uppercase rounded-lg border border-gold-200 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400"
+                      />
+                      <button type="button" onClick={handleApplyPromo} disabled={promoLoading || !promoInput.trim()}
+                        className="px-4 h-9 text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 disabled:opacity-50 rounded-lg flex items-center gap-1.5 transition-colors">
+                        {promoLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                        Apply
+                      </button>
+                    </div>
+                    {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {visaTerms.length > 0 && (
+              <div className="border border-slate-200 rounded-xl p-4 mb-4">
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-3">Terms &amp; Conditions</p>
+                <div className="space-y-2.5">
+                  {visaTerms.map((term, i) => (
+                    <label key={term._id || i} className="flex items-start gap-2.5 cursor-pointer group">
+                      <input type="checkbox" checked={!!termsAccepted[i]}
+                        onChange={(e) => setTermsAccepted((prev) => ({ ...prev, [i]: e.target.checked }))}
+                        className="mt-0.5 w-4 h-4 rounded border-slate-300 shrink-0" />
+                      <span className="text-sm text-slate-700 group-hover:text-slate-900">
+                        {term.text}
+                        {term.required && <span className="text-red-500 ml-1">*</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {showErrors && !allRequiredTermsAccepted && (
+                  <p className="text-xs text-red-600 mt-3" role="alert">Please accept all required terms to continue.</p>
+                )}
+              </div>
+            )}
+
+            <p className="text-xs text-slate-500 mb-3">
+              <strong className="text-slate-700">Pay by UPI or bank transfer.</strong> After you submit you&apos;ll see a UPI QR code and our bank details. Our team verifies the payment, then reviews your documents.
+            </p>
+            {submitButton('h-11')}
+          </FormSection>
+        </div>
+
+        {/* Sticky sidebar: progress, price, submit */}
+        <aside className="space-y-4 lg:sticky lg:top-20">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-slate-900">Your progress</p>
+              <span className="text-xs text-slate-400 tabular-nums">{doneCount} of {sections.length}</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-slate-100 mb-3 overflow-hidden">
+              <div className="h-full bg-gold-600 transition-all" style={{ width: `${(doneCount / sections.length) * 100}%` }} />
+            </div>
+            <ul className="space-y-1">
+              {sections.map((sec) => (
+                <li key={sec.id}>
+                  <button type="button" onClick={() => scrollToSection(sec.id)}
+                    className={`w-full flex items-center gap-2 text-left text-xs py-1 rounded hover:bg-slate-50 ${sec.done ? 'text-slate-700' : 'text-slate-400'}`}>
+                    {sec.done ? <CircleCheck className="w-4 h-4 text-green-600" /> : <Circle className="w-4 h-4" />}
+                    {sec.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-4">
+            <p className="text-sm font-semibold text-slate-900 mb-2">Price summary</p>
+            <div className="flex items-center gap-2 mb-3">
+              <img src={`https://flagcdn.com/w20/${country.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />
+              <p className="text-xs text-slate-500 truncate">{country.name} · {visa.name}</p>
+            </div>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-slate-500">{adults} Adult{adults > 1 ? 's' : ''} × {formatCurrency(adultRate(visa))}</span><span className="tabular-nums">{formatCurrency(adults * adultRate(visa))}</span></div>
+              {children > 0 && (
+                <div className="flex justify-between"><span className="text-slate-500">{children} Child{children > 1 ? 'ren' : ''} × {formatCurrency(childRate(visa))}</span><span className="tabular-nums">{formatCurrency(children * childRate(visa))}</span></div>
+              )}
+              {discount > 0 && (
+                <div className="flex justify-between text-green-700 text-xs"><span>Promo ({promoResult?.code})</span><span>-{formatCurrency(discount)}</span></div>
+              )}
+              <div className="flex justify-between items-baseline border-t border-slate-100 pt-2 mt-2">
+                <span className="font-semibold text-slate-900">Total</span>
+                <span className="text-xl font-bold text-brand-900 tabular-nums">{formatCurrency(finalTotal)}</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {travelers.length} traveller{travelers.length > 1 ? 's' : ''} · GST {formatCurrency(gst)} included (on service fee)
+                {r.corp && ' · corporate pricing'}
+              </p>
+            </div>
+            <div className="mt-4 space-y-2">
+              {submitButton()}
+              <Button type="button" variant="outline" className="w-full" onClick={saveDraftNow} disabled={savingDraft || submitting}>
+                {savingDraft ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+                Save draft
+              </Button>
+              {draftId && <p className="text-[11px] text-slate-400 text-center">Autosaves to My Applications every 20 seconds</p>}
+            </div>
+          </div>
+        </aside>
+
+        {/* Mobile: total and submit stay reachable */}
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 px-4 py-3 flex items-center gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] text-slate-400">{doneCount} of {sections.length} done · Total</p>
+            <p className="text-lg font-bold text-brand-900 tabular-nums">{formatCurrency(finalTotal)}</p>
+          </div>
+          <Button onClick={trySubmit} disabled={submitting} className={`ml-auto ${allDone ? '' : 'opacity-60'}`}>
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit & Pay'}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="page-container max-w-6xl">
       {showTravelModal && pendingCountry && (
@@ -1318,7 +1979,7 @@ export default function ApplyPage() {
           const active = step === n;
           return (
             <div key={label} className="flex items-center flex-1 min-w-0">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${done ? 'bg-green-500 text-white' : active ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${done ? 'bg-green-500 text-white' : active ? 'bg-brand-900 text-white' : 'bg-slate-200 text-slate-500'}`}>
                 {done ? <Check className="w-3.5 h-3.5" /> : n}
               </div>
               <span className={`text-xs font-medium hidden sm:block ml-1.5 mr-1 ${active ? 'text-brand-700' : done ? 'text-green-700' : 'text-slate-400'}`}>{label}</span>
@@ -1328,6 +1989,7 @@ export default function ApplyPage() {
         })}
       </div>
 
+      {step < 3 && (
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
 
         {/* ── Step 1: Country ── */}
@@ -1396,7 +2058,7 @@ export default function ApplyPage() {
 
                           {/* Selected checkmark */}
                           {isSelected && (
-                            <div className="absolute top-2 right-2 w-6 h-6 bg-brand-600 rounded-full flex items-center justify-center shadow">
+                            <div className="absolute top-2 right-2 w-6 h-6 bg-brand-900 rounded-full flex items-center justify-center shadow">
                               <Check className="w-3.5 h-3.5 text-white" />
                             </div>
                           )}
@@ -1487,377 +2149,22 @@ export default function ApplyPage() {
           </div>
         )}
 
-        {/* ── Step 3: Applicant Details ── */}
-        {step === 3 && selectedVisa && (
-          <div>
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <h2 className="text-lg font-semibold text-slate-900">Applicant Details</h2>
-              <span className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full font-medium">
-                <Users className="w-3 h-3" /> {travelers.length} traveller{travelers.length > 1 ? 's' : ''}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-5 border-b border-slate-100 pb-3">
-              {travelers.map((tr, idx) => {
-                const isActive = idx === Math.min(activeTraveler, travelers.length - 1);
-                const complete = travelerComplete(tr);
-                return (
-                  <button key={tr.key} onClick={() => setActiveTraveler(idx)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border-2 transition-all ${
-                      isActive ? (tr.type === 'adult' ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800')
-                      : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}>
-                    {complete ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Users className="w-3.5 h-3.5" />}
-                    {tr.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {activeTr && (() => {
-              const items = itemsForTraveler(sortedFields, requirements, activeTr);
-              const hasDocs = items.some((it) => it.kind === 'document');
-              return (
-              <div className="space-y-6">
-                {items.length > 0 && (
-                  <div className="space-y-4">
-                    {items.map((item) =>
-                      item.kind === 'field' ? (
-                        <div key={`f:${item.field._id || item.field.fieldName}`}>
-                          <Label htmlFor={`${activeTr.key}__${item.field.fieldName}`}>
-                            {item.field.label}
-                            {item.field.required && <span className="text-red-500 ml-1">*</span>}
-                          </Label>
-                          <div className="mt-1">{renderField(item.field, activeTr.key)}</div>
-                          {shownSubFields(item.field, formData[`${activeTr.key}__${item.field.fieldName}`]).map((sub) => (
-                            <div key={sub.fieldName} className="mt-3 ml-1 pl-4 border-l-2 border-brand-200 animate-fade-in">
-                              <Label htmlFor={`${activeTr.key}__${sub.fieldName}`}>
-                                {sub.label}
-                                {sub.required && <span className="text-red-500 ml-1">*</span>}
-                              </Label>
-                              <div className="mt-1">{renderField(sub, activeTr.key)}</div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div key={`d:${item.doc._id || item.doc.name}`}>{renderDocCard(activeTr, item.doc)}</div>
-                      ),
-                    )}
-                  </div>
-                )}
-
-                {hasDocs && (
-                  <p className="text-xs text-slate-400">Accepted formats: PDF, JPG, PNG, DOC, DOCX · Max 10 MB per file</p>
-                )}
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <button disabled={activeTraveler === 0} onClick={() => setActiveTraveler((i) => Math.max(0, i - 1))}
-                    className="text-sm text-slate-500 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1">
-                    <ChevronLeft className="w-4 h-4" /> Previous traveller
-                  </button>
-                  {activeTraveler < travelers.length - 1 ? (
-                    <button onClick={() => setActiveTraveler((i) => Math.min(travelers.length - 1, i + 1))}
-                      className="text-sm font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1">
-                      Next traveller <ChevronRight className="w-4 h-4" />
-                    </button>
-                  ) : <span className="text-xs text-slate-400">All travellers</span>}
-                </div>
-              </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* ── Step 4: Review & Pay ── */}
-        {step === 4 && selectedVisa && (
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Review &amp; Pay</h2>
-            <div className="space-y-4">
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Visa Details</p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-xs text-slate-400">Country</p>
-                    <p className="font-medium flex items-center gap-1.5 mt-0.5">
-                      {selectedCountry && <img src={`https://flagcdn.com/w20/${selectedCountry.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />}
-                      {selectedCountry?.name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400">Visa Type</p>
-                    <p className="font-medium mt-0.5">{selectedVisa.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400">Travellers</p>
-                    <p className="font-medium mt-0.5">{adults} Adult{adults > 1 ? 's' : ''}{children > 0 ? `, ${children} Child${children > 1 ? 'ren' : ''}` : ''}</p>
-                  </div>
-                  {travelStartDate && (
-                    <div>
-                      <p className="text-xs text-slate-400">Departure Date</p>
-                      <p className="font-medium mt-0.5">{new Date(travelStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                    </div>
-                  )}
-                  {travelEndDate && (
-                    <div>
-                      <p className="text-xs text-slate-400">Return Date</p>
-                      <p className="font-medium mt-0.5">{new Date(travelEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-xs text-slate-400">Processing Time</p>
-                    <p className="font-medium mt-0.5">{selectedVisa.processingTime}</p>
-                  </div>
-                  {selectedVisa.validity && (
-                    <div>
-                      <p className="text-xs text-slate-400">Validity</p>
-                      <p className="font-medium mt-0.5">{selectedVisa.validity}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Per-traveller details + documents */}
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Traveller Details</p>
-                <div className="space-y-4">
-                  {travelers.map((tr) => {
-                    const entries = questionsForTraveler(sortedFields, tr, formData)
-                      .map((f) => [f.label || f.fieldName, formData[`${tr.key}__${f.fieldName}`]] as const)
-                      .filter(([, v]) => v && String(v).trim());
-                    return (
-                      <div key={tr.key} className="border-t border-slate-100 first:border-t-0 pt-3 first:pt-0">
-                        <p className={`text-xs font-bold mb-1.5 ${tr.type === 'adult' ? 'text-brand-700' : 'text-emerald-700'}`}>{tr.label}</p>
-                        {entries.length === 0 ? (
-                          <p className="text-xs text-slate-400 italic">No details provided</p>
-                        ) : (
-                          <div className="space-y-1 text-sm">
-                            {entries.map(([k, v]) => (
-                              <div key={k} className="flex justify-between gap-4">
-                                <span className="text-slate-500 shrink-0">{k}</span>
-                                <span className="font-medium text-slate-900 text-right truncate">{v}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {docsForTraveler(requirements, tr).length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            {docsForTraveler(requirements, tr).map((req) => {
-                              if (isPassportPair(req) && req.ocrEnabled !== false) {
-                                const f = docSources[docKey(tr, req.name, '__front')];
-                                const b = docSources[docKey(tr, req.name, '__back')];
-                                const ok = f && b;
-                                return (
-                                  <div key={req._id || req.name} className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-600 flex items-center gap-1"><BookOpen className="w-3 h-3 text-slate-400" /> {req.name} (Front & Back)</span>
-                                    {ok ? <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3 h-3" /> Provided</span> : <span className="text-slate-400 italic">Not provided</span>}
-                                  </div>
-                                );
-                              }
-                              const src = docSources[docKey(tr, req.name)];
-                              return (
-                                <div key={req._id || req.name} className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-600">{req.name}{req.required && <span className="text-red-400 ml-1">*</span>}</span>
-                                  {src ? <span className="text-green-700 font-medium flex items-center gap-1">{src.type === 'vault' ? <Vault className="w-3 h-3" /> : <Check className="w-3 h-3" />} {src.type === 'vault' ? src.label : src.type === 'files' ? (src.files.length === 1 ? src.files[0].name : `${src.files.length} files`) : src.file.name}</span> : <span className="text-slate-400 italic">Not provided</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Promo Code, only for promoApplicable users */}
-              {user?.promoApplicable !== false && (
-                <div className="border border-violet-200 bg-violet-50 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide mb-2 flex items-center gap-1">
-                    <Tag className="w-3 h-3" /> Promo Code
-                  </p>
-                  {promoResult ? (
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-green-700 flex items-center gap-1.5">
-                          <Check className="w-4 h-4" />
-                          <span className="font-mono tracking-widest">{promoResult.code}</span> applied!
-                        </p>
-                        <p className="text-xs text-green-600 mt-0.5">
-                          You save {promoResult.discountType === 'percentage' ? `${promoResult.discountValue}%` : formatCurrency(promoResult.discountValue)} ({formatCurrency(promoResult.discount)} off)
-                        </p>
-                      </div>
-                      <button onClick={removePromo} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
-                        <X className="w-3 h-3" />Remove
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex gap-2">
-                        <input
-                          value={promoInput}
-                          onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(''); }}
-                          onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
-                          placeholder="Enter promo code"
-                          className="flex-1 h-9 px-3 text-sm font-mono font-semibold tracking-widest uppercase rounded-lg border border-violet-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400"
-                        />
-                        <button
-                          onClick={handleApplyPromo}
-                          disabled={promoLoading || !promoInput.trim()}
-                          className="px-4 h-9 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-lg flex items-center gap-1.5 transition-colors"
-                        >
-                          {promoLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                          Apply
-                        </button>
-                      </div>
-                      {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Pricing breakdown */}
-              {(() => {
-                const r = rateParts(selectedVisa);
-                const subtotal = orderSubtotal(selectedVisa);
-                const gst = orderGst(selectedVisa);
-                const base = subtotal + gst;
-                const discount = promoResult?.discount || 0;
-                const finalTotal = promoResult ? promoResult.finalAmount : base;
-                const feeRows = (label: string, parts: { base: number; vfs: number; fee: number }, count: number) => [
-                  { name: `Visa Fee (${label})`, amount: parts.base, count },
-                  { name: `VFS Fee / pax (${label})`, amount: parts.vfs, count },
-                  ...(parts.fee > 0 ? [{ name: `Service Fee / pax (${label})`, amount: parts.fee, count }] : []),
-                ];
-                const breakdownRows = [
-                  ...feeRows('Adult', { base: r.adultBase, vfs: r.adultVfs, fee: r.adultFee }, adults),
-                  ...(children > 0 ? feeRows('Child', { base: r.childBase, vfs: r.childVfs, fee: r.childFee }, children) : []),
-                ];
-                return (
-                  <div className="bg-brand-50 border border-brand-200 rounded-xl p-4">
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <p className="text-xs text-brand-600 font-semibold uppercase tracking-wide">Payment Summary</p>
-                      {/* Hover (i), full fee breakdown */}
-                      <span className="relative group inline-flex">
-                        <Info className="w-3.5 h-3.5 text-brand-500 cursor-help" />
-                        <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20">
-                          <span className="block bg-slate-900 text-white rounded-xl p-3 shadow-xl">
-                            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Full Price Breakdown</span>
-                            {breakdownRows.map((row) => (
-                              <span key={row.name} className="flex items-center justify-between text-xs py-0.5">
-                                <span className="text-slate-300">{row.name}{row.count > 1 ? ` × ${row.count}` : ''}</span>
-                                <span className="font-semibold">{formatCurrency(row.amount * row.count)}</span>
-                              </span>
-                            ))}
-                            <span className="flex items-center justify-between text-xs py-0.5 border-t border-slate-700 mt-1 pt-1.5">
-                              <span className="text-slate-300">GST (18%)</span>
-                              <span className="font-semibold">{formatCurrency(gst)}</span>
-                            </span>
-                            <span className="flex items-center justify-between text-xs pt-1 font-bold">
-                              <span>Total</span>
-                              <span>{formatCurrency(base)}</span>
-                            </span>
-                          </span>
-                          <span className="block w-2 h-2 bg-slate-900 rotate-45 mx-auto -mt-1" />
-                        </span>
-                      </span>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600">{adults} × Adult @ {formatCurrency(adultNetRate(selectedVisa))}</span>
-                        <span className="font-medium text-slate-800">{formatCurrency(adults * adultNetRate(selectedVisa))}</span>
-                      </div>
-                      {children > 0 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-600">{children} × Child @ {formatCurrency(childNetRate(selectedVisa))}</span>
-                          <span className="font-medium text-slate-800">{formatCurrency(children * childNetRate(selectedVisa))}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600">GST (18%)</span>
-                        <span className="font-medium text-slate-800">+{formatCurrency(gst)}</span>
-                      </div>
-                      {discount > 0 && (
-                        <>
-                          <div className="flex items-center justify-between text-xs text-green-700">
-                            <span>Promo discount ({promoResult?.code})</span>
-                            <span className="font-semibold">-{formatCurrency(discount)}</span>
-                          </div>
-                        </>
-                      )}
-                      <div className="border-t border-brand-200 pt-2" />
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-brand-800">Total</p>
-                          {r.corp && <span className="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full uppercase tracking-wide">Corporate</span>}
-                        </div>
-                        <div className="text-right">
-                          {discount > 0 && <p className="text-xs text-slate-400 line-through">{formatCurrency(base)}</p>}
-                          <p className="text-2xl font-bold text-brand-900">{formatCurrency(finalTotal)}</p>
-                          <p className="text-[10px] text-slate-400">Inclusive of 18% GST</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end mt-3"><CreditCard className="w-6 h-6 text-brand-400" /></div>
-                  </div>
-                );
-              })()}
-
-              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                <p className="text-sm text-emerald-700">
-                  <strong>Pay by UPI or bank transfer.</strong> After you submit, you&apos;ll see a UPI QR code and our bank account details. Our team verifies the payment, and visa processing starts once it is verified.
-                </p>
-              </div>
-
-              {/* Terms configured by the admin for this visa type, mandatory ones gate submission. */}
-              {visaTerms.length > 0 && (
-                <div className="border border-slate-200 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-3">Terms &amp; Conditions</p>
-                  <div className="space-y-2.5">
-                    {visaTerms.map((term, i) => (
-                      <label key={term._id || i} className="flex items-start gap-2.5 cursor-pointer group">
-                        <input
-                          type="checkbox"
-                          checked={!!termsAccepted[i]}
-                          onChange={(e) => setTermsAccepted((prev) => ({ ...prev, [i]: e.target.checked }))}
-                          className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 shrink-0"
-                        />
-                        <span className="text-sm text-slate-700 group-hover:text-slate-900">
-                          {term.text}
-                          {term.required && <span className="text-red-500 ml-1">*</span>}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  {!allRequiredTermsAccepted && (
-                    <p className="text-xs text-red-500 mt-3">Please accept all required terms to continue.</p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
+      )}
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between mt-6">
-        <Button variant="outline" onClick={goBack} disabled={step === 1 || submitting}>
-          <ChevronLeft className="w-4 h-4 mr-1" /> Back
-        </Button>
-
-        {step < 4 ? (
+      {step < 3 && (
+        <div className="flex items-center justify-between mt-6">
+          <Button variant="outline" onClick={goBack} disabled={step === 1 || submitting}>
+            <ChevronLeft className="w-4 h-4 mr-1" /> Back
+          </Button>
           <Button onClick={goNext} disabled={!canProceed()}>
             Next <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
-        ) : (
-          <Button onClick={handleSubmit} disabled={submitting || !allRequiredTermsAccepted} className="min-w-[200px]">
-            {submitting ? (
-              <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">{submitStatus || 'Submitting…'}</span></span>
-            ) : (
-              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Submit &amp; Pay</span>
-            )}
-          </Button>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* ── Step 3: the whole application on one page ── */}
+      {step === 3 && selectedVisa && selectedCountry && renderSinglePage(selectedVisa, selectedCountry)}
     </div>
   );
 }

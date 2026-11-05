@@ -80,7 +80,7 @@ export default function NotificationDropdown() {
                     {notif.title}
                   </h4>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {!notif.read && <span className="w-2 h-2 bg-brand-600 rounded-full" aria-label="Unread" />}
+                    {!notif.read && <span className="w-2 h-2 bg-brand-900 rounded-full" aria-label="Unread" />}
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
                       onKeyDown={(e) => e.stopPropagation()}

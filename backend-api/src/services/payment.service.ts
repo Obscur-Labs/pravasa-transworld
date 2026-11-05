@@ -8,11 +8,18 @@ import Notification from '../models/Notification';
 import { sendPaymentReviewEmail } from './email.service';
 import { getIO } from '../utils/socket';
 
-// Stages an application can be in while its payment is still outstanding.
+// Stages an application can be in while its payment is still outstanding. The docs
+// stages stay here for applications filed before payment moved to submission time.
 export const PRE_PAYMENT_STAGES = ['submitted', 'documents_under_review', 'documents_approved', 'payment_pending'];
 
-// Stages that mean work has started. Reaching them needs a completed payment.
-export const POST_PAYMENT_STAGES = ['payment_completed', 'visa_processing', 'embassy_review', 'visa_approved', 'visa_delivered'];
+// Where a new application waits for its payment; a verified payment moves it on.
+export const AWAITING_PAYMENT_STAGES = ['submitted', 'payment_pending'];
+
+// Stages that mean work has started, documents review included. Reaching them needs a completed payment.
+export const POST_PAYMENT_STAGES = [
+  'payment_completed', 'documents_under_review', 'documents_approved',
+  'visa_processing', 'embassy_review', 'visa_approved', 'visa_delivered',
+];
 
 export const UPI_ID_RE = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$/;
 export const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
@@ -123,7 +130,8 @@ export async function approvePayment(paymentId: string, admin: Reviewer, note = 
 
   const application = await Application.findById(payment.application);
   if (!application) return payment;
-  if (PRE_PAYMENT_STAGES.includes(application.status)) {
+  // Older applications already in documents review keep their place.
+  if (AWAITING_PAYMENT_STAGES.includes(application.status)) {
     application.status = 'payment_completed';
     await application.save();
   }

@@ -54,12 +54,16 @@ export const getActiveCountries = () => api.get('/user/countries');
 // User, Applications
 export const getDashboard = () => api.get('/user/dashboard');
 export const getApplications = () => api.get('/user/applications');
-export const createApplication = (data: { visaTypeId: string; formResponses: Record<string, string>; adults?: number; children?: number; travelDate?: string; acceptedTerms?: string[] }) =>
+export const createApplication = (data: {
+  visaTypeId: string; formResponses: Record<string, string>; adults?: number; children?: number;
+  travelDate?: string; travelEndDate?: string; acceptedTerms?: string[];
+  travellers?: { key: string; parents: { key: string; relation: string }[] }[];
+}) =>
   api.post('/user/applications', data);
 export const getApplication = (id: string) => api.get(`/user/applications/${id}`);
 export const uploadDocument = (id: string, formData: FormData) =>
   api.post(`/user/applications/${id}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-export const addDocumentFromVault = (id: string, data: { vaultDocId: string; requirementName: string }) =>
+export const addDocumentFromVault = (id: string, data: { vaultDocId: string; requirementName: string; triggeredBy?: string }) =>
   api.post(`/user/applications/${id}/documents/from-vault`, data);
 // Live passport OCR (no persistence) used to pre-fill the editable review form.
 export const scanPassport = (formData: FormData) =>

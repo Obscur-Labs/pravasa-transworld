@@ -11,7 +11,7 @@ export default function NotFound() {
 
       <main className="flex-1 flex items-center justify-center px-4 py-24 bg-mesh">
         <div className="w-full max-w-lg text-center">
-          <div className="w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-brand-500/10">
+          <div className="w-14 h-14 bg-brand-900 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-brand-500/10">
             <Compass className="w-7 h-7 text-white" />
           </div>
 
@@ -22,7 +22,7 @@ export default function NotFound() {
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button asChild size="lg" className="bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-md shadow-brand-600/10 border-0">
+            <Button asChild size="lg" className="bg-brand-900 hover:bg-brand-800 text-white font-semibold shadow-md shadow-brand-600/10 border-0">
               <Link href="/">
                 <Home className="w-4 h-4 mr-2" /> Back to Home
               </Link>

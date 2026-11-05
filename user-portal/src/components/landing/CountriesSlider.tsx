@@ -40,7 +40,7 @@ export default function CountriesSlider() {
     c.slug ? `/countries/${c.slug}` : `/countries/${c._id}`;
 
   return (
-    <section id="destinations" className="py-24 bg-gradient-to-b from-brand-900 to-indigo-950 relative overflow-hidden">
+    <section id="destinations" className="py-24 bg-gradient-to-b from-brand-900 to-brand-950 relative overflow-hidden">
       <div className="absolute inset-0 bg-mesh pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

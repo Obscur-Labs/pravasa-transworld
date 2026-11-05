@@ -1,15 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CheckCircle2, MessageCircle, Phone } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import ServiceInquiryForm from '@/components/services/ServiceInquiryForm';
+import TalkToUs from '@/components/services/TalkToUs';
 import { SERVICES, serviceBySlug } from '@/lib/services';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
-const PHONE = '+91 84693 24000';
-const PHONE_DIGITS = '918469324000';
 
 const STEPS = [
   ['Share your plan', 'Fill in the form. It takes about a minute.'],
@@ -75,7 +74,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
               <ol className="mt-3 space-y-3">
                 {STEPS.map(([title, body], i) => (
                   <li key={title} className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{i + 1}</span>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-900 text-xs font-bold text-white">{i + 1}</span>
                     <div>
                       <p className="text-sm font-bold text-slate-800">{title}</p>
                       <p className="text-xs font-medium text-slate-500">{body}</p>
@@ -85,19 +84,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
               </ol>
             </div>
 
-            <div className="rounded-3xl bg-brand-900 p-6 text-white">
-              <h2 className="font-extrabold">Prefer to talk?</h2>
-              <p className="mt-1 text-sm text-brand-100">Call or message us and we will sort it out with you.</p>
-              <div className="mt-4 flex flex-col gap-2">
-                <a href={`tel:+${PHONE_DIGITS}`} className="flex items-center justify-center gap-2 rounded-xl bg-white/10 py-2.5 text-sm font-bold hover:bg-white/20">
-                  <Phone className="h-4 w-4" />{PHONE}
-                </a>
-                <a href={`https://wa.me/${PHONE_DIGITS}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-xl bg-gold-600 py-2.5 text-sm font-bold hover:bg-gold-700">
-                  <MessageCircle className="h-4 w-4" />WhatsApp us
-                </a>
-              </div>
-            </div>
+            <TalkToUs />
           </aside>
         </div>
 

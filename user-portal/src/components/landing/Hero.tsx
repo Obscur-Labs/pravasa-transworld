@@ -19,7 +19,7 @@ export default function Hero() {
       rate: '99%', 
       processing: '8–12 Days', 
       statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-      bgGradient: 'from-brand-50/10 to-indigo-50/5' 
+      bgGradient: 'from-brand-50/10 to-gold-50/5' 
     },
     { 
       country: 'United Kingdom', 
@@ -30,7 +30,7 @@ export default function Hero() {
       rate: '97%', 
       processing: '5–10 Days', 
       statusColor: 'bg-amber-50 text-amber-700 border-amber-200/50',
-      bgGradient: 'from-indigo-50/10 to-brand-50/5' 
+      bgGradient: 'from-gold-50/10 to-brand-50/5' 
     },
     { 
       country: 'United States', 
@@ -41,7 +41,7 @@ export default function Hero() {
       rate: '98%', 
       processing: '10–15 Days', 
       statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-      bgGradient: 'from-brand-50/10 to-indigo-50/5' 
+      bgGradient: 'from-brand-50/10 to-gold-50/5' 
     },
     { 
       country: 'France', 
@@ -52,7 +52,7 @@ export default function Hero() {
       rate: '99%', 
       processing: '3–7 Days', 
       statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-      bgGradient: 'from-amber-50/10 to-indigo-50/5' 
+      bgGradient: 'from-amber-50/10 to-gold-50/5' 
     }
   ];
 
@@ -60,7 +60,7 @@ export default function Hero() {
     <section className="relative overflow-hidden bg-gradient-to-br from-brand-50/70 via-white to-brand-50/40 pt-20 pb-32">
       {/* Decorative large light glowing blobs with very slow & gentle animations */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-brand-100/30 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-indigo-50/20 rounded-full blur-3xl pointer-events-none animate-float" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-gold-50/20 rounded-full blur-3xl pointer-events-none animate-float" />
       <div className="absolute top-1/3 right-10 w-[300px] h-[300px] bg-cyan-100/20 rounded-full blur-3xl pointer-events-none animate-float-reverse" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -74,7 +74,7 @@ export default function Hero() {
 
             <h1 className="text-5xl lg:text-7xl font-black leading-tight mb-6 text-slate-900 tracking-tight">
               Your Visa, <br />
-              <span className="bg-gradient-to-r from-brand-600 to-brand-800 bg-clip-text text-transparent">Simplified.</span>
+              <span className="bg-gradient-to-r from-gold-600 to-gold-500 bg-clip-text text-transparent">Simplified.</span>
             </h1>
 
             <p className="text-lg text-slate-600 leading-relaxed mb-10 max-w-lg font-medium">
@@ -86,7 +86,7 @@ export default function Hero() {
               <Button
                 size="lg"
                 asChild
-                className="group bg-brand-600 hover:bg-brand-700 text-white shadow-xl shadow-brand-600/10 hover:shadow-brand-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border-0 text-base font-semibold"
+                className="group bg-brand-900 hover:bg-brand-800 text-white shadow-xl shadow-brand-600/10 hover:shadow-brand-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border-0 text-base font-semibold"
               >
                 <Link href={hasSession ? '/apply' : '/login'}>
                   Apply For Visa
@@ -127,7 +127,7 @@ export default function Hero() {
                   onClick={() => setSelectedIndex(i)}
                   className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 ${
                     selectedIndex === i
-                      ? 'bg-brand-600 text-white shadow-md border border-brand-700'
+                      ? 'bg-brand-900 text-white shadow-md border border-brand-700'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-sm'
                   }`}
                 >

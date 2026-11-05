@@ -13,7 +13,7 @@ export default function HowItWorks() {
     <section id="how-it-works" className="py-24 bg-gradient-to-b from-white to-slate-50 relative overflow-hidden border-t border-slate-100">
       {/* Decorative background blobs */}
       <div className="absolute top-0 right-10 w-96 h-96 bg-brand-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute bottom-0 left-10 w-80 h-80 bg-indigo-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
+      <div className="absolute bottom-0 left-10 w-80 h-80 bg-gold-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-20">
@@ -36,7 +36,7 @@ export default function HowItWorks() {
               >
                 <div className="relative z-10 w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mb-5 border border-brand-100/50 transition-all duration-300">
                   <Icon className="w-7 h-7 text-brand-600 transition-transform duration-300" />
-                  <span className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-brand-600 text-white text-xs font-black rounded-full flex items-center justify-center shadow-md">
+                  <span className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-brand-900 text-white text-xs font-black rounded-full flex items-center justify-center shadow-md">
                     {idx + 1}
                   </span>
                 </div>

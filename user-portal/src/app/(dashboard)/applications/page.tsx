@@ -23,7 +23,7 @@ interface ApplicationDraft {
   updatedAt: string;
 }
 
-const DRAFT_STEPS = ['Country', 'Visa type', 'Applicant details', 'Review & pay'];
+const DRAFT_STEPS = ['Country', 'Visa type', 'Application form'];
 
 const statusVariant = (s: string) => {
   if (s === 'visa_approved' || s === 'visa_delivered') return 'success';
@@ -92,7 +92,7 @@ export default function ApplicationsPage() {
                     <Badge variant="secondary" className="text-xs flex-shrink-0">Draft</Badge>
                   </div>
                   <p className="mt-3 text-xs text-slate-500">
-                    Step {d.step} of 4: {DRAFT_STEPS[d.step - 1]}
+                    Step {Math.min(d.step, 3)} of 3: {DRAFT_STEPS[Math.min(d.step, 3) - 1]}
                     {d.travelStartDate && <> &middot; travelling {formatDate(d.travelStartDate)}</>}
                     {travellers > 0 && <> &middot; {travellers} traveller{travellers === 1 ? '' : 's'}</>}
                   </p>

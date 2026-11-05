@@ -19,7 +19,7 @@ interface PageData { country: Country; visaTypes: VisaType[] }
 const CAT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   tourist:  { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
   business: { bg: 'bg-brand-50',    text: 'text-brand-700',    dot: 'bg-brand-500'    },
-  student:  { bg: 'bg-violet-50',  text: 'text-violet-700',  dot: 'bg-violet-500'  },
+  student:  { bg: 'bg-gold-50',  text: 'text-gold-700',  dot: 'bg-gold-500'  },
   transit:  { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-500'   },
 };
 
@@ -119,7 +119,7 @@ function FAQAccordion({ faqs }: { faqs: { question: string; answer: string }[] }
               >
                 <div className="flex items-start gap-3 min-w-0">
                   <span className={`flex-shrink-0 w-6 h-6 rounded-full text-[11px] font-extrabold flex items-center justify-center mt-0.5 transition-colors ${
-                    isOpen ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-brand-100 group-hover:text-brand-600'
+                    isOpen ? 'bg-brand-900 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-brand-100 group-hover:text-brand-600'
                   }`}>
                     {i + 1}
                   </span>
@@ -426,8 +426,8 @@ export default function CountryDetailPage() {
             {/* Apply CTA */}
             <div className="space-y-3">
               <Link
-                href={hasSession ? '/apply' : '/register'}
-                className="flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-extrabold text-sm px-5 py-3.5 rounded-2xl w-full transition-all shadow-lg shadow-brand-600/20"
+                href={hasSession ? `/apply?country=${country._id}` : '/register'}
+                className="flex items-center justify-center gap-2 bg-brand-900 hover:bg-brand-800 active:scale-95 text-white font-extrabold text-sm px-5 py-3.5 rounded-2xl w-full transition-all shadow-lg shadow-brand-600/20"
               >
                 Start Application <ArrowRight className="w-4 h-4" />
               </Link>
@@ -451,7 +451,7 @@ export default function CountryDetailPage() {
           <Link href="/countries" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 font-semibold text-sm transition-colors">
             <ArrowLeft className="w-4 h-4" /> All Destinations
           </Link>
-          <Link href={hasSession ? '/apply' : '/register'} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors">
+          <Link href={hasSession ? `/apply?country=${country._id}` : '/register'} className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors">
             Apply for {country.name} Visa <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

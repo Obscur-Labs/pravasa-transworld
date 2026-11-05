@@ -25,15 +25,30 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   visa_delivered: 'Visa Delivered',
 };
 
+// Pipeline order: pay at submission, documents reviewed after the payment is verified.
 export const ALL_STATUSES: ApplicationStatus[] = [
-  'submitted', 'documents_under_review', 'documents_approved', 'payment_pending',
-  'payment_completed', 'visa_processing', 'embassy_review', 'visa_approved',
+  'submitted', 'payment_pending', 'payment_completed', 'documents_under_review',
+  'documents_approved', 'visa_processing', 'embassy_review', 'visa_approved',
   'visa_rejected', 'visa_delivered',
 ];
 
-// Statuses an admin can set manually, mirrors the 4-step Application Progress (+ Rejected).
+// The six stages every application moves through. `status` is what moving an
+// application into the stage sets; `statuses` are all the statuses shown as that stage.
+export const PIPELINE_STAGES: { label: string; status: ApplicationStatus; statuses: ApplicationStatus[] }[] = [
+  { label: 'Submitted', status: 'submitted', statuses: ['submitted', 'payment_pending'] },
+  { label: 'Payment Verified', status: 'payment_completed', statuses: ['payment_completed'] },
+  { label: 'Docs Review', status: 'documents_under_review', statuses: ['documents_under_review', 'documents_approved'] },
+  { label: 'Sent to Embassy', status: 'visa_processing', statuses: ['visa_processing', 'embassy_review'] },
+  { label: 'Decision', status: 'visa_approved', statuses: ['visa_approved', 'visa_rejected'] },
+  { label: 'Delivered', status: 'visa_delivered', statuses: ['visa_delivered'] },
+];
+
+export const stageIndexOf = (status: ApplicationStatus) =>
+  PIPELINE_STAGES.findIndex((s) => s.statuses.includes(status));
+
+// Statuses an admin can set manually: one per stage, plus Rejected.
 export const SELECTABLE_STATUSES: ApplicationStatus[] = [
-  'submitted', 'payment_completed', 'visa_processing', 'visa_approved', 'visa_rejected',
+  'submitted', 'payment_completed', 'documents_under_review', 'visa_processing', 'visa_approved', 'visa_rejected', 'visa_delivered',
 ];
 
 // 'file' was dropped when fields and documents merged into one ordered list, a
@@ -81,6 +96,13 @@ export interface DocumentRequirement {
   ocrEnabled?: boolean;
   // Shares one sequence with FormField.order, see mergeFormItems().
   order: number;
+  // Conditional upload: shown only when the answer to `field` is one of `values`.
+  showWhen?: DocumentShowWhen | null;
+}
+
+export interface DocumentShowWhen {
+  field: string;
+  values: string[];
 }
 
 /** A single row of the application form: either a question or a document upload. */
@@ -241,6 +263,9 @@ export interface ReceiptConfig {
   stateCode: string;
   sacCode: string;
   logoUrl: string;
+  phone2: string;
+  website: string;
+  businessHours: string;
 }
 
 /** The house format every embassy mail starts from, one saved record, edited on the config page. */
@@ -529,9 +554,21 @@ export interface Application {
   expectedDate?: string;
   paymentAmount: number;
   courier?: CourierRequest;
+  travellers?: Traveller[];
   referenceId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ParentRelation = 'father' | 'mother' | 'guardian';
+
+/** One person on the order; the order's referenceId is the family group. */
+export interface Traveller {
+  ref: string;
+  key: string;
+  kind: 'adult' | 'child';
+  label: string;
+  parents: { key: string; relation: ParentRelation }[];
 }
 
 export interface Document {
@@ -542,6 +579,8 @@ export interface Document {
   rejectionReason: string;
   docType?: string;
   extractedData?: Record<string, string>;
+  // The answer that made a conditional upload appear, e.g. "Marital Status = Married".
+  triggeredBy?: string;
   reviewedAt: string | null;
   createdAt: string;
 }

@@ -47,6 +47,13 @@ export interface IDocumentRequirement {
   // Shares one sequence with IFormField.order: fields and documents are authored and
   // rendered as a single interleaved list, so ordering has to span both arrays.
   order: number;
+  // Conditional upload: asked only when the traveller's answer to `field` is one of `values`.
+  showWhen?: IDocumentShowWhen | null;
+}
+
+export interface IDocumentShowWhen {
+  field: string;
+  values: string[];
 }
 
 // A consent checkbox the applicant sees before paying. `required` blocks submission
@@ -159,6 +166,10 @@ export const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
   },
   ocrEnabled: { type: Boolean },
   order: { type: Number, default: 0 },
+  showWhen: {
+    type: new Schema({ field: { type: String, default: '' }, values: [{ type: String }] }, { _id: false }),
+    default: null,
+  },
 });
 
 export const VisaTermSchema = new Schema<IVisaTerm>({

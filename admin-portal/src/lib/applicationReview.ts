@@ -98,6 +98,16 @@ export function buildReviewRows(
   const reqs = withDefaultPassport(application.visaType?.documentRequirements || [])
     .filter((d) => appliesTo(d.applicantType, trType));
 
+  // A conditional upload only counts as missing when this traveller's answer asked for it.
+  const ruleMet = (doc: DocumentRequirement) => {
+    const rule = doc.showWhen;
+    if (!rule?.field || !rule.values?.length) return true;
+    const trigger = (application.visaType?.formFields || []).find((f) => f.fieldName === rule.field);
+    if (!trigger) return true;
+    const answer = travAnswers.find((a) => norm(a.label) === norm(trigger.label || trigger.fieldName))?.value;
+    return !!answer && rule.values.includes(answer);
+  };
+
   const usedDocs = new Set<string>();
   const usedAnswers = new Set<number>();
   const rows: ReviewRow[] = [];
@@ -116,7 +126,7 @@ export function buildReviewRows(
         usedDocs.add(d._id);
         rows.push({ kind: 'doc', id: d._id, label: stripTraveler(d.requirementName), doc: d });
       }
-      if (matches.length === 0 && item.doc.required) {
+      if (matches.length === 0 && item.doc.required && ruleMet(item.doc)) {
         rows.push({ kind: 'missing', id: `missing:${item.doc.name}`, label: item.doc.name });
       }
     } else {

@@ -20,7 +20,7 @@ export default function Navbar() {
   }, []);
 
   const navLinks = [
-    { href: '/', label: 'Destinations' },
+    { href: '/countries', label: 'Destinations' },
     { href: '/about', label: 'About' },
     { href: '/contact', label: 'Contact' },
   ];

@@ -87,6 +87,20 @@ export function normalizeFormItems<T extends { formFields?: any[]; documentRequi
     }
   });
 
+  // A conditional upload must point at a select/radio question that still offers the
+  // chosen answers; anything else falls back to always shown. Partial bodies without
+  // fields keep the rules as sent, since there is nothing to check them against.
+  if (hasFields) {
+    for (const doc of nextDocs) {
+      const rule = doc.showWhen;
+      const trigger = nextFields.find((f) => f.fieldName === str(rule?.field) && hasOptions(f));
+      const values = trigger
+        ? (Array.isArray(rule?.values) ? rule.values : []).filter((v: string) => trigger.options?.includes(v))
+        : [];
+      doc.showWhen = trigger && values.length ? { field: trigger.fieldName, values } : null;
+    }
+  }
+
   const out: T = { ...body };
   if (hasFields) out.formFields = nextFields;
   if (hasDocs) out.documentRequirements = nextDocs;

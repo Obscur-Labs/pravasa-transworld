@@ -9,6 +9,7 @@ import { sendSuccess } from '../../utils/response';
 const EDITABLE_FIELDS = [
   'companyName', 'addressLine1', 'addressLine2', 'phone', 'fax', 'email',
   'gstin', 'pan', 'stateName', 'stateCode', 'sacCode', 'logoUrl',
+  'phone2', 'website', 'businessHours',
 ] as const;
 
 export const getReceiptConfig = async (_req: AdminRequest, res: Response): Promise<void> => {

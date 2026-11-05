@@ -12,12 +12,14 @@ export type ApplicationStatus =
   | 'visa_rejected'
   | 'visa_delivered';
 
+// Pipeline order: the customer pays at submission, documents are reviewed after the
+// payment is verified, then the file goes to the embassy.
 export const APPLICATION_STATUSES: ApplicationStatus[] = [
   'submitted',
-  'documents_under_review',
-  'documents_approved',
   'payment_pending',
   'payment_completed',
+  'documents_under_review',
+  'documents_approved',
   'visa_processing',
   'embassy_review',
   'visa_approved',
@@ -55,6 +57,20 @@ export interface ICourierRequest {
   receivedAt: Date | null;
 }
 
+export type ParentRelation = 'father' | 'mother' | 'guardian';
+export const PARENT_RELATIONS: ParentRelation[] = ['father', 'mother', 'guardian'];
+
+// One person on the order. The order's referenceId is the family group; each traveller
+// gets its own ID under it. Names stay in the encrypted formResponses, never here.
+export interface ITraveller {
+  ref: string;
+  key: string;
+  kind: 'adult' | 'child';
+  label: string;
+  // Only on children: the adults on the same order who are this child's parents or guardian.
+  parents: { key: string; relation: ParentRelation }[];
+}
+
 export interface IApplication extends Document {
   user: mongoose.Types.ObjectId;
   visaType: mongoose.Types.ObjectId;
@@ -89,6 +105,7 @@ export interface IApplication extends Document {
   // what was agreed to survives later edits to the visa type's terms.
   acceptedTerms: { text: string; required: boolean }[];
   courier: ICourierRequest;
+  travellers: ITraveller[];
   referenceId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -111,6 +128,17 @@ const CourierSchema = new Schema<ICourierRequest>(
     expectedDate: { type: String, default: '' },
     submittedAt: { type: Date, default: null },
     receivedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
+const TravellerSchema = new Schema<ITraveller>(
+  {
+    ref: { type: String, required: true },
+    key: { type: String, required: true },
+    kind: { type: String, enum: ['adult', 'child'], required: true },
+    label: { type: String, default: '' },
+    parents: [{ key: { type: String, required: true }, relation: { type: String, enum: PARENT_RELATIONS, required: true }, _id: false }],
   },
   { _id: false }
 );
@@ -148,6 +176,7 @@ const ApplicationSchema = new Schema<IApplication>(
     pricingTier: { type: String, enum: ['individual', 'corporate', 'b2b_agent'], default: 'individual', select: false },
     acceptedTerms: [{ text: { type: String }, required: { type: Boolean, default: false }, _id: false }],
     courier: { type: CourierSchema, default: () => ({}) },
+    travellers: { type: [TravellerSchema], default: [] },
     referenceId: { type: String, unique: true },
   },
   { timestamps: true }

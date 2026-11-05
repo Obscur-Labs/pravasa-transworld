@@ -105,7 +105,15 @@ export default function ApplicationsPage() {
             ) : (
               applications.map((app) => (
                 <TableRow key={app._id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{app.referenceId}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+                    {app.referenceId}
+                    {(app.travellers?.length ?? 0) > 1 && (
+                      <span className="block mt-1 w-fit font-sans text-[10px] font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5"
+                        title={app.travellers!.map((t) => t.ref).join(', ')}>
+                        Family · {app.travellers!.length}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <p className="font-medium text-foreground whitespace-nowrap">{app.user?.name}</p>
                     <p className="text-xs text-muted-foreground">{app.user?.email}</p>

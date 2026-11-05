@@ -5,42 +5,42 @@ const benefits = [
     icon: Zap,
     title: 'Fast Processing',
     desc: 'Get your visa processed in as little as 5 business days with our expedited service.',
-    gradient: 'from-brand-50 to-indigo-50/50 border-brand-100/50',
+    gradient: 'from-brand-50 to-gold-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },
   {
     icon: Shield,
     title: 'Secure Documents',
     desc: 'Your documents are encrypted, stored securely, and never shared without consent.',
-    gradient: 'from-brand-50 to-indigo-50/50 border-brand-100/50',
+    gradient: 'from-brand-50 to-gold-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },
   {
     icon: Activity,
     title: 'Real-Time Tracking',
     desc: 'Monitor every stage of your application with our live status timeline.',
-    gradient: 'from-brand-50 to-indigo-50/50 border-brand-100/50',
+    gradient: 'from-brand-50 to-gold-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },
   {
     icon: Globe2,
     title: '40+ Destinations',
     desc: 'Apply for visas to over 40 countries with one unified platform.',
-    gradient: 'from-brand-50 to-indigo-50/50 border-brand-100/50',
+    gradient: 'from-brand-50 to-gold-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },
   {
     icon: Clock,
     title: 'Pay After Approval',
     desc: 'No upfront fees. Payment is only collected after your documents are approved.',
-    gradient: 'from-brand-50 to-indigo-50/50 border-brand-100/50',
+    gradient: 'from-brand-50 to-gold-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },
   {
     icon: HeartHandshake,
     title: 'Expert Support',
     desc: 'Our visa specialists are on hand to guide you through every step of the process.',
-    gradient: 'from-brand-50 to-indigo-50/50 border-brand-100/50',
+    gradient: 'from-brand-50 to-gold-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },
 ];
@@ -50,7 +50,7 @@ export default function Benefits() {
     <section className="py-24 bg-gradient-to-b from-slate-50 to-white relative overflow-hidden border-t border-slate-100">
       {/* Subtle light background blobs */}
       <div className="absolute top-0 left-10 w-96 h-96 bg-brand-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute bottom-0 right-10 w-80 h-80 bg-indigo-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
+      <div className="absolute bottom-0 right-10 w-80 h-80 bg-gold-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">

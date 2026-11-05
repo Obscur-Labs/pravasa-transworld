@@ -10,7 +10,7 @@
     --card-foreground: 198 70% 12%;
     --popover: 0 0% 100%;
     --popover-foreground: 198 70% 12%;
-    --primary: 198 65% 36%;
+    --primary: 198 69% 14%;
     --primary-foreground: 0 0% 100%;
     --secondary: 198 45% 96%;
     --secondary-foreground: 198 70% 14%;
@@ -22,7 +22,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 198 25% 90%;
     --input: 198 25% 90%;
-    --ring: 198 65% 36%;
+    --ring: 35 49% 42%;
     --radius: 0.5rem;
 
     /* Raw brand values, straight off the logo, for gradients and canvas work

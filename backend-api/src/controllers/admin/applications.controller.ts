@@ -24,8 +24,12 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Work starts only after payment is verified: moving an application out of the pre-payment
 // stages into processing needs a completed payment. Applications already past payment
 // (including older ones from before this rule) are not held back.
+// Documents review now comes after payment too. An older unpaid application already in
+// documents review may still move between the two review stages.
+const DOC_STAGES = ['documents_under_review', 'documents_approved'];
 async function startsWorkUnpaid(application: { _id: unknown; status: string }, target: string): Promise<boolean> {
   if (!PRE_PAYMENT_STAGES.includes(application.status) || !POST_PAYMENT_STAGES.includes(target)) return false;
+  if (DOC_STAGES.includes(application.status) && DOC_STAGES.includes(target)) return false;
   return !(await hasCompletedPayment(application._id));
 }
 
@@ -42,7 +46,7 @@ export const getApplications = async (req: AdminRequest, res: Response): Promise
   if (term) {
     const pattern = new RegExp(escapeRegex(term), 'i');
     const users = await User.find({ $or: [{ name: pattern }, { email: pattern }] }).select('_id');
-    filter.$or = [{ referenceId: pattern }, { user: { $in: users.map((u) => u._id) } }];
+    filter.$or = [{ referenceId: pattern }, { 'travellers.ref': pattern }, { user: { $in: users.map((u) => u._id) } }];
   }
 
   const query = Application.find(filter)
@@ -187,15 +191,18 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
   // A rejected document is still waiting on a replacement, approving the rest must not
   // close the applicant's upload window behind it.
   const stillRejected = await Document.countDocuments({ application: application._id, status: 'rejected' });
+  // Review only moves the status while the application sits in the review part of the
+  // pipeline: an unpaid one keeps waiting for payment, a later one never moves back.
+  const inReview = ['payment_completed', ...DOC_STAGES].includes(application.status);
   if (stillRejected > 0) {
-    application.status = 'documents_under_review';
+    if (inReview) application.status = 'documents_under_review';
     await application.save();
     sendSuccess(res, application, `Pending documents approved. ${stillRejected} rejected document(s) still awaiting re-upload.`);
     return;
   }
 
   const visaType = await (await import('../../models/VisaType')).default.findById(application.visaType);
-  application.status = 'documents_approved';
+  if (inReview) application.status = 'documents_approved';
   // Preserve the per-traveler total locked at creation; only recompute if it was never set.
   if (visaType && (!application.paymentAmount || application.paymentAmount <= 0)) {
     const fullUser = await (await import('../../models/User')).default.findById(application.user);

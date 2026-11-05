@@ -41,7 +41,7 @@ export default function ContactPage() {
             We're Here to Help
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight leading-tight">
-            Get In <span className="text-brand-600">Touch</span>
+            Get In <span className="text-gold-600">Touch</span>
           </h1>
           <p className="text-slate-500 font-medium max-w-xl mx-auto text-[15px] leading-relaxed">
             Questions about your visa application? Our team responds within 24 hours.

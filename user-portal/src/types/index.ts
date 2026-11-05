@@ -23,6 +23,20 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   visa_delivered: 'Visa Delivered',
 };
 
+// The six stages every application moves through, in order. Pay at submission,
+// documents are reviewed after the payment is verified, then the embassy decides.
+export const PIPELINE_STAGES: { label: string; statuses: ApplicationStatus[] }[] = [
+  { label: 'Submitted', statuses: ['submitted', 'payment_pending'] },
+  { label: 'Payment Verified', statuses: ['payment_completed'] },
+  { label: 'Docs Review', statuses: ['documents_under_review', 'documents_approved'] },
+  { label: 'Sent to Embassy', statuses: ['visa_processing', 'embassy_review'] },
+  { label: 'Decision', statuses: ['visa_approved', 'visa_rejected'] },
+  { label: 'Delivered', statuses: ['visa_delivered'] },
+];
+
+export const stageIndexOf = (status: ApplicationStatus) =>
+  PIPELINE_STAGES.findIndex((s) => s.statuses.includes(status));
+
 export interface CountryFaq {
   question: string;
   answer: string;
@@ -45,6 +59,11 @@ export interface Country {
   showOnWebsite?: boolean;
   images?: string[];
   webContent?: CountryWebContent;
+  // Listing summary from /public/countries: cheapest adult price and its processing time.
+  visaTypeCount?: number;
+  fromPrice?: number | null;
+  processingTime?: string;
+  visaSubTypes?: string[];
 }
 
 // Widened to plain string, these value sets are admin-configurable on the Visa Config page.
@@ -147,7 +166,17 @@ export interface DocumentRequirement {
   ocrEnabled?: boolean;
   // Shares one sequence with FormField.order, see mergeFormItems().
   order?: number;
+  // Conditional upload: asked only when the answer to `field` is one of `values`.
+  showWhen?: { field: string; values: string[] } | null;
 }
+
+/** Whether a conditional upload applies, given how the traveller answered its trigger question. */
+export const docRuleMet = (doc: DocumentRequirement, answerOf: (fieldName: string) => string | undefined) => {
+  const rule = doc.showWhen;
+  if (!rule?.field || !rule.values?.length) return true;
+  const answer = answerOf(rule.field);
+  return !!answer && rule.values.includes(answer);
+};
 
 /** A single row of the application form: either a question or a document upload. */
 export type FormItem =
@@ -224,9 +253,21 @@ export interface Application {
   submissionDate?: string;
   paymentAmount: number;
   courier?: CourierRequest;
+  travellers?: Traveller[];
   referenceId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ParentRelation = 'father' | 'mother' | 'guardian';
+
+/** One person on the order; the order's referenceId is the family group. */
+export interface Traveller {
+  ref: string;
+  key: string;
+  kind: 'adult' | 'child';
+  label: string;
+  parents: { key: string; relation: ParentRelation }[];
 }
 
 export interface Document {
@@ -237,6 +278,7 @@ export interface Document {
   rejectionReason: string;
   docType?: string;
   extractedData?: Record<string, string>;
+  triggeredBy?: string;
 }
 
 export interface Notification {

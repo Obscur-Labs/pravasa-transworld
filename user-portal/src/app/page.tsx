@@ -100,7 +100,7 @@ export default function LandingPage() {
           <p className="text-slate-500 font-medium mb-6">Create a free account and track your visa in real time.</p>
           <Link
             href="/register"
-            className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold px-7 py-3.5 rounded-xl transition-all shadow-lg shadow-brand-600/20 hover:scale-105 duration-200"
+            className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-white font-bold px-7 py-3.5 rounded-xl transition-all shadow-lg shadow-brand-600/20 hover:scale-105 duration-200"
           >
             Get Started Free <ArrowRight className="w-4 h-4" />
           </Link>
