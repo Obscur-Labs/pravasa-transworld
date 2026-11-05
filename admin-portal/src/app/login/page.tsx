@@ -1,13 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, UserRound, Lock, Eye, EyeOff } from 'lucide-react';
+import { Loader2, UserRound, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
-import { adminLogin } from '@/lib/api';
+import { adminLogin, verifyAdminTwoFactor } from '@/lib/api';
 import { useAdminAuthStore } from '@/store/auth.store';
 
 export default function AdminLoginPage() {
@@ -20,6 +20,9 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  // Set once the password is right on an account with two-factor sign-in.
+  const [challenge, setChallenge] = useState('');
+  const [code, setCode] = useState('');
 
   useEffect(() => {
     if (localStorage.getItem('adminToken')) {
@@ -34,14 +37,23 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError('');
     try {
-      const r = await adminLogin({ username: username.trim(), password });
+      const r = challenge
+        ? await verifyAdminTwoFactor({ challenge, code: code.trim() })
+        : await adminLogin({ username: username.trim(), password });
+      if (r.data.data.twoFactorRequired) {
+        setChallenge(r.data.data.challenge);
+        setLoading(false);
+        return;
+      }
       const { token, admin } = r.data.data;
       login(admin, token);
       toast({ title: 'Welcome back!', description: `Signed in as ${admin.name}`, variant: 'success' });
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Could not sign in. Please try again.');
-      setPassword('');
+      // A wrong code is retried; an expired code step starts over from the password.
+      setCode('');
+      if (!challenge || /expired/i.test(err.response?.data?.message || '')) { setChallenge(''); setPassword(''); }
     } finally {
       setLoading(false);
     }
@@ -88,6 +100,28 @@ export default function AdminLoginPage() {
           <p className="text-brand-200 text-sm mt-1">Administration Console</p>
         </div>
 
+        {challenge ? (
+          <form onSubmit={handleSubmit} className="bg-brand-900 rounded-2xl p-6 border border-brand-800 space-y-4">
+            <div className="flex items-center gap-2 text-brand-100">
+              <ShieldCheck className="w-5 h-5 text-gold-400" />
+              <p className="text-sm">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
+            </div>
+            <div>
+              <Label htmlFor="code" className="text-brand-100">Code</Label>
+              <Input id="code" inputMode="numeric" autoComplete="one-time-code" autoFocus spellCheck={false}
+                className={`${fieldClass} tracking-[0.3em] font-mono text-center text-lg`} value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 9))} required />
+            </div>
+            {error && (
+              <p role="alert" className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</p>
+            )}
+            <Button type="submit" className="w-full" size="lg" disabled={loading || code.trim().length < 6}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & sign in'}
+            </Button>
+            <button type="button" onClick={() => { setChallenge(''); setCode(''); setPassword(''); setError(''); }}
+              className="w-full text-center text-xs text-brand-300 hover:text-white">Use a different account</button>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit} className="bg-brand-900 rounded-2xl p-6 border border-brand-800 space-y-4">
           <div>
             <Label htmlFor="username" className="text-brand-100 flex items-center gap-1.5">
@@ -139,6 +173,7 @@ export default function AdminLoginPage() {
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign In'}
           </Button>
         </form>
+        )}
 
         <p className="text-center text-xs text-brand-300 mt-4">
           Forgot your password? Ask your super admin to reset it.

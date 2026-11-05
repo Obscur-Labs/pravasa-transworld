@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Eye, KeyRound, Lock } from 'lucide-react';
+import { Eye, KeyRound, Lock, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { navItemForPath } from '@/config/nav';
 import { isViewOnlyModule } from '@/config/permissions';
@@ -17,7 +17,22 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { can, isSuperAdmin } = usePermissions();
   const mustChangePassword = useAdminAuthStore((s) => !!s.admin?.mustChangePassword);
+  const twoFactorRequired = useAdminAuthStore((s) => !!s.admin?.twoFactorRequired);
   const item = navItemForPath(pathname);
+
+  // The team requires 2FA: the server refuses everything but the profile until it's on.
+  if (twoFactorRequired && pathname !== '/profile') {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-warning/10">
+          <ShieldCheck className="h-5 w-5 text-warning" />
+        </span>
+        <h1 className="mt-4 text-lg font-semibold text-foreground">Set up two-factor sign-in to continue</h1>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">Your team requires a code from an authenticator app at sign-in. It takes a minute.</p>
+        <Button asChild className="mt-5"><Link href="/profile#two-factor">Set it up</Link></Button>
+      </div>
+    );
+  }
 
   const blocked = item && (item.superAdminOnly ? !isSuperAdmin : item.module && !can(item.module));
   if (blocked) {

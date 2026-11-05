@@ -9,7 +9,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { PermissionList } from '@/components/shared/permission-list';
-import { createTeamMember, updateTeamMember } from '@/lib/api';
+import { createTeamMember, inviteTeamMember, updateTeamMember } from '@/lib/api';
 import type { AdminRole, TeamMember } from '@/types';
 
 interface Props {
@@ -37,11 +37,14 @@ export function MemberDialog({ open, onOpenChange, member, roles, selfId, onSave
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  // New members can get an email link to set their own password instead of a shared one.
+  const [byEmail, setByEmail] = useState(true);
   const isSelf = member?._id === selfId;
 
   useEffect(() => {
     if (!open) return;
     setCopied(false);
+    setByEmail(true);
     setForm(member
       ? {
           name: member.name, username: member.username, password: '', phone: member.phone, email: member.email,
@@ -52,8 +55,10 @@ export function MemberDialog({ open, onOpenChange, member, roles, selfId, onSave
 
   const selectedRole = roles.find((r) => r._id === form.role);
   const creating = !member;
+  const inviting = creating && byEmail;
   const canSave = form.name.trim() && form.username.trim() && form.phone.trim()
-    && (form.isSuperAdmin || form.role) && (!creating || form.password.length >= 8);
+    && (form.isSuperAdmin || form.role)
+    && (inviting ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) : (!creating || form.password.length >= 8));
 
   const copyPassword = async () => {
     try {
@@ -74,12 +79,15 @@ export function MemberDialog({ open, onOpenChange, member, roles, selfId, onSave
         role: form.isSuperAdmin ? null : form.role,
         password: form.password || undefined,
       };
-      const r = member ? await updateTeamMember(member._id, payload) : await createTeamMember(payload);
+      const r = member
+        ? await updateTeamMember(member._id, payload)
+        : inviting ? await inviteTeamMember({ ...payload, password: undefined }) : await createTeamMember(payload);
       onSaved(r.data.data);
       onOpenChange(false);
       toast({
-        title: creating ? 'Team member added' : 'Team member saved',
-        description: form.password ? `Share the password with ${form.name.split(' ')[0]}. They will be asked to change it.` : undefined,
+        title: inviting ? `Invite sent to ${form.email.trim()}` : creating ? 'Team member added' : 'Team member saved',
+        description: inviting ? 'The link to set a password works for 7 days.'
+          : form.password ? `Share the password with ${form.name.split(' ')[0]}. They will be asked to change it.` : undefined,
         variant: 'success',
       });
     } catch (err: any) {
@@ -94,7 +102,7 @@ export function MemberDialog({ open, onOpenChange, member, roles, selfId, onSave
       <DialogContent className="max-w-lg p-0 gap-0 max-h-[90dvh] flex flex-col">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle>{creating ? 'Add team member' : `Edit ${member!.name}`}</DialogTitle>
-          <DialogDescription>{creating ? 'They sign in to the admin panel with this username and password.' : 'Leave the password empty to keep the current one.'}</DialogDescription>
+          <DialogDescription>{inviting ? 'They get an email to set their own password, then sign in with this username.' : creating ? 'They sign in to the admin panel with this username and password.' : 'Leave the password empty to keep the current one.'}</DialogDescription>
         </DialogHeader>
 
         <div className="overflow-y-auto px-6 py-5 space-y-4">
@@ -113,11 +121,19 @@ export function MemberDialog({ open, onOpenChange, member, roles, selfId, onSave
               <Input id="m-phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-email">Email <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Label htmlFor="m-email">Email {!inviting && <span className="font-normal text-muted-foreground">(optional)</span>}</Label>
               <Input id="m-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
           </div>
 
+          {creating && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Switch checked={byEmail} onChange={() => setByEmail((v) => !v)} />
+              Email them an invite to set their own password
+            </label>
+          )}
+
+          {!inviting && (
           <div className="space-y-1.5">
             <Label htmlFor="m-password">{creating ? 'Password' : 'New password'}</Label>
             <div className="flex gap-2">
@@ -132,6 +148,7 @@ export function MemberDialog({ open, onOpenChange, member, roles, selfId, onSave
             </div>
             <p className="text-xs text-muted-foreground">At least 8 characters with a letter and a number. It is a temporary password: they set their own after signing in.</p>
           </div>
+          )}
 
           <label className={`flex items-start gap-3 rounded-xl border p-3 ${form.isSuperAdmin ? 'border-warning/40 bg-warning/5' : 'border-border'} ${isSelf ? 'opacity-60' : 'cursor-pointer'}`}>
             <input type="checkbox" className="mt-0.5 h-4 w-4" checked={form.isSuperAdmin} disabled={isSelf}

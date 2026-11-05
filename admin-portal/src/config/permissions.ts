@@ -7,6 +7,7 @@ export const ACCESS_LABELS: Record<AccessLevel, string> = { view: 'View only', m
 
 export const ADMIN_MODULES = [
   { key: 'dashboard', label: 'Dashboard', description: 'Overview stats and charts', viewOnly: true },
+  { key: 'reports', label: 'Reports', description: 'Revenue, GST register, agents and processing times', viewOnly: true },
   { key: 'applications', label: 'Applications', description: 'Applications, documents, processing board, embassy mail' },
   { key: 'payments', label: 'Payments', description: 'Verify UPI and bank payments, record cash payments' },
   { key: 'countries', label: 'Countries & Visas', description: 'Countries, visa types, pricing, website content' },

@@ -6,21 +6,75 @@ import { IFSC_RE, METHOD_LABELS, availableMethods, UPI_ID_RE, approvePayment, lo
 import { logActivity } from '../../utils/activityLog';
 import { sendSuccess, sendError } from '../../utils/response';
 
-/** UPI and bank payments customers have submitted, oldest first, so the longest-waiting is on top. */
-export const getPendingPayments = async (_req: AdminRequest, res: Response): Promise<void> => {
-  const [payments, config] = await Promise.all([
-    Payment.find({ status: 'awaiting_verification' })
-      .populate({ path: 'application', select: 'referenceId status visaType country', populate: [{ path: 'visaType', select: 'name' }, { path: 'country', select: 'name flag' }] })
+const todayStartIst = () => new Date(`${new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10)}T00:00:00+05:30`);
+
+// A received amount that differs from what was due sends the payment to the Mismatch tab.
+const MISMATCH = { status: 'awaiting_verification', receivedAmount: { $ne: null }, $expr: { $ne: ['$receivedAmount', '$amount'] } };
+const TABS: Record<string, () => Record<string, unknown>> = {
+  pending: () => ({ status: 'awaiting_verification', $or: [{ receivedAmount: null }, { $expr: { $eq: ['$receivedAmount', '$amount'] } }] }),
+  mismatch: () => MISMATCH,
+  approved_today: () => ({ status: 'completed', verifiedAt: { $gte: todayStartIst() } }),
+  rejected: () => ({ status: 'failed', failedAt: { $gte: new Date(Date.now() - 30 * 86400000) } }),
+};
+
+/**
+ * The verification queue by tab (pending, mismatch, approved today, rejected in the last
+ * 30 days), oldest first, with whether each UTR was ever seen on another payment.
+ */
+export const getPendingPayments = async (req: AdminRequest, res: Response): Promise<void> => {
+  const tab = TABS[String(req.query.tab)] ? String(req.query.tab) : 'pending';
+  const [payments, config, ...counts] = await Promise.all([
+    Payment.find(TABS[tab]())
+      .populate({ path: 'application', select: 'referenceId status visaType country adults children', populate: [{ path: 'visaType', select: 'name' }, { path: 'country', select: 'name flag' }] })
       .populate('user', 'name email phone')
       .populate('promoCode', 'code')
-      .sort({ submittedAt: 1 }),
+      .sort(tab === 'pending' || tab === 'mismatch' ? { submittedAt: 1 } : { updatedAt: -1 })
+      .limit(100),
     loadPaymentConfig(),
+    ...Object.values(TABS).map((f) => Payment.countDocuments(f())),
   ]);
-  sendSuccess(res, { payments, verificationHours: config.verificationHours, upiId: config.upiId, methods: availableMethods(config) });
+
+  const utrs = payments.map((p) => p.utr || p.rejectedUtr).filter(Boolean);
+  const seen = await Payment.find({ $or: [{ utr: { $in: utrs } }, { rejectedUtr: { $in: utrs } }] }).select('utr rejectedUtr').lean();
+  const withChecks = payments.map((p) => {
+    const ref = p.utr || p.rejectedUtr;
+    const reused = !!ref && seen.some((s) => String(s._id) !== String(p._id) && (s.utr === ref || s.rejectedUtr === ref));
+    return { ...p.toJSON(), utrReused: reused };
+  });
+
+  sendSuccess(res, {
+    tab,
+    payments: withChecks,
+    counts: Object.fromEntries(Object.keys(TABS).map((k, i) => [k, counts[i]])),
+    verificationHours: config.verificationHours, upiId: config.upiId, methods: availableMethods(config),
+  });
+};
+
+/** Records what actually reached the bank when it differs from the amount due. */
+export const flagPaymentMismatch = async (req: AdminRequest, res: Response): Promise<void> => {
+  const received = Number(req.body?.receivedAmount);
+  if (!Number.isFinite(received) || received < 0) { sendError(res, 'Enter the amount that reached the bank'); return; }
+  const payment = await Payment.findOneAndUpdate(
+    { _id: req.params.id, status: 'awaiting_verification' },
+    { $set: { receivedAmount: received, mismatchNote: String(req.body?.note ?? '').trim().slice(0, 300), bankCreditDate: String(req.body?.bankCreditDate ?? '').slice(0, 10) } },
+    { new: true },
+  );
+  if (!payment) { sendError(res, 'This payment is no longer awaiting verification', 409); return; }
+  logActivity(req, 'update', 'Payment', `Mismatch on ${payment.utr}: received ${received} of ${payment.amount}`);
+  sendSuccess(res, payment, received === payment.amount ? 'Amount matches; back in Pending' : 'Moved to Mismatch');
 };
 
 export const approveUpiPayment = async (req: AdminRequest, res: Response): Promise<void> => {
-  const payment = await approvePayment(req.params.id, req.admin!, String(req.body?.note ?? '').trim());
+  const received = req.body?.receivedAmount === undefined || req.body?.receivedAmount === '' ? null : Number(req.body.receivedAmount);
+  if (received !== null && (!Number.isFinite(received) || received < 0)) { sendError(res, 'Enter a valid received amount'); return; }
+  const due = await Payment.findById(req.params.id).select('amount');
+  // Short payments are not approved; they go to Mismatch or are rejected with the balance due.
+  if (received !== null && due && received < due.amount) {
+    sendError(res, `Only ${received} of ${due.amount} was received. Move it to Mismatch or reject it.`); return;
+  }
+  const payment = await approvePayment(req.params.id, req.admin!, String(req.body?.note ?? '').trim(), {
+    amount: received, bankCreditDate: String(req.body?.bankCreditDate ?? '').slice(0, 10),
+  });
   if (!payment) { sendError(res, 'This payment is no longer awaiting verification', 409); return; }
   logActivity(req, 'update', 'Payment', `Verified ${METHOD_LABELS[payment.method] || 'UPI'} payment ${payment.transactionId}`);
   sendSuccess(res, payment, 'Payment verified');

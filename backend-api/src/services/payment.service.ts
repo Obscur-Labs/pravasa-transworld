@@ -105,7 +105,12 @@ type Reviewer = { _id: unknown; name: string };
  * is conditional, so two admins clicking at once can't both run the side effects.
  * Returns null when the payment was not awaiting verification.
  */
-export async function approvePayment(paymentId: string, admin: Reviewer, note = ''): Promise<IPayment | null> {
+export async function approvePayment(
+  paymentId: string,
+  admin: Reviewer,
+  note = '',
+  received: { amount?: number | null; bankCreditDate?: string } = {},
+): Promise<IPayment | null> {
   const current = await Payment.findOne({ _id: paymentId, status: 'awaiting_verification' }).select('utr');
   if (!current) return null;
 
@@ -121,6 +126,8 @@ export async function approvePayment(paymentId: string, admin: Reviewer, note = 
         verifiedBy: admin._id,
         verifiedByName: admin.name,
         ...(note ? { adminNote: note } : {}),
+        ...(received.amount != null ? { receivedAmount: received.amount } : {}),
+        ...(received.bankCreditDate ? { bankCreditDate: received.bankCreditDate } : {}),
       },
     },
     { new: true }

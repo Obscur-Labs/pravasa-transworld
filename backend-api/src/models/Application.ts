@@ -173,6 +173,8 @@ export interface IApplication extends Document {
   vfsAppointment: IVfsAppointment | null;
   additionalDocs: IAdditionalDocs | null;
   dispatch: IDispatch | null;
+  /** Team member handling it. */
+  assignedTo: mongoose.Types.ObjectId | null;
   referenceId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -323,6 +325,7 @@ const ApplicationSchema = new Schema<IApplication>(
     vfsAppointment: { type: VfsAppointmentSchema, default: null },
     additionalDocs: { type: AdditionalDocsSchema, default: null },
     dispatch: { type: DispatchSchema, default: null },
+    assignedTo: { type: Schema.Types.ObjectId, ref: 'Admin', default: null, index: true },
     referenceId: { type: String, unique: true },
   },
   { timestamps: true }

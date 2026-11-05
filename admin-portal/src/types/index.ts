@@ -516,10 +516,18 @@ export interface Payment {
 
 /** A submitted UPI or bank payment in the verification queue, with its application and customer. */
 export interface PendingPayment extends Payment {
-  application: { _id: string; referenceId: string; status: ApplicationStatus; visaType?: { name: string }; country?: { name: string; flag: string } } | null;
+  application: { _id: string; referenceId: string; status: ApplicationStatus; visaType?: { name: string }; country?: { name: string; flag: string }; adults?: number; children?: number } | null;
   user: { _id: string; name: string; email: string; phone: string } | null;
   promoCode?: { code: string } | null;
+  /** What reached the bank, when an admin recorded it. */
+  receivedAmount?: number | null;
+  bankCreditDate?: string;
+  mismatchNote?: string;
+  /** This UTR was seen on another payment before. */
+  utrReused?: boolean;
 }
+
+export type PaymentQueueTab = 'pending' | 'mismatch' | 'approved_today' | 'rejected';
 
 export interface PaymentConfig {
   _id: string;
@@ -559,6 +567,7 @@ export interface Application {
   vfsAppointment?: VfsAppointment | null;
   additionalDocs?: AdditionalDocs | null;
   dispatch?: Dispatch | null;
+  assignedTo?: { _id: string; name: string } | null;
   referenceId: string;
   createdAt: string;
   updatedAt: string;
@@ -691,6 +700,9 @@ export interface AdminProfile {
   roleName: string;
   permissions: Permissions;
   mustChangePassword: boolean;
+  twoFactorEnabled?: boolean;
+  /** The team requires 2FA and this account hasn't turned it on yet. */
+  twoFactorRequired?: boolean;
   createdAt: string;
 }
 
@@ -717,6 +729,10 @@ export interface TeamMember {
   permissions: Permissions;
   isActive: boolean;
   mustChangePassword: boolean;
+  twoFactorEnabled: boolean;
+  /** Invited by email and hasn't set a password yet. */
+  invitePending: boolean;
+  inviteExpired: boolean;
   hasLogin: boolean;
   lastLoginAt: string | null;
   lastActivityAt: string | null;
@@ -725,7 +741,7 @@ export interface TeamMember {
   createdAt: string;
 }
 
-export type LoginResult = 'success' | 'wrong_password' | 'unknown_user' | 'locked' | 'disabled';
+export type LoginResult = 'success' | 'wrong_password' | 'wrong_code' | 'unknown_user' | 'locked' | 'disabled';
 
 /** One admin panel sign-in attempt. */
 export interface LoginEvent {

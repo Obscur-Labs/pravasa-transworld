@@ -291,6 +291,56 @@ export async function sendApplicationUpdateEmail(opts: {
   );
 }
 
+/** Invites a new team member to set their own admin password. */
+export async function sendAdminInviteEmail(opts: { email: string; name: string; username: string; token: string; invitedBy: string }): Promise<void> {
+  const link = `${adminUrl}/accept-invite?token=${opts.token}`;
+  await sendMail(
+    opts.email,
+    'You have been invited to the Pravasa Transworld admin panel',
+    `
+      <div style="${baseStyle}">
+        ${header('Team invitation')}
+        <div style="padding: 40px 32px;">
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${escapeHtml(opts.name)},</p>
+          <p style="color: #475569; font-size: 15px; margin: 0 0 16px;">
+            ${escapeHtml(opts.invitedBy)} added you to the Pravasa Transworld admin panel. Your username is
+            <strong>${escapeHtml(opts.username)}</strong>. Set your password to get started; the link works for 7 days.
+          </p>
+          <a href="${link}" style="display: inline-block; background: #0B2E3D; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Set my password
+          </a>
+        </div>
+        ${footer()}
+      </div>
+    `,
+    'ADMIN_INVITE'
+  );
+}
+
+/** Nudges a team member to finish securing their account. */
+export async function sendAdminSecurityReminderEmail(opts: { email: string; name: string; items: string[] }): Promise<void> {
+  const list = opts.items.map((i) => `<li style="margin: 0 0 6px;">${escapeHtml(i)}</li>`).join('');
+  await sendMail(
+    opts.email,
+    'Please secure your Pravasa Transworld admin account',
+    `
+      <div style="${baseStyle}">
+        ${header('Account security')}
+        <div style="padding: 40px 32px;">
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${escapeHtml(opts.name)},</p>
+          <p style="color: #475569; font-size: 15px; margin: 0 0 12px;">Sign in to the admin panel and finish these on your profile:</p>
+          <ul style="color: #475569; font-size: 15px; margin: 0 0 24px; padding-left: 20px;">${list}</ul>
+          <a href="${adminUrl}/profile" style="display: inline-block; background: #0B2E3D; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Open my profile
+          </a>
+        </div>
+        ${footer()}
+      </div>
+    `,
+    'ADMIN_REMINDER'
+  );
+}
+
 /** The outcome of an admin checking a payment against the bank statement. */
 export async function sendPaymentReviewEmail(
   email: string,

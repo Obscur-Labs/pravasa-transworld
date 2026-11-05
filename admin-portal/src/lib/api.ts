@@ -35,6 +35,32 @@ api.interceptors.response.use(
 export default api;
 
 // Auth
+export const verifyAdminTwoFactor = (data: { challenge: string; code: string }) => api.post('/auth/admin/2fa', data);
+export const getAdminInvite = (token: string) => api.get(`/auth/admin/invite/${token}`);
+export const acceptAdminInvite = (data: { token: string; password: string }) => api.post('/auth/admin/accept-invite', data);
+export const startTwoFactorSetup = () => api.post('/admin/profile/2fa/setup');
+export const enableTwoFactor = (code: string) => api.post('/admin/profile/2fa/enable', { code });
+export const regenerateRecoveryCodes = (code: string) => api.post('/admin/profile/2fa/recovery-codes', { code });
+export const disableTwoFactor = (code: string) => api.post('/admin/profile/2fa/disable', { code });
+export const getTeamSettings = () => api.get('/admin/team/settings');
+export const updateTeamSettings = (data: { enforceTwoFactor: boolean }) => api.put('/admin/team/settings', data);
+export const inviteTeamMember = (data: Record<string, unknown>) => api.post('/admin/team/invite', data);
+export const resendTeamInvite = (id: string) => api.post(`/admin/team/members/${id}/resend-invite`);
+export const resetMemberTwoFactor = (id: string) => api.post(`/admin/team/members/${id}/reset-2fa`);
+export const remindTeamMember = (id: string) => api.post(`/admin/team/members/${id}/remind`);
+type ReportRange = { from: string; to: string };
+export const getRevenueReport = (params: ReportRange) => api.get('/admin/reports/revenue', { params });
+export const getGstRegister = (params: ReportRange) => api.get('/admin/reports/gst', { params });
+export const downloadGstRegisterCsv = (params: ReportRange) => api.get('/admin/reports/gst.csv', { params, responseType: 'blob' });
+export const getAgentReport = (params: ReportRange) => api.get('/admin/reports/agents', { params });
+export const getSlaReport = (params: ReportRange) => api.get('/admin/reports/sla', { params });
+export const getApplicationAssignees = () => api.get('/admin/applications/assignees');
+export const exportApplicationsCsv = (params: object) => api.get('/admin/applications/export.csv', { params, responseType: 'blob' });
+export const bulkAssignApplications = (ids: string[], assignee: string | null) => api.post('/admin/applications/bulk/assign', { ids, assignee });
+export const bulkUpdateApplicationStatus = (data: { ids: string[]; status: string; note?: string; notify: boolean }) =>
+  api.post('/admin/applications/bulk/status', data);
+export const flagPaymentMismatch = (id: string, data: { receivedAmount: number; note?: string; bankCreditDate?: string }) =>
+  api.put(`/admin/payments/${id}/mismatch`, data);
 export const adminLogin = (data: { username: string; password: string }) =>
   api.post('/auth/admin/login', data);
 
@@ -170,8 +196,9 @@ export const generateAiContent = (data: { purpose: string; context: Record<strin
 
 // Payments
 export const getAdminPayments = () => api.get('/admin/payments');
-export const getPendingPayments = () => api.get('/admin/payments/pending');
-export const approvePayment = (id: string, note?: string) => api.put(`/admin/payments/${id}/approve`, { note });
+export const getPendingPayments = (tab = 'pending') => api.get('/admin/payments/pending', { params: { tab } });
+export const approvePayment = (id: string, note?: string, received?: { receivedAmount?: number; bankCreditDate?: string }) =>
+  api.put(`/admin/payments/${id}/approve`, { note, ...received });
 export const rejectPayment = (id: string, reason: string) => api.put(`/admin/payments/${id}/reject`, { reason });
 export const getPaymentConfig = () => api.get('/admin/payment-config');
 export const updatePaymentConfig = (data: object) => api.put('/admin/payment-config', data);

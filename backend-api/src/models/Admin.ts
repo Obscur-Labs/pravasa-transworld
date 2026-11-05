@@ -19,6 +19,15 @@ export interface IAdmin extends Document {
   sessionsValidFrom: Date | null;
   failedLogins: number;
   lockedUntil: Date | null;
+  /** Authenticator-app codes on sign-in. The secret is stored encrypted. */
+  twoFactorEnabled: boolean;
+  twoFactorSecret?: string;
+  twoFactorPendingSecret?: string;
+  /** SHA-256 of each unused recovery code. */
+  recoveryCodes?: string[];
+  /** Invited by email: the member sets their own password from the link. */
+  inviteTokenHash?: string;
+  inviteExpiresAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +48,12 @@ const AdminSchema = new Schema<IAdmin>(
     sessionsValidFrom: { type: Date, default: null },
     failedLogins: { type: Number, default: 0, select: false },
     lockedUntil: { type: Date, default: null, select: false },
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorSecret: { type: String, select: false },
+    twoFactorPendingSecret: { type: String, select: false },
+    recoveryCodes: { type: [String], select: false, default: undefined },
+    inviteTokenHash: { type: String, select: false },
+    inviteExpiresAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -59,7 +74,7 @@ export function effectivePermissions(admin: IAdmin): Permissions {
 export const roleName = (admin: IAdmin) =>
   admin.isSuperAdmin ? 'Super Admin' : ((admin.role as IAdminRole | null)?.name ?? 'No role');
 
-export const toAdminProfile = (admin: IAdmin) => ({
+export const toAdminProfile = (admin: IAdmin, enforceTwoFactor = false) => ({
   _id: admin._id,
   name: admin.name,
   username: admin.username || '',
@@ -69,6 +84,9 @@ export const toAdminProfile = (admin: IAdmin) => ({
   roleName: roleName(admin),
   permissions: effectivePermissions(admin),
   mustChangePassword: admin.mustChangePassword,
+  twoFactorEnabled: !!admin.twoFactorEnabled,
+  /** The team requires 2FA and this account hasn't set it up yet. */
+  twoFactorRequired: enforceTwoFactor && !admin.twoFactorEnabled,
   createdAt: admin.createdAt,
 });
 

@@ -5,6 +5,8 @@ import * as countries from '../controllers/admin/countries.controller';
 import * as visaTypes from '../controllers/admin/visaTypes.controller';
 import * as apps from '../controllers/admin/applications.controller';
 import * as processing from '../controllers/admin/processing.controller';
+import * as twoFactor from '../controllers/admin/twoFactor.controller';
+import * as reports from '../controllers/admin/reports.controller';
 import * as leads from '../controllers/admin/contactLeads.controller';
 import * as inquiries from '../controllers/admin/serviceInquiries.controller';
 import * as notifications from '../controllers/admin/notifications.controller';
@@ -32,6 +34,10 @@ router.use(adminProtect);
 // Your own account, notifications and the AI writer are open to every staff member.
 router.route('/profile').get(profile.getProfile).put(profile.updateProfile);
 router.put('/profile/password', profile.changePassword);
+router.post('/profile/2fa/setup', twoFactor.startTwoFactor);
+router.post('/profile/2fa/enable', twoFactor.enableTwoFactor);
+router.post('/profile/2fa/recovery-codes', twoFactor.regenerateRecoveryCodes);
+router.post('/profile/2fa/disable', twoFactor.disableTwoFactor);
 router.get('/badges', badges.getBadges);
 
 // Team & Roles: super admins only, never a grantable module.
@@ -41,9 +47,22 @@ router.route('/team/roles/:id').put(team.updateRole).delete(team.deleteRole);
 router.route('/team/members').get(team.getMembers).post(team.createMember);
 router.route('/team/members/:id').get(team.getMember).put(team.updateMember).delete(team.deleteMember);
 router.get('/team/sign-ins', team.getSignIns);
+router.route('/team/settings').get(team.getTeamSettings).put(team.updateTeamSettings);
+router.post('/team/invite', team.inviteMember);
+router.post('/team/members/:id/resend-invite', team.resendInvite);
+router.post('/team/members/:id/reset-2fa', team.resetMemberTwoFactor);
+router.post('/team/members/:id/remind', team.remindMember);
 
 // Dashboard
 router.get('/dashboard', requireModule('dashboard'), apps.getDashboardStats);
+
+// Reports
+router.use('/reports', requireModule('reports'));
+router.get('/reports/revenue', reports.getRevenueReport);
+router.get('/reports/gst', reports.getGstRegister);
+router.get('/reports/gst.csv', reports.downloadGstRegisterCsv);
+router.get('/reports/agents', reports.getAgentReport);
+router.get('/reports/sla', reports.getSlaReport);
 
 // Countries & Visas
 router.use(['/countries', '/visa-types'], requireModule('countries', { readableBy: ['applications'] }));
@@ -94,6 +113,11 @@ router.delete('/trash/:id', trash.deleteTrashItem);
 router.put('/applications/:id/manual-payment', requireModule('payments', { level: 'manage' }), apps.manualPaymentOverride);
 router.use('/applications', requireModule('applications'));
 router.get('/applications', apps.getApplications);
+router.get('/applications/assignees', apps.getAssignees);
+router.get('/applications/export.csv', apps.exportApplicationsCsv);
+router.post('/applications/bulk/assign', apps.assignApplications);
+router.post('/applications/bulk/status', apps.bulkUpdateStatus);
+router.put('/applications/:id/assign', apps.assignApplications);
 router.get('/applications/:id', apps.getApplication);
 router.put('/applications/:id/status', apps.updateStatus);
 router.put('/applications/:id/document-review', apps.reviewDocument);
@@ -123,6 +147,7 @@ router.get('/payments', apps.getAdminPayments);
 router.get('/payments/pending', payments.getPendingPayments);
 router.put('/payments/:id/approve', payments.approveUpiPayment);
 router.put('/payments/:id/reject', payments.rejectUpiPayment);
+router.put('/payments/:id/mismatch', payments.flagPaymentMismatch);
 
 router.use('/payment-config', requireModule('paymentSettings'));
 router.route('/payment-config').get(payments.getPaymentConfig).put(payments.updatePaymentConfig);

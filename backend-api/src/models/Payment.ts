@@ -44,6 +44,10 @@ export interface IPayment extends Document {
   paidAt: Date | null;
   failureReason: string;
   failedAt: Date | null;
+  /** What actually reached the bank, entered while verifying. Differs from amount on a mismatch. */
+  receivedAmount: number | null;
+  bankCreditDate: string;
+  mismatchNote: string;
   createdAt: Date;
 }
 
@@ -76,6 +80,9 @@ const PaymentSchema = new Schema<IPayment>(
     paidAt: { type: Date, default: null },
     failureReason: { type: String, default: '' },
     failedAt: { type: Date, default: null },
+    receivedAmount: { type: Number, default: null },
+    bankCreditDate: { type: String, default: '' },
+    mismatchNote: { type: String, default: '' },
   },
   {
     timestamps: true,

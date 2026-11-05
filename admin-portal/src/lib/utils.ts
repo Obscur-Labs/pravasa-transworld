@@ -5,9 +5,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Every date the team reads is in India time, whatever the browser's zone.
 export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(date));
+  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date(date));
 }
+
+/** "05 Nov 2026, 4:12 pm IST" */
+export function formatDateTimeIST(date: string | Date): string {
+  const text = new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata',
+  }).format(new Date(date));
+  return `${text} IST`;
+}
+
+/** Indian digit grouping: 1,00,000. */
+export const formatNumber = (n: number) => new Intl.NumberFormat('en-IN').format(n);
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);

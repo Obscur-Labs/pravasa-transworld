@@ -11,6 +11,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { StatTile } from '@/components/ui/stat-tile';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PendingPaymentsCard } from '@/components/shared/pending-payments-card';
+import { OperationsOverview } from '@/components/shared/operations-overview';
+import type { OperationsStats } from '@/components/shared/operations-overview';
 import { getDashboardStats, getApplications } from '@/lib/api';
 import { usePermissions } from '@/lib/usePermissions';
 import { formatDate } from '@/lib/utils';
@@ -19,9 +21,9 @@ import { STATUS_LABELS } from '@/types';
 
 interface TrendPoint { date: string; count: number }
 interface CountryPoint { country: string; flag: string; count: number }
-interface Stats { total: number; pending: number; processing: number; approved: number; rejected: number; trend: TrendPoint[]; byCountry: CountryPoint[] }
+interface Stats extends OperationsStats { total: number; pending: number; processing: number; approved: number; rejected: number; trend: TrendPoint[]; byCountry: CountryPoint[] }
 
-const shortDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const shortDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' });
 
 const CHART_COLORS = [
   'hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))',
@@ -67,6 +69,8 @@ export default function AdminDashboard() {
       <PageHeader title="Dashboard" description="Overview of all visa applications." />
 
       {showPayments && <PendingPaymentsCard />}
+
+      <OperationsOverview stats={stats} loading={loading} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">

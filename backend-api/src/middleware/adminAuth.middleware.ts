@@ -4,12 +4,15 @@ import Admin, { IAdmin, effectivePermissions } from '../models/Admin';
 import { allows, moduleLabel, type AccessLevel, type ModuleKey } from '../config/permissions';
 import { sendError } from '../utils/response';
 import { jwtSecret } from '../config/env';
+import { twoFactorEnforcedCached } from '../models/TeamSettings';
 
 export interface AdminRequest extends Request {
   admin?: IAdmin;
   /** Module whose guard admitted the request; activity logs record it. */
   permissionModule?: string;
 }
+
+const TWO_FACTOR_SETUP_PATHS = /^\/(profile|badges|notifications)(\/|$)/;
 
 export const adminProtect = async (req: AdminRequest, res: Response, next: NextFunction): Promise<void> => {
   const token = req.headers.authorization?.startsWith('Bearer ')
@@ -38,6 +41,11 @@ export const adminProtect = async (req: AdminRequest, res: Response, next: NextF
       return;
     }
     req.admin = admin;
+    // With 2FA enforced, an account without it can only reach its own profile to set it up.
+    if (!admin.twoFactorEnabled && !TWO_FACTOR_SETUP_PATHS.test(req.path) && await twoFactorEnforcedCached()) {
+      sendError(res, 'Set up two-factor authentication on your profile to continue', 403);
+      return;
+    }
     next();
   } catch {
     sendError(res, 'Invalid token', 401);

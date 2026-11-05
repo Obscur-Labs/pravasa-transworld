@@ -1,11 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Scale, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { approvePayment, rejectPayment } from '@/lib/api';
+import { approvePayment, flagPaymentMismatch, rejectPayment } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -17,52 +18,68 @@ const QUICK_REASONS = [
   'Payment was made to a different account',
 ];
 
+const todayIst = () => new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+
 interface Props {
   paymentId: string;
   amount: number;
   utr?: string;
+  receivedAmount?: number | null;
   onDone: () => void;
   size?: 'sm' | 'default';
 }
 
-/** Approve / reject buttons for one submitted UPI payment. */
-export function PaymentReviewActions({ paymentId, amount, utr, onDone, size = 'sm' }: Props) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
+/**
+ * Verify / reject one submitted payment. Verifying asks what reached the bank and when;
+ * a short credit can't be verified and goes to the Mismatch tab instead.
+ */
+export function PaymentReviewActions({ paymentId, amount, utr, receivedAmount, onDone, size = 'sm' }: Props) {
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [received, setReceived] = useState(String(receivedAmount ?? amount));
+  const [creditDate, setCreditDate] = useState(todayIst());
+  const [busy, setBusy] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const [rejecting, setRejecting] = useState(false);
 
-  const handleApprove = async () => {
+  const receivedNum = Number(received);
+  const valid = received.trim() !== '' && Number.isFinite(receivedNum) && receivedNum >= 0;
+  const short = valid && receivedNum < amount;
+
+  const run = async (fn: () => Promise<unknown>, ok: string, close: () => void) => {
+    setBusy(true);
     try {
-      await approvePayment(paymentId);
-      toast({ title: 'Payment verified', description: 'The customer was notified and processing can start.', variant: 'success' });
+      await fn();
+      toast({ title: ok, variant: 'success' });
+      close();
       onDone();
     } catch (err: any) {
-      toast({ title: 'Could not verify', description: err.response?.data?.message, variant: 'destructive' });
+      toast({ title: 'Could not save', description: err.response?.data?.message, variant: 'destructive' });
       onDone();
-    }
-  };
-
-  const handleReject = async () => {
-    if (!reason.trim()) return;
-    setRejecting(true);
-    try {
-      await rejectPayment(paymentId, reason.trim());
-      toast({ title: 'Payment rejected', description: 'The customer was told why and can pay again.' });
-      setRejectOpen(false);
-      setReason('');
-      onDone();
-    } catch (err: any) {
-      toast({ title: 'Could not reject', description: err.response?.data?.message, variant: 'destructive' });
     } finally {
-      setRejecting(false);
+      setBusy(false);
     }
   };
+
+  const verify = () => run(
+    () => approvePayment(paymentId, undefined, { receivedAmount: receivedNum, bankCreditDate: creditDate }),
+    'Payment verified. The customer was notified and documents review can start.',
+    () => setVerifyOpen(false),
+  );
+  const mismatch = () => run(
+    () => flagPaymentMismatch(paymentId, { receivedAmount: receivedNum, bankCreditDate: creditDate, note: `Received ${formatCurrency(receivedNum)} of ${formatCurrency(amount)}` }),
+    'Moved to Mismatch',
+    () => setVerifyOpen(false),
+  );
+  const reject = () => run(
+    () => rejectPayment(paymentId, reason.trim()),
+    'Payment rejected. The customer was told why and can pay again.',
+    () => { setRejectOpen(false); setReason(''); },
+  );
 
   return (
     <>
       <div className="flex items-center gap-2">
-        <Button size={size} className="bg-success text-success-foreground hover:bg-success/90" onClick={() => setConfirmOpen(true)}>
+        <Button size={size} className="bg-success text-success-foreground hover:bg-success/90" onClick={() => setVerifyOpen(true)}>
           <CheckCircle2 className="w-4 h-4 mr-1.5" /> Verify
         </Button>
         <Button size={size} variant="outline" className="text-destructive hover:text-destructive" onClick={() => setRejectOpen(true)}>
@@ -70,15 +87,44 @@ export function PaymentReviewActions({ paymentId, amount, utr, onDone, size = 's
         </Button>
       </div>
 
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        variant="default"
-        title={`Verify ${formatCurrency(amount)}?`}
-        description={`Only confirm once you have found this credit${utr ? ` (UTR ${utr})` : ''} in the bank statement for the exact amount. The application moves to Payment Completed and the customer is notified.`}
-        confirmLabel="Yes, payment received"
-        onConfirm={handleApprove}
-      />
+      <Dialog open={verifyOpen} onOpenChange={setVerifyOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verify {formatCurrency(amount)}</DialogTitle>
+            <DialogDescription>
+              Find this credit{utr ? ` (UTR ${utr})` : ''} in the bank statement and enter what actually arrived.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor={`recv-${paymentId}`}>Amount received (₹)</Label>
+              <Input id={`recv-${paymentId}`} className="mt-1" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor={`date-${paymentId}`}>Bank credit date</Label>
+              <Input id={`date-${paymentId}`} className="mt-1" type="date" value={creditDate} max={todayIst()} onChange={(e) => setCreditDate(e.target.value)} />
+            </div>
+          </div>
+          {short && (
+            <p className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-2.5 text-sm text-warning">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              {formatCurrency(amount - receivedNum)} short. Move it to Mismatch to follow up, or reject it so the customer pays again.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setVerifyOpen(false)}>Cancel</Button>
+            {short ? (
+              <Button variant="outline" onClick={mismatch} disabled={busy}>
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Scale className="w-4 h-4 mr-1.5" />Move to Mismatch</>}
+              </Button>
+            ) : (
+              <Button className="bg-success text-success-foreground hover:bg-success/90" onClick={verify} disabled={busy || !valid || !creditDate}>
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes, payment received'}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent className="max-w-md">
@@ -98,18 +144,11 @@ export function PaymentReviewActions({ paymentId, amount, utr, onDone, size = 's
               </button>
             ))}
           </div>
-          <Textarea
-            rows={3}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Reason shown to the customer"
-            aria-label="Rejection reason"
-            
-          />
+          <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason shown to the customer" aria-label="Rejection reason" />
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleReject} disabled={!reason.trim() || rejecting}>
-              {rejecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button variant="destructive" onClick={reject} disabled={!reason.trim() || busy}>
+              {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Reject Payment
             </Button>
           </div>

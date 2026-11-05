@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export const LOGIN_RESULTS = ['success', 'wrong_password', 'unknown_user', 'locked', 'disabled'] as const;
+export const LOGIN_RESULTS = ['success', 'wrong_password', 'wrong_code', 'unknown_user', 'locked', 'disabled'] as const;
 export type LoginResult = (typeof LOGIN_RESULTS)[number];
 
 /** One admin panel sign-in attempt, successful or not. */

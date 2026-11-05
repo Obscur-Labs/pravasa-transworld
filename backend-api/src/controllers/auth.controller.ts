@@ -7,7 +7,10 @@ import OTP, { IOTP, IPendingUser } from '../models/OTP';
 import { sendOTPEmail } from '../services/email.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { jwtSecret } from '../config/env';
-import { verifyPassword } from '../utils/password';
+import { hashPassword, passwordProblem, verifyPassword } from '../utils/password';
+import { decryptData } from '../utils/encryption';
+import { hashRecoveryCode, verifyTotp } from '../utils/totp';
+import { twoFactorEnforced } from '../models/TeamSettings';
 import AdminLoginEvent, { LoginResult } from '../models/AdminLoginEvent';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -215,11 +218,107 @@ export const adminLogin = async (req: Request, res: Response): Promise<void> => 
     return;
   }
   if (!admin.isActive) { record('disabled'); sendError(res, 'This account has been disabled. Contact your administrator.', 403); return; }
+
+  // Password is right; with 2FA on, the session waits for the authenticator code.
+  if (admin.twoFactorEnabled) {
+    const challenge = jwt.sign({ id: String(admin._id), purpose: '2fa' }, jwtSecret(), { expiresIn: '5m' });
+    sendSuccess(res, { twoFactorRequired: true, challenge }, 'Enter the code from your authenticator app');
+    return;
+  }
   record('success');
 
   await Admin.updateOne({ _id: admin._id }, { $set: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() } });
   sendSuccess(res, {
     token: signToken(String(admin._id), 'admin'),
-    admin: toAdminProfile(admin),
+    admin: toAdminProfile(admin, await twoFactorEnforced()),
   }, 'Signed in');
+};
+
+/** Second sign-in step: a 6-digit authenticator code, or one of the recovery codes. */
+export const adminVerifyTwoFactor = async (req: Request, res: Response): Promise<void> => {
+  let adminId = '';
+  try {
+    const decoded = jwt.verify(String(req.body?.challenge ?? ''), jwtSecret()) as { id?: string; purpose?: string };
+    if (decoded.purpose !== '2fa' || !decoded.id) throw new Error('wrong token');
+    adminId = decoded.id;
+  } catch {
+    sendError(res, 'This sign-in has expired. Enter your password again.', 401);
+    return;
+  }
+
+  const admin = await Admin.findById(adminId)
+    .select('+twoFactorSecret +recoveryCodes +failedLogins +lockedUntil')
+    .populate('role', 'name permissions');
+  if (!admin || !admin.isActive || !admin.twoFactorEnabled || !admin.twoFactorSecret) {
+    sendError(res, 'This sign-in has expired. Enter your password again.', 401);
+    return;
+  }
+  const record = (result: LoginResult) => AdminLoginEvent.create({
+    admin: admin._id,
+    username: String(admin.username || '').slice(0, 60),
+    result,
+    ip: (req.ip || '').replace(/^::ffff:/, ''),
+    userAgent: String(req.headers['user-agent'] || '').slice(0, 300),
+  }).catch((err) => console.error('[ADMIN] Could not record sign-in', err));
+
+  if (admin.lockedUntil && admin.lockedUntil > new Date()) {
+    record('locked');
+    sendError(res, 'Too many failed attempts. Try again later.', 429);
+    return;
+  }
+
+  const code = String(req.body?.code ?? '').trim();
+  let ok = verifyTotp(decryptData(admin.twoFactorSecret), code);
+  if (!ok && code.replace(/[\s-]/g, '').length === 8) {
+    const hashed = hashRecoveryCode(code);
+    if ((admin.recoveryCodes || []).includes(hashed)) {
+      // Each recovery code works once.
+      await Admin.updateOne({ _id: admin._id }, { $pull: { recoveryCodes: hashed } });
+      ok = true;
+    }
+  }
+  if (!ok) {
+    const failedLogins = (admin.failedLogins || 0) + 1;
+    await Admin.updateOne({ _id: admin._id }, failedLogins >= MAX_FAILED_LOGINS
+      ? { $set: { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MS) } }
+      : { $set: { failedLogins } });
+    record('wrong_code');
+    sendError(res, 'That code is not right. Check your authenticator app and try again.', 401);
+    return;
+  }
+
+  record('success');
+  await Admin.updateOne({ _id: admin._id }, { $set: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() } });
+  sendSuccess(res, {
+    token: signToken(String(admin._id), 'admin'),
+    admin: toAdminProfile(admin, await twoFactorEnforced()),
+  }, 'Signed in');
+};
+
+const inviteHash = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
+
+async function findInvite(token: unknown) {
+  const t = String(token ?? '');
+  if (!/^[a-f0-9]{64}$/.test(t)) return null;
+  return Admin.findOne({ inviteTokenHash: inviteHash(t), inviteExpiresAt: { $gt: new Date() }, isActive: true });
+}
+
+/** Who an invite link is for, so the page can greet them. */
+export const getAdminInvite = async (req: Request, res: Response): Promise<void> => {
+  const admin = await findInvite(req.params.token);
+  if (!admin) { sendError(res, 'This invite link has expired or was already used. Ask your administrator for a new one.', 404); return; }
+  sendSuccess(res, { name: admin.name, username: admin.username });
+};
+
+/** The invited member sets their own password; the link then stops working. */
+export const acceptAdminInvite = async (req: Request, res: Response): Promise<void> => {
+  const admin = await findInvite(req.body?.token);
+  if (!admin) { sendError(res, 'This invite link has expired or was already used. Ask your administrator for a new one.', 404); return; }
+  const problem = passwordProblem(req.body?.password);
+  if (problem) { sendError(res, problem); return; }
+  await Admin.updateOne(
+    { _id: admin._id },
+    { $set: { passwordHash: await hashPassword(String(req.body.password)), mustChangePassword: false, inviteExpiresAt: null }, $unset: { inviteTokenHash: 1 } },
+  );
+  sendSuccess(res, { username: admin.username }, 'Password set. You can sign in now.');
 };

@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import archiver from 'archiver';
-import { AdminRequest } from '../../middleware/adminAuth.middleware';
-import Application, { ApplicationStatus, EMPTY_COURIER, STATUS_LABELS } from '../../models/Application';
+import { AdminRequest, hasAccess } from '../../middleware/adminAuth.middleware';
+import Application, { APPLICATION_STATUSES, ApplicationStatus, EMPTY_COURIER, STATUS_LABELS } from '../../models/Application';
+import Admin from '../../models/Admin';
 import Country from '../../models/Country';
 import Document from '../../models/Document';
 import EmbassyMail from '../../models/EmbassyMail';
@@ -35,30 +36,120 @@ async function startsWorkUnpaid(application: { _id: unknown; status: string }, t
 }
 
 // `limit=0` returns every match; `search` covers the application number and the applicant's name or email.
-export const getApplications = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { status, country, search } = req.query;
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.max(0, Number(req.query.limit ?? 20) || 0);
+const isId = (v: unknown) => typeof v === 'string' && /^[a-f0-9]{24}$/i.test(v);
+
+/**
+ * Filters shared by the list and its CSV export: status, country, visa type, assignee
+ * ('me', 'none' or a member id), submitted date range (IST), and a search over the
+ * application and traveller IDs, applicant name, email, phone and passport number.
+ */
+async function applicationFilter(req: AdminRequest): Promise<Record<string, unknown>> {
+  const { status, country, visaType, assignee, from, to, search } = req.query;
   const filter: Record<string, unknown> = {};
   if (status) filter.status = status;
-  if (country) filter.country = country;
+  if (isId(country)) filter.country = country;
+  if (isId(visaType)) filter.visaType = visaType;
+  if (assignee === 'me') filter.assignedTo = req.admin!._id;
+  else if (assignee === 'none') filter.assignedTo = null;
+  else if (isId(assignee)) filter.assignedTo = assignee;
+  const day = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+  if (day(from) || day(to)) {
+    filter.createdAt = {
+      ...(day(from) ? { $gte: new Date(`${day(from)}T00:00:00+05:30`) } : {}),
+      ...(day(to) ? { $lte: new Date(`${day(to)}T23:59:59.999+05:30`) } : {}),
+    };
+  }
 
   const term = String(search ?? '').trim();
   if (term) {
     const pattern = new RegExp(escapeRegex(term), 'i');
-    const users = await User.find({ $or: [{ name: pattern }, { email: pattern }] }).select('_id');
-    filter.$or = [{ referenceId: pattern }, { 'travellers.ref': pattern }, { user: { $in: users.map((u) => u._id) } }];
+    const digits = term.replace(/\D/g, '');
+    const [users, passportDocs] = await Promise.all([
+      User.find({ $or: [{ name: pattern }, { email: pattern }, ...(digits.length >= 6 ? [{ phone: new RegExp(escapeRegex(digits)) }] : [])] }).select('_id'),
+      /^[A-Z][0-9]{7}$/i.test(term) ? Document.find({ 'extractedData.Passport No': term.toUpperCase() }).select('application') : Promise.resolve([]),
+    ]);
+    filter.$or = [
+      { referenceId: pattern },
+      { 'travellers.ref': pattern },
+      { user: { $in: users.map((u) => u._id) } },
+      { _id: { $in: passportDocs.map((d) => d.application) } },
+    ];
   }
+  return filter;
+}
+
+export const getApplications = async (req: AdminRequest, res: Response): Promise<void> => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.max(0, Number(req.query.limit ?? 20) || 0);
+  const filter = await applicationFilter(req);
 
   const query = Application.find(filter)
     .populate('user', 'name email phone')
     .populate('visaType', 'name price')
     .populate('country', 'name flag')
+    .populate('assignedTo', 'name')
     .sort({ createdAt: -1 });
   if (limit) query.skip((page - 1) * limit).limit(limit);
 
   const [applications, total] = await Promise.all([query, Application.countDocuments(filter)]);
   sendSuccess(res, { applications, total, page, pages: limit ? Math.ceil(total / limit) : 1 });
+};
+
+/** Team members who can work on applications, for the assignee pickers. */
+export const getAssignees = async (_req: AdminRequest, res: Response): Promise<void> => {
+  const admins = await Admin.find({ isActive: true, username: { $exists: true, $ne: '' } }).populate('role', 'name permissions').select('name isSuperAdmin role');
+  sendSuccess(res, admins
+    .filter((a) => a.isSuperAdmin || ['view', 'manage'].includes(String((a.role as unknown as { permissions?: Record<string, string> })?.permissions?.applications)))
+    .map((a) => ({ _id: a._id, name: a.name })));
+};
+
+const csvCell = (v: unknown) => {
+  const s = String(v ?? '');
+  const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+};
+
+/** The filtered list as CSV, for spreadsheets. */
+export const exportApplicationsCsv = async (req: AdminRequest, res: Response): Promise<void> => {
+  const apps = await Application.find(await applicationFilter(req))
+    .populate('user', 'name email phone').populate('visaType', 'name').populate('country', 'name').populate('assignedTo', 'name')
+    .sort({ createdAt: -1 }).limit(5000).lean();
+  const ist = (d: Date) => new Date(new Date(d).getTime() + 5.5 * 3600000).toISOString().replace('T', ' ').slice(0, 16);
+  const rows = [
+    ['Application', 'Applicant', 'Email', 'Phone', 'Country', 'Visa', 'Travellers', 'Status', 'Assignee', 'Amount (INR)', 'Submitted (IST)'],
+    ...apps.map((a) => {
+      const u = a.user as unknown as { name?: string; email?: string; phone?: string } | null;
+      return [
+        a.referenceId, u?.name, u?.email, u?.phone,
+        (a.country as unknown as { name?: string })?.name, (a.visaType as unknown as { name?: string })?.name,
+        `${a.adults} adult(s), ${a.children} child(ren)`, STATUS_LABELS[a.status] || a.status,
+        (a.assignedTo as unknown as { name?: string })?.name || '', a.paymentAmount, ist(a.createdAt as unknown as Date),
+      ];
+    }),
+  ];
+  logActivity(req, 'create', 'Report Export', `Applications CSV (${apps.length} rows)`);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="applications-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.end(`\uFEFF${rows.map((r) => r.map(csvCell).join(',')).join('\r\n')}`);
+};
+
+async function resolveAssignee(raw: unknown): Promise<{ id: unknown; name: string } | { error: string }> {
+  if (raw === null || raw === '' || raw === undefined) return { id: null, name: 'nobody' };
+  if (!isId(raw)) return { error: 'Choose a team member' };
+  const admin = await Admin.findOne({ _id: raw, isActive: true }).select('name');
+  return admin ? { id: admin._id, name: admin.name } : { error: 'That team member is not active' };
+}
+
+/** Assigns one or many applications to a team member (or unassigns them). */
+export const assignApplications = async (req: AdminRequest, res: Response): Promise<void> => {
+  const ids: string[] = (Array.isArray(req.body?.ids) ? req.body.ids : [req.params.id]).filter(isId).slice(0, 200);
+  if (!ids.length) { sendError(res, 'Choose at least one application'); return; }
+  const who = await resolveAssignee(req.body?.assignee);
+  if ('error' in who) { sendError(res, who.error); return; }
+  const apps = await Application.find({ _id: { $in: ids } }).select('referenceId');
+  await Application.updateMany({ _id: { $in: ids } }, { $set: { assignedTo: who.id } });
+  for (const a of apps) logActivity(req, 'update', 'Application', `${a.referenceId}: assigned to ${who.name}`);
+  sendSuccess(res, { updated: apps.length }, `${apps.length} application${apps.length === 1 ? '' : 's'} assigned to ${who.name}`);
 };
 
 export const getApplication = async (req: AdminRequest, res: Response): Promise<void> => {
@@ -98,7 +189,99 @@ export const getApplication = async (req: AdminRequest, res: Response): Promise<
   sendSuccess(res, { application, documents, visaFile, payments, embassyMails, linkedParent, linkedChildren, vfsLetterUrl });
 };
 
-export const getDashboardStats = async (_req: AdminRequest, res: Response): Promise<void> => {
+const IST_MS = 5.5 * 3600000;
+const istDay = (d: Date) => new Date(d.getTime() + IST_MS).toISOString().slice(0, 10);
+const istStart = (day: string) => new Date(`${day}T00:00:00+05:30`);
+
+// Stages where the team is working on an application (paid, not yet decided).
+const IN_PROGRESS = ['payment_completed', 'documents_under_review', 'documents_approved', 'visa_processing', 'embassy_review'];
+const STUCK_AFTER_DAYS = 3;
+
+/**
+ * Money and workload at a glance: revenue (only for staff who can see payments or
+ * reports), payments waiting past their promised verification time, work in progress,
+ * average days to deliver, and the applications that need someone today.
+ */
+async function operationsStats(req: AdminRequest) {
+  const now = new Date();
+  const today = istDay(now);
+  const canSeeMoney = hasAccess(req.admin, 'payments', 'view') || hasAccess(req.admin, 'reports', 'view');
+
+  const sumPaid = async (from: Date, to: Date) => (await Payment.aggregate([
+    { $match: { status: 'completed', paidAt: { $gte: from, $lt: to } } },
+    { $group: { _id: null, total: { $sum: '$amount' } } },
+  ]))[0]?.total ?? 0;
+
+  let money = null;
+  if (canSeeMoney) {
+    const days = 14;
+    const since = istStart(istDay(new Date(now.getTime() - (2 * days - 1) * 86400000)));
+    const raw = await Payment.aggregate([
+      { $match: { status: 'completed', paidAt: { $gte: since } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$paidAt', timezone: '+05:30' } }, total: { $sum: '$amount' } } },
+    ]);
+    const byDay = new Map<string, number>(raw.map((r) => [r._id as string, r.total as number]));
+    const series = Array.from({ length: 2 * days }, (_, i) => {
+      const d = istDay(new Date(since.getTime() + i * 86400000));
+      return { date: d, revenue: byDay.get(d) || 0 };
+    });
+    money = {
+      today: await sumPaid(istStart(today), now),
+      month: await sumPaid(istStart(`${today.slice(0, 8)}01`), now),
+      trend: series.slice(days),
+      previous: series.slice(0, days),
+    };
+  }
+
+  const [awaiting, overdue, inProgress, delivered, waitingPayments, staleApps, byStatus] = await Promise.all([
+    Payment.countDocuments({ status: 'awaiting_verification' }),
+    Payment.countDocuments({ status: 'awaiting_verification', verifyBy: { $lt: now } }),
+    Application.countDocuments({ status: { $in: IN_PROGRESS } }),
+    VisaFile.find({ createdAt: { $gte: new Date(now.getTime() - 30 * 86400000) } }).select('application createdAt').lean(),
+    Payment.find({ status: 'awaiting_verification' }).sort({ verifyBy: 1 }).limit(5)
+      .populate({ path: 'application', select: 'referenceId visaType', populate: { path: 'visaType', select: 'name' } })
+      .populate('user', 'name').lean(),
+    Application.find({ status: { $in: ['documents_under_review', 'payment_completed', 'embassy_review'] }, updatedAt: { $lt: new Date(now.getTime() - STUCK_AFTER_DAYS * 86400000) } })
+      .sort({ updatedAt: 1 }).limit(5).populate('user', 'name').populate('visaType', 'name').select('referenceId status updatedAt user visaType').lean(),
+    Application.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+  ]);
+
+  const deliveredApps = await Application.find({ _id: { $in: delivered.map((d) => d.application) } }).select('createdAt').lean();
+  const createdOf = new Map(deliveredApps.map((a) => [String(a._id), new Date(a.createdAt).getTime()]));
+  const spans = delivered
+    .map((d) => (new Date((d as unknown as { createdAt: Date }).createdAt).getTime() - (createdOf.get(String(d.application)) ?? NaN)) / 86400000)
+    .filter((x) => Number.isFinite(x) && x >= 0);
+
+  const attention = [
+    ...waitingPayments.map((p) => {
+      const app = p.application as unknown as { _id: string; referenceId: string; visaType?: { name?: string } } | null;
+      const due = p.verifyBy ? new Date(p.verifyBy).getTime() - now.getTime() : null;
+      return {
+        kind: 'payment' as const,
+        applicationId: app?._id, referenceId: app?.referenceId || '', applicant: (p.user as unknown as { name?: string })?.name || '',
+        visa: app?.visaType?.name || '', label: 'Payment to verify', dueInMinutes: due === null ? null : Math.round(due / 60000),
+      };
+    }),
+    ...staleApps.map((a) => ({
+      kind: 'stale' as const,
+      applicationId: a._id, referenceId: a.referenceId, applicant: (a.user as unknown as { name?: string })?.name || '',
+      visa: (a.visaType as unknown as { name?: string })?.name || '', label: `No update for ${Math.floor((now.getTime() - new Date(a.updatedAt).getTime()) / 86400000)} days`,
+      dueInMinutes: null,
+    })),
+  ];
+
+  return {
+    money,
+    pendingPayments: awaiting,
+    overduePayments: overdue,
+    inProgress,
+    avgDeliveryDays: spans.length ? Math.round((spans.reduce((s, x) => s + x, 0) / spans.length) * 10) / 10 : null,
+    attention,
+    statusCounts: Object.fromEntries(byStatus.map((b) => [b._id, b.count])),
+  };
+}
+
+export const getDashboardStats = async (req: AdminRequest, res: Response): Promise<void> => {
   const [total, pending, processing, approved, rejected] = await Promise.all([
     Application.countDocuments(),
     Application.countDocuments({ status: { $in: ['submitted', 'documents_under_review'] } }),
@@ -146,7 +329,7 @@ export const getDashboardStats = async (_req: AdminRequest, res: Response): Prom
   const otherCount = sortedByCountry.slice(TOP_N).reduce((sum, r) => sum + r.count, 0);
   if (otherCount > 0) byCountry.push({ country: 'Other', flag: '', count: otherCount });
 
-  sendSuccess(res, { total, pending, processing, approved, rejected, trend, byCountry });
+  sendSuccess(res, { total, pending, processing, approved, rejected, trend, byCountry, ...(await operationsStats(req)) });
 };
 
 export const reviewDocument = async (req: AdminRequest, res: Response): Promise<void> => {
@@ -265,17 +448,22 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
   sendSuccess(res, application, 'All documents approved');
 };
 
-export const updateStatus = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { status, rejectionReason, adminNotes, processingReferenceNumber, embassyName, submissionDate, expectedDate } = req.body;
-  if (!status) { sendError(res, 'Status is required'); return; }
+/**
+ * One status change with its side effects: the payment guard, the activity log, broken
+ * family links, and (unless `notify` is false) an in-app note and email to the customer.
+ * Returns an error message instead of throwing so bulk changes can report per item.
+ */
+async function changeStatus(
+  req: AdminRequest,
+  application: InstanceType<typeof Application>,
+  status: string,
+  extras: Record<string, unknown> = {},
+  notify = true,
+): Promise<string | null> {
+  if (!APPLICATION_STATUSES.includes(status as ApplicationStatus)) return 'Unknown status';
+  if (await startsWorkUnpaid(application, status)) return 'Verify the payment before moving this application into processing';
 
-  const application = await Application.findById(req.params.id).populate('user', 'name email');
-  if (!application) { sendError(res, 'Application not found', 404); return; }
-
-  if (await startsWorkUnpaid(application, status)) {
-    sendError(res, 'Verify the payment before moving this application into processing'); return;
-  }
-
+  const { rejectionReason, adminNotes, processingReferenceNumber, embassyName, submissionDate, expectedDate } = extras as Record<string, string | undefined>;
   application.status = status as ApplicationStatus;
   if (rejectionReason) application.rejectionReason = rejectionReason;
   if (adminNotes) application.adminNotes = adminNotes;
@@ -287,8 +475,9 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
 
   const user = application.user as unknown as { name: string; email: string };
   const label = STATUS_LABELS[status as ApplicationStatus] || status;
-  logActivity(req, 'update', 'Application', `${application.referenceId} → ${label}`);
+  logActivity(req, 'update', 'Application', `${application.referenceId} → ${label}${notify ? '' : ' (customer not notified)'}`);
   if (status === 'visa_rejected') await markChildrenBroken(application, 'was rejected');
+  if (!notify) return null;
 
   const notif = await Notification.create({
     user: application.user,
@@ -297,18 +486,43 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
     type: 'status_update',
     application: application._id,
   });
-
   try {
     const { getIO } = await import('../../utils/socket');
     getIO().to(`user_${(application.user as any)._id}`).emit('notification', notif);
   } catch (err) {
     console.error('Socket emission failed', err);
   }
-
   try {
     await sendStatusUpdateEmail(user.email, user.name, label, application.referenceId);
   } catch (err) { console.error(err); }
+  return null;
+}
 
+/** Moves many applications to one status; each one still passes the payment guard. */
+export const bulkUpdateStatus = async (req: AdminRequest, res: Response): Promise<void> => {
+  const ids: string[] = (Array.isArray(req.body?.ids) ? req.body.ids : []).filter(isId).slice(0, 200);
+  const status = String(req.body?.status || '');
+  if (!ids.length || !status) { sendError(res, 'Choose applications and a status'); return; }
+  const note = String(req.body?.note ?? '').trim().slice(0, 500);
+  const apps = await Application.find({ _id: { $in: ids } }).populate('user', 'name email');
+  const skipped: { referenceId: string; reason: string }[] = [];
+  for (const app of apps) {
+    const error = await changeStatus(req, app, status, note ? { adminNotes: note } : {}, req.body?.notify !== false);
+    if (error) skipped.push({ referenceId: app.referenceId, reason: error });
+  }
+  const updated = apps.length - skipped.length;
+  sendSuccess(res, { updated, skipped }, skipped.length ? `${updated} updated, ${skipped.length} skipped` : `${updated} updated`);
+};
+
+export const updateStatus = async (req: AdminRequest, res: Response): Promise<void> => {
+  const { status } = req.body;
+  if (!status) { sendError(res, 'Status is required'); return; }
+
+  const application = await Application.findById(req.params.id).populate('user', 'name email');
+  if (!application) { sendError(res, 'Application not found', 404); return; }
+
+  const error = await changeStatus(req, application, status, req.body);
+  if (error) { sendError(res, error); return; }
   sendSuccess(res, application, 'Status updated');
 };
 

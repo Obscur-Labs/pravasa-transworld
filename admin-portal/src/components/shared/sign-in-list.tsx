@@ -7,6 +7,7 @@ import type { LoginEvent, LoginResult } from '@/types';
 export const LOGIN_RESULT_META: Record<LoginResult, { label: string; icon: LucideIcon; tone: string }> = {
   success: { label: 'Signed in', icon: CheckCircle2, tone: 'text-success' },
   wrong_password: { label: 'Wrong password', icon: XCircle, tone: 'text-destructive' },
+  wrong_code: { label: 'Wrong 2FA code', icon: XCircle, tone: 'text-destructive' },
   unknown_user: { label: 'Unknown username', icon: UserX, tone: 'text-destructive' },
   locked: { label: 'Blocked: locked', icon: Lock, tone: 'text-warning' },
   disabled: { label: 'Blocked: disabled', icon: ShieldAlert, tone: 'text-warning' },

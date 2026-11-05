@@ -13,8 +13,15 @@ import { PaymentReviewActions } from '@/components/shared/payment-review-actions
 import { getPendingPayments } from '@/lib/api';
 import { useSocket } from '@/components/providers/SocketProvider';
 import { PaymentProofLink } from '@/components/shared/payment-proof-link';
-import { PAYMENT_METHOD_LABELS, deadlineLabel, formatCurrency, formatDate, timeAgo } from '@/lib/utils';
-import type { PendingPayment } from '@/types';
+import { PAYMENT_METHOD_LABELS, deadlineLabel, formatCurrency, formatDateTimeIST, timeAgo } from '@/lib/utils';
+import type { PaymentQueueTab, PendingPayment } from '@/types';
+
+const TABS: { key: PaymentQueueTab; label: string }[] = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'mismatch', label: 'Mismatch' },
+  { key: 'approved_today', label: 'Approved today' },
+  { key: 'rejected', label: 'Rejected (30 days)' },
+];
 
 const HOUR = 60 * 60 * 1000;
 
@@ -28,21 +35,24 @@ export default function PaymentVerificationPage() {
   const [upiId, setUpiId] = useState('');
   const [methods, setMethods] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<PaymentQueueTab>('pending');
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [, setTick] = useState(0);
   const { paymentsVersion } = useSocket();
 
   const load = useCallback(() => {
     setLoading(true);
-    getPendingPayments()
+    getPendingPayments(tab)
       .then((r) => {
         setPayments(r.data.data.payments || []);
+        setCounts(r.data.data.counts || {});
         setHours(r.data.data.verificationHours || 24);
         setUpiId(r.data.data.upiId || '');
         setMethods(r.data.data.methods || []);
       })
       .catch(() => toast({ title: 'Could not load payments', variant: 'destructive' }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [tab]);
 
   // Refetch when a payment arrives or another admin handles one.
   useEffect(() => { load(); }, [load, paymentsVersion]);
@@ -60,7 +70,8 @@ export default function PaymentVerificationPage() {
     );
   };
 
-  const overdueCount = payments.filter((p) => { const d = deadlineOf(p, hours); return d && deadlineLabel(d).overdue; }).length;
+  const open = tab === 'pending' || tab === 'mismatch';
+  const overdueCount = open ? payments.filter((p) => { const d = deadlineOf(p, hours); return d && deadlineLabel(d).overdue; }).length : 0;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
@@ -93,13 +104,25 @@ export default function PaymentVerificationPage() {
         </div>
       )}
 
+      <div className="flex gap-1 mb-3 overflow-x-auto" role="tablist">
+        {TABS.map((t) => (
+          <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+            className={`px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${tab === t.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
+            {t.label}
+            <span className={`ml-1.5 text-xs tabular-nums ${tab === t.key ? 'opacity-80' : ''}`}>{counts[t.key] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
       <Card>
         {loading ? (
           <div className="divide-y divide-border">
             {Array.from({ length: 3 }).map((_, i) => <div key={i} className="p-4"><Skeleton className="h-14 w-full" /></div>)}
           </div>
         ) : payments.length === 0 ? (
-          <EmptyState icon={BadgeCheck} title="Nothing to verify" description="Submitted payments will appear here, oldest first." />
+          <EmptyState icon={BadgeCheck}
+            title={tab === 'pending' ? 'Nothing to verify' : tab === 'mismatch' ? 'No mismatches' : tab === 'approved_today' ? 'Nothing approved today yet' : 'No rejected payments'}
+            description={tab === 'pending' ? 'Submitted payments will appear here, oldest first.' : 'Payments move here from the Pending tab.'} />
         ) : (
           <ul className="divide-y divide-border">
             {payments.map((p) => {
@@ -119,8 +142,13 @@ export default function PaymentVerificationPage() {
                       <p className="text-xs text-muted-foreground truncate">{p.user?.name} &middot; {p.application?.visaType?.name}</p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Amount</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Expected / received</p>
                       <p className="font-bold text-foreground tabular-nums">{formatCurrency(p.amount)}</p>
+                      {p.receivedAmount != null && (
+                        <p className={`text-xs font-semibold tabular-nums ${p.receivedAmount === p.amount ? 'text-success' : 'text-destructive'}`}>
+                          Received {formatCurrency(p.receivedAmount)}{p.receivedAmount !== p.amount && ` (${formatCurrency(p.receivedAmount - p.amount)})`}
+                        </p>
+                      )}
                       {p.promoCode?.code && <p className="text-xs text-muted-foreground">Promo {p.promoCode.code}</p>}
                     </div>
                     <div className="min-w-0">
@@ -128,21 +156,29 @@ export default function PaymentVerificationPage() {
                       <button type="button" onClick={() => copy(utr)} className="flex items-center gap-1 font-mono text-sm text-foreground hover:text-primary break-all text-left" title="Copy reference">
                         {utr} <Copy className="w-3 h-3 shrink-0" />
                       </button>
+                      {p.utrReused
+                        ? <Badge variant="destructive" className="mt-0.5">UTR seen on another payment</Badge>
+                        : utr && <span className="mt-0.5 block text-[11px] text-success">UTR not used before</span>}
                       <PaymentProofLink url={p.proofUrl} className="mt-0.5" />
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Submitted</p>
-                      <p className="text-sm text-foreground" title={p.submittedAt ? formatDate(p.submittedAt) : undefined}>
-                        {p.submittedAt ? timeAgo(p.submittedAt) : 'n/a'}
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {tab === 'approved_today' ? 'Verified' : tab === 'rejected' ? 'Rejected' : 'Submitted'}
                       </p>
-                      {deadline && (
+                      <p className="text-sm text-foreground" title={p.submittedAt ? formatDateTimeIST(p.submittedAt) : undefined}>
+                        {tab === 'approved_today' && p.verifiedAt ? `${timeAgo(p.verifiedAt)} by ${p.verifiedByName || 'admin'}`
+                          : p.submittedAt ? timeAgo(p.submittedAt) : 'n/a'}
+                      </p>
+                      {tab === 'rejected' && p.failureReason && <p className="text-xs text-destructive">{p.failureReason}</p>}
+                      {tab === 'mismatch' && p.mismatchNote && <p className="text-xs text-warning">{p.mismatchNote}</p>}
+                      {open && deadline && (
                         <Badge variant={deadline.overdue ? 'destructive' : deadline.urgent ? 'warning' : 'secondary'} className="mt-0.5">
                           {deadline.label}
                         </Badge>
                       )}
                     </div>
                   </div>
-                  <PaymentReviewActions paymentId={p._id} amount={p.amount} utr={utr} onDone={load} />
+                  {open && <PaymentReviewActions paymentId={p._id} amount={p.amount} utr={utr} receivedAmount={p.receivedAmount} onDone={load} />}
                 </li>
               );
             })}

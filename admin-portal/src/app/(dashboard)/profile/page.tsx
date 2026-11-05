@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { PermissionList } from '@/components/shared/permission-list';
 import { SignInList } from '@/components/shared/sign-in-list';
+import { TwoFactorCard } from '@/components/shared/two-factor-card';
 import { changeOwnPassword, getAdminProfile, updateAdminProfile } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/utils';
 import { usePermissions } from '@/lib/usePermissions';
@@ -235,6 +236,8 @@ export default function ProfilePage() {
               </div>
             </form>
           </Card>
+
+          <TwoFactorCard profile={profile} onChange={setProfile} />
 
           <Card>
             <div className="p-5 border-b border-border flex items-center justify-between">

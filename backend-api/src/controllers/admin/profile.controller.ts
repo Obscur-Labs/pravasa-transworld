@@ -6,6 +6,7 @@ import Admin, { toAdminProfile } from '../../models/Admin';
 import { signToken } from '../auth.controller';
 import { hashPassword, passwordProblem, verifyPassword } from '../../utils/password';
 import { sendSuccess, sendError } from '../../utils/response';
+import { twoFactorEnforced } from '../../models/TeamSettings';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -16,7 +17,7 @@ export const getProfile = async (req: AdminRequest, res: Response): Promise<void
     // Lets members spot sign-ins or failed attempts that weren't them.
     AdminLoginEvent.find({ admin: admin._id }).sort({ createdAt: -1 }).limit(10).lean(),
   ]);
-  sendSuccess(res, { profile: toAdminProfile(admin), recentActivity, recentSignIns });
+  sendSuccess(res, { profile: toAdminProfile(admin, await twoFactorEnforced()), recentActivity, recentSignIns });
 };
 
 export const updateProfile = async (req: AdminRequest, res: Response): Promise<void> => {
@@ -38,7 +39,7 @@ export const updateProfile = async (req: AdminRequest, res: Response): Promise<v
     if (err?.code === 11000) { sendError(res, 'Another team member already uses this email', 409); return; }
     throw err;
   }
-  sendSuccess(res, { profile: toAdminProfile(admin) }, 'Profile updated');
+  sendSuccess(res, { profile: toAdminProfile(admin, await twoFactorEnforced()) }, 'Profile updated');
 };
 
 /** Changes your own password. Other sessions are signed out; this one gets a fresh token. */

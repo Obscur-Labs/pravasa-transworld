@@ -1,8 +1,9 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  AlertTriangle, Crown, KeyRound, LogIn, Pencil, Plus, Search, ShieldHalf, Trash2, Users,
+  AlertTriangle, Crown, KeyRound, LogIn, Mail, Pencil, Plus, Search, ShieldCheck, ShieldHalf, ShieldOff, Trash2, Users,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,10 @@ import { SignInList } from '@/components/shared/sign-in-list';
 import { NativeSelect } from '@/components/ui/native-select';
 import { MemberDialog } from '@/components/team/member-dialog';
 import { RoleDialog } from '@/components/team/role-dialog';
-import { deleteTeamMember, deleteTeamRole, getTeamMember, getTeamMembers, getTeamRoles, getTeamSignIns } from '@/lib/api';
+import {
+  deleteTeamMember, deleteTeamRole, getTeamMember, getTeamMembers, getTeamRoles, getTeamSettings, getTeamSignIns,
+  remindTeamMember, resendTeamInvite, resetMemberTwoFactor, updateTeamSettings,
+} from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/utils';
 import { useAdminAuthStore } from '@/store/auth.store';
 import { ACTION_BADGE } from '@/types';
@@ -45,6 +49,34 @@ export default function TeamPage() {
 
   const [signIns, setSignIns] = useState<LoginEvent[] | null>(null);
   const [signInFilter, setSignInFilter] = useState({ admin: '', result: '', days: '30' });
+  const [enforce2fa, setEnforce2fa] = useState<boolean | null>(null);
+  const [savingEnforce, setSavingEnforce] = useState(false);
+  const [resetTarget, setResetTarget] = useState<TeamMember | null>(null);
+
+  useEffect(() => { getTeamSettings().then((r) => setEnforce2fa(r.data.data.enforceTwoFactor)).catch(() => {}); }, []);
+
+  const toggleEnforce = async (on: boolean) => {
+    setSavingEnforce(true);
+    try {
+      const r = await updateTeamSettings({ enforceTwoFactor: on });
+      setEnforce2fa(r.data.data.enforceTwoFactor);
+      toast({ title: r.data.message, variant: 'success' });
+    } catch (err: any) {
+      toast({ title: 'Could not save', description: err.response?.data?.message, variant: 'destructive' });
+    } finally {
+      setSavingEnforce(false);
+    }
+  };
+
+  const memberAction = async (fn: () => Promise<{ data: { message?: string } }>) => {
+    try {
+      const r = await fn();
+      toast({ title: r.data.message || 'Done', variant: 'success' });
+      load();
+    } catch (err: any) {
+      toast({ title: 'Could not do that', description: err.response?.data?.message, variant: 'destructive' });
+    }
+  };
 
   useEffect(() => {
     if (tab !== 'signins') return;
@@ -115,6 +147,30 @@ export default function TeamPage() {
           ) : undefined
         }
       />
+
+      {(() => {
+        const active = members.filter((m) => m.isActive && m.hasLogin);
+        const no2fa = active.filter((m) => !m.twoFactorEnabled).length;
+        const temp = active.filter((m) => m.mustChangePassword).length;
+        return (no2fa > 0 || temp > 0) && !loading ? (
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span className="flex-1 min-w-[14rem]">
+              {[no2fa ? `${no2fa} member${no2fa === 1 ? ' has' : 's have'} two-factor sign-in off` : '', temp ? `${temp} still on a temporary password` : ''].filter(Boolean).join(' · ')}.
+              {' '}Use Remind on a member to email them.
+            </span>
+          </div>
+        ) : null;
+      })()}
+
+      <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-sm">
+        <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+        <span className="flex-1">
+          <span className="font-medium text-foreground">Require two-factor sign-in for everyone</span>
+          <span className="block text-xs text-muted-foreground">Members without it are asked to set it up before they can use the console.</span>
+        </span>
+        <Switch checked={!!enforce2fa} disabled={enforce2fa === null || savingEnforce} onChange={() => toggleEnforce(!enforce2fa)} />
+      </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
         <div role="tablist" className="flex gap-1 bg-muted rounded-xl p-1 w-fit">
@@ -236,10 +292,24 @@ export default function TeamPage() {
                               <KeyRound className="w-3 h-3" />Temp password
                             </span>
                           )}
+                          {m.invitePending ? (
+                            <span className={`flex items-center gap-1 text-[11px] ${m.inviteExpired ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              <Mail className="w-3 h-3" />{m.inviteExpired ? 'Invite expired' : 'Invite sent'}
+                            </span>
+                          ) : (
+                            <span className={`flex items-center gap-1 text-[11px] ${m.twoFactorEnabled ? 'text-success' : 'text-muted-foreground'}`}>
+                              {m.twoFactorEnabled ? <ShieldCheck className="w-3 h-3" /> : <ShieldOff className="w-3 h-3" />}2FA {m.twoFactorEnabled ? 'on' : 'off'}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
+                          {m.invitePending ? (
+                            <Button variant="ghost" size="sm" className="text-xs" onClick={() => memberAction(() => resendTeamInvite(m._id))}>Resend invite</Button>
+                          ) : (!m.twoFactorEnabled || m.mustChangePassword) && m.email && m._id !== selfId ? (
+                            <Button variant="ghost" size="sm" className="text-xs" onClick={() => memberAction(() => remindTeamMember(m._id))}>Remind</Button>
+                          ) : null}
                           <Button variant="ghost" size="icon" aria-label={`Edit ${m.name}`} onClick={() => setMemberDialog({ open: true, member: m })}>
                             <Pencil className="w-4 h-4" />
                           </Button>
@@ -307,6 +377,9 @@ export default function TeamPage() {
                         : <Badge variant="secondary">{m.roleName}</Badge>}
                       <Badge variant={m.isActive ? 'success' : 'destructive'}>{m.isActive ? 'Active' : 'Disabled'}</Badge>
                       {m.mustChangePassword && <Badge variant="outline" className="gap-1"><KeyRound className="w-3 h-3" />Temp password</Badge>}
+                      <Badge variant={m.twoFactorEnabled ? 'success' : 'outline'} className="gap-1">
+                        {m.twoFactorEnabled ? <ShieldCheck className="w-3 h-3" /> : <ShieldOff className="w-3 h-3" />}2FA {m.twoFactorEnabled ? 'on' : 'off'}
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -379,7 +452,12 @@ export default function TeamPage() {
                   </section>
                 </div>
 
-                <div className="border-t border-border px-6 py-4">
+                <div className="border-t border-border px-6 py-4 space-y-2">
+                  {m.twoFactorEnabled && m._id !== selfId && (
+                    <Button variant="outline" className="w-full" onClick={() => setResetTarget(m)}>
+                      <ShieldOff className="w-4 h-4 mr-2" />Reset two-factor sign-in
+                    </Button>
+                  )}
                   <Button className="w-full" onClick={() => { setMemberDialog({ open: true, member: m }); setDetail(null); }}>
                     <Pencil className="w-4 h-4 mr-2" />Edit member
                   </Button>
@@ -389,6 +467,19 @@ export default function TeamPage() {
           })()}
         </SheetContent>
       </Sheet>
+
+      <ConfirmDialog
+        open={!!resetTarget}
+        onOpenChange={(open) => !open && setResetTarget(null)}
+        title={`Reset ${resetTarget?.name}'s two-factor sign-in?`}
+        description="Use this when they lost their phone and recovery codes. Their authenticator stops working and they set it up again from their profile."
+        confirmLabel="Reset"
+        onConfirm={async () => {
+          if (resetTarget) await memberAction(() => resetMemberTwoFactor(resetTarget._id));
+          setResetTarget(null);
+          setDetail(null);
+        }}
+      />
 
       <MemberDialog
         open={memberDialog.open}

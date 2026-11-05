@@ -9,6 +9,9 @@ import { cleanPermissions } from '../../config/permissions';
 import { hashPassword, passwordProblem } from '../../utils/password';
 import { logActivity } from '../../utils/activityLog';
 import { sendSuccess, sendError } from '../../utils/response';
+import crypto from 'crypto';
+import { loadTeamSettings, resetTwoFactorCache } from '../../models/TeamSettings';
+import { sendAdminInviteEmail, sendAdminSecurityReminderEmail } from '../../services/email.service';
 
 // Everything here sits behind requireSuperAdmin (see admin.routes).
 
@@ -28,6 +31,10 @@ const toMember = (a: IAdmin, lastActivityAt: Date | null = null, recentFailures 
   permissions: effectivePermissions(a),
   isActive: a.isActive,
   mustChangePassword: a.mustChangePassword,
+  twoFactorEnabled: !!a.twoFactorEnabled,
+  /** Invited by email and hasn't set a password yet. */
+  invitePending: !!a.inviteExpiresAt,
+  inviteExpired: !!a.inviteExpiresAt && a.inviteExpiresAt < new Date(),
   hasLogin: !!a.username,
   lastLoginAt: a.lastLoginAt,
   lastActivityAt,
@@ -232,4 +239,83 @@ export const deleteMember = async (req: AdminRequest, res: Response): Promise<vo
   await member.deleteOne();
   logActivity(req, 'delete', 'Team Member', `${member.name}${member.username ? ` (@${member.username})` : ''}`);
   sendSuccess(res, null, 'Team member removed');
+};
+
+// ── Security ───────────────────────────────────────────────────────────────────
+
+export const getTeamSettings = async (_req: AdminRequest, res: Response): Promise<void> => {
+  const settings = await loadTeamSettings();
+  sendSuccess(res, { enforceTwoFactor: settings.enforceTwoFactor });
+};
+
+export const updateTeamSettings = async (req: AdminRequest, res: Response): Promise<void> => {
+  const settings = await loadTeamSettings();
+  settings.enforceTwoFactor = req.body?.enforceTwoFactor === true;
+  await settings.save();
+  resetTwoFactorCache();
+  logActivity(req, 'update', 'Team Settings', `Two-factor sign-in ${settings.enforceTwoFactor ? 'required for everyone' : 'optional'}`);
+  sendSuccess(res, { enforceTwoFactor: settings.enforceTwoFactor }, settings.enforceTwoFactor
+    ? 'Two-factor sign-in is now required. Members without it are asked to set it up.'
+    : 'Two-factor sign-in is now optional');
+};
+
+/** For a member who lost their phone and recovery codes: they set it up again next sign-in. */
+export const resetMemberTwoFactor = async (req: AdminRequest, res: Response): Promise<void> => {
+  const member = await Admin.findById(req.params.id);
+  if (!member) { sendError(res, 'Team member not found', 404); return; }
+  await Admin.updateOne({ _id: member._id }, { $set: { twoFactorEnabled: false }, $unset: { twoFactorSecret: 1, recoveryCodes: 1, twoFactorPendingSecret: 1 } });
+  logActivity(req, 'update', 'Team Member', `${member.name}: two-factor sign-in reset`);
+  sendSuccess(res, null, `${member.name} will set up two-factor sign-in again`);
+};
+
+export const remindMember = async (req: AdminRequest, res: Response): Promise<void> => {
+  const member = await Admin.findById(req.params.id);
+  if (!member) { sendError(res, 'Team member not found', 404); return; }
+  if (!member.email) { sendError(res, 'Add an email address for this member first'); return; }
+  const items = [
+    ...(member.mustChangePassword ? ['Replace your temporary password with your own'] : []),
+    ...(!member.twoFactorEnabled ? ['Turn on two-factor sign-in with an authenticator app'] : []),
+  ];
+  if (!items.length) { sendError(res, 'This account is already secured'); return; }
+  await sendAdminSecurityReminderEmail({ email: member.email, name: member.name, items });
+  logActivity(req, 'update', 'Team Member', `${member.name}: security reminder sent`);
+  sendSuccess(res, null, `Reminder sent to ${member.email}`);
+};
+
+const INVITE_DAYS = 7;
+
+async function issueInvite(member: IAdmin, invitedBy: string) {
+  const token = crypto.randomBytes(32).toString('hex');
+  await Admin.updateOne({ _id: member._id }, {
+    $set: { inviteTokenHash: crypto.createHash('sha256').update(token).digest('hex'), inviteExpiresAt: new Date(Date.now() + INVITE_DAYS * 86400000) },
+  });
+  await sendAdminInviteEmail({ email: member.email!, name: member.name, username: member.username || '', token, invitedBy });
+}
+
+/** Adds a member without a password; they get an email link to set their own. */
+export const inviteMember = async (req: AdminRequest, res: Response): Promise<void> => {
+  const input = await memberInput({ ...(req.body || {}), password: '' }, false);
+  if ('error' in input) { sendError(res, input.error!); return; }
+  if (!input.fields.email) { sendError(res, 'An email address is needed to send the invite'); return; }
+  try {
+    const member = await Admin.create({ ...input.fields, mustChangePassword: false });
+    await issueInvite(member, req.admin!.name);
+    await member.populate('role', 'name permissions');
+    logActivity(req, 'create', 'Team Member', `${member.name} (@${member.username}) invited by email`);
+    sendSuccess(res, toMember(await Admin.findById(member._id).populate('role', 'name permissions') as IAdmin), `Invite sent to ${member.email}`, 201);
+  } catch (err) {
+    const message = conflict(err);
+    if (message) { sendError(res, message, 409); return; }
+    throw err;
+  }
+};
+
+export const resendInvite = async (req: AdminRequest, res: Response): Promise<void> => {
+  const member = await Admin.findById(req.params.id);
+  if (!member) { sendError(res, 'Team member not found', 404); return; }
+  if (!member.inviteExpiresAt) { sendError(res, 'This member has already set a password'); return; }
+  if (!member.email) { sendError(res, 'Add an email address for this member first'); return; }
+  await issueInvite(member, req.admin!.name);
+  logActivity(req, 'update', 'Team Member', `${member.name}: invite re-sent`);
+  sendSuccess(res, null, `Invite sent again to ${member.email}`);
 };

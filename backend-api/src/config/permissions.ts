@@ -9,6 +9,7 @@ export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 
 export const ADMIN_MODULES = [
   { key: 'dashboard', label: 'Dashboard', viewOnly: true },
+  { key: 'reports', label: 'Reports', viewOnly: true },
   { key: 'applications', label: 'Applications' },
   { key: 'payments', label: 'Payments' },
   { key: 'countries', label: 'Countries & Visas' },
