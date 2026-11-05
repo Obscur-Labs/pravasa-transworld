@@ -146,6 +146,95 @@ function FAQAccordion({ faqs }: { faqs: { question: string; answer: string }[] }
   );
 }
 
+/* ─── Per-type pricing ─── */
+
+// Per-person price as charged at checkout: visa + VFS + service fee, with 18% GST on the
+// service fee only. A signed-in corporate or B2B account gets its own service fee.
+const priceOf = (v: VisaType, who: 'adult' | 'child') => {
+  const base = who === 'adult' ? (v.adultPrice || v.price || 0) : (v.childPrice || 0);
+  const vfs = (who === 'adult' ? v.adultVfsFee : v.childVfsFee) || 0;
+  const fee = (who === 'adult' ? v.corporateAdultServiceFee ?? v.adultServiceFee : v.corporateChildServiceFee ?? v.childServiceFee) || 0;
+  return base + vfs + fee + Math.round(fee * 0.18);
+};
+
+const isArrivalCard = (v: VisaType) => /arrival/i.test(v.visaSubType || '') || /arrival card/i.test(v.name);
+
+type VisaGroup = { key: string; name: string; normal?: VisaType; express?: VisaType };
+
+// Express is stored as its own visa type; pair it with the normal one of the same name.
+function groupVisaTypes(list: VisaType[]): VisaGroup[] {
+  const groups = new Map<string, VisaGroup>();
+  for (const v of list) {
+    const base = v.name.replace(/\(?\s*(express|normal|urgent)\s*\)?/gi, '').replace(/\s{2,}/g, ' ').trim();
+    const key = `${base.toLowerCase()}|${v.visaCategory}`;
+    const g = groups.get(key) ?? { key, name: base || v.name };
+    if (v.process === 'express') g.express ??= v; else g.normal ??= v;
+    groups.set(key, g);
+  }
+  return [...groups.values()];
+}
+
+function PriceBox({ label, visa, href }: { label: string; visa?: VisaType; href: string }) {
+  if (!visa) {
+    return (
+      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+        <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+        <p className="text-sm font-bold text-slate-300">Not offered</p>
+      </div>
+    );
+  }
+  return (
+    <Link href={href} className={`block rounded-xl px-3 py-2.5 transition-colors ${label === 'Express' ? 'bg-gold-50 hover:bg-gold-100' : 'bg-slate-50 hover:bg-slate-100'}`}>
+      <p className="text-[11px] font-semibold text-slate-500">{label}{visa.processingTime && ` · ${visa.processingTime}`}</p>
+      <p className={`text-lg font-extrabold ${label === 'Express' ? 'text-gold-700' : 'text-brand-900'}`}>₹{priceOf(visa, 'adult').toLocaleString('en-IN')}</p>
+    </Link>
+  );
+}
+
+function VisaTypesGrid({ visaTypes, applyHref, onSelect }: {
+  visaTypes: VisaType[];
+  applyHref: (visaId: string) => string;
+  onSelect: (visa: VisaType) => void;
+}) {
+  const { labelFor } = useVisaConfigLabels();
+  const groups = groupVisaTypes(visaTypes);
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+      <div className="px-4 sm:px-6 py-4 border-b border-slate-50 bg-slate-50/50">
+        <h2 className="font-extrabold text-slate-800 text-base">Visa types &amp; prices</h2>
+        <p className="text-xs text-slate-400 mt-0.5 font-medium">Per adult, service fee and GST included</p>
+      </div>
+      <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {groups.map((g) => {
+          const main = (g.normal ?? g.express)!;
+          const child = priceOf(main, 'child');
+          const arrival = isArrivalCard(main);
+          return (
+            <div key={g.key} className="rounded-2xl border border-slate-200 p-4 flex flex-col">
+              <button type="button" onClick={() => onSelect(main)} className="text-left">
+                <p className="font-extrabold text-slate-900">{g.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {labelFor('visaCategory', main.visaCategory, main.visaCategory)} · {labelFor('visaSubType', main.visaSubType, main.visaSubType)}
+                  {main.stayDuration && ` · stay ${main.stayDuration}`}
+                </p>
+              </button>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <PriceBox label="Normal" visa={g.normal} href={applyHref(g.normal?._id || '')} />
+                <PriceBox label="Express" visa={g.express} href={applyHref(g.express?._id || '')} />
+              </div>
+              {child > 0 && <p className="text-xs text-slate-400 mt-2">Child: ₹{child.toLocaleString('en-IN')}</p>}
+              <Link href={applyHref(main._id)}
+                className="mt-3 block text-center rounded-xl bg-brand-900 hover:bg-brand-800 text-white text-sm font-bold py-2.5 transition-colors">
+                {arrival ? 'Apply for Arrival Card' : 'Apply for this visa'}
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Visa Info Dot Grid ─── */
 const DOT_COLORS = ['bg-brand-500', 'bg-brand-500', 'bg-brand-500', 'bg-emerald-500', 'bg-orange-400'];
 
@@ -237,10 +326,12 @@ export default function CountryDetailPage() {
   const vt = visaTypes[selectedVt];
   const faqs = wc?.faqs ?? [];
 
-  // Visa fee + VFS fee + service fee, with 18% GST on the service fee only (visa + VFS are
-  // untaxed), matches what is charged at checkout.
-  const adultTotal = vt ? vt.adultPrice + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0) + Math.round((vt.adultServiceFee || 0) * 0.18) : 0;
-  const childTotal = vt ? (vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0) + Math.round((vt.childServiceFee || 0) * 0.18) : 0;
+  const adultTotal = vt ? priceOf(vt, 'adult') : 0;
+  const childTotal = vt ? priceOf(vt, 'child') : 0;
+  // Arrival-card destinations (Thailand, Malaysia...) are not visas; the buttons say so.
+  const arrivalOnly = visaTypes.length > 0 && visaTypes.every(isArrivalCard);
+  const applyHref = (visaId?: string) =>
+    hasSession ? `/apply?country=${country._id}${visaId ? `&visa=${visaId}` : ''}` : '/register';
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -276,7 +367,7 @@ export default function CountryDetailPage() {
             <div className="min-w-0">
               <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-none">{country.name}</h1>
               <p className="text-sm font-semibold text-slate-400 mt-1.5 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5" /> Visa
+                <Globe className="w-3.5 h-3.5" /> {arrivalOnly ? 'Arrival card' : 'Visa'}
               </p>
             </div>
           </div>
@@ -289,6 +380,11 @@ export default function CountryDetailPage() {
 
           {/* LEFT COLUMN */}
           <div className="min-w-0 space-y-6">
+            {visaTypes.length > 0 && (
+              <VisaTypesGrid visaTypes={visaTypes} applyHref={applyHref}
+                onSelect={(v) => setSelectedVt(visaTypes.findIndex((x) => x._id === v._id))} />
+            )}
+
             {/* Photo Slider */}
             <ImageSlider images={images} country={country} />
 
@@ -408,10 +504,11 @@ export default function CountryDetailPage() {
                   <h3 className="font-extrabold text-slate-800 text-sm">Pricing Plans</h3>
                 </div>
                 <div className="p-5">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Standard (Per Adult)</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{vt.name}</p>
+                  <p className="text-xs text-slate-400 mb-3">{vt.process === 'express' ? 'Express' : 'Normal'} processing{vt.processingTime && ` · ${vt.processingTime}`}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-brand-600">Total</span>
-                    <span className="text-base font-extrabold text-brand-600">₹{adultTotal.toLocaleString('en-IN')}</span>
+                    <span className="text-sm font-extrabold text-brand-900">Per adult</span>
+                    <span className="text-base font-extrabold text-brand-900">₹{adultTotal.toLocaleString('en-IN')}</span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1 font-medium text-right">Inclusive of 18% GST</p>
                   {vt.childPrice > 0 && childTotal !== adultTotal && (
@@ -426,10 +523,10 @@ export default function CountryDetailPage() {
             {/* Apply CTA */}
             <div className="space-y-3">
               <Link
-                href={hasSession ? `/apply?country=${country._id}` : '/register'}
+                href={applyHref(vt?._id)}
                 className="flex items-center justify-center gap-2 bg-brand-900 hover:bg-brand-800 active:scale-95 text-white font-extrabold text-sm px-5 py-3.5 rounded-2xl w-full transition-all shadow-lg shadow-brand-600/20"
               >
-                Start Application <ArrowRight className="w-4 h-4" />
+                {arrivalOnly ? 'Apply for Arrival Card' : `Apply for ${vt?.name || 'this visa'}`} <ArrowRight className="w-4 h-4" />
               </Link>
               <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 font-medium">
                 <Shield className="w-3.5 h-3.5" />
@@ -451,8 +548,8 @@ export default function CountryDetailPage() {
           <Link href="/countries" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 font-semibold text-sm transition-colors">
             <ArrowLeft className="w-4 h-4" /> All Destinations
           </Link>
-          <Link href={hasSession ? `/apply?country=${country._id}` : '/register'} className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors">
-            Apply for {country.name} Visa <ArrowRight className="w-4 h-4" />
+          <Link href={applyHref()} className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors">
+            {arrivalOnly ? 'Apply for Arrival Card' : `Apply for ${country.name} Visa`} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </div>

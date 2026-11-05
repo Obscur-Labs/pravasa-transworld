@@ -21,6 +21,8 @@ import {
   getDraft, createDraft, updateDraft, deleteDraft,
 } from '@/lib/api';
 import StartOverDialog from '@/components/apply/StartOverDialog';
+import ParentApplicationPicker, { parentLinkValid } from '@/components/apply/ParentApplicationPicker';
+import type { ParentLinkValue } from '@/components/apply/ParentApplicationPicker';
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
 import { formatCurrency } from '@/lib/utils';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
@@ -114,8 +116,20 @@ const docsForTraveler = (docs: DocumentRequirement[], tr: Traveler, formData: Re
 
 // Questions and document uploads are one list for the applicant, the admin authors
 // them in a single sequence, so they render interleaved in exactly that order.
-const itemsForTraveler = (fields: FormField[], docs: DocumentRequirement[], tr: Traveler, formData: Record<string, string>): FormItem[] =>
-  mergeFormItems(fieldsForTraveler(fields, tr), docsForTraveler(docs, tr, formData));
+const itemsForTraveler = (fields: FormField[], docs: DocumentRequirement[], tr: Traveler): FormItem[] =>
+  mergeFormItems(fieldsForTraveler(fields, tr), docs);
+
+// Rows the form adds itself for children: a NOC when only one parent (or a guardian) is
+// linked, and a birth certificate for child-only orders when the visa doesn't ask for one.
+const NOC_REQ: DocumentRequirement = {
+  _id: '__noc__', name: 'NOC from other parent / guardianship document', required: true, applicantType: 'child', order: 9998,
+  description: 'Needed when only one parent travels, or a guardian is linked',
+};
+const BIRTH_REQ: DocumentRequirement = {
+  _id: '__birth__', name: 'Birth certificate', required: true, applicantType: 'child', order: 9999,
+  description: "Shows the child's parents' names",
+};
+const PARENT_APP_KEY = '__parentapp__';
 
 // Form-wide values ride along in formData under reserved keys, so local and server
 // drafts keep them without a schema change. Real field keys always contain "__" after a traveller key.
@@ -902,7 +916,7 @@ export default function ApplyPage() {
       setPassportValues(d.passportValues || {});
       setTravelStartDate(d.travelStartDate || '');
       setTravelEndDate(d.travelEndDate || '');
-      setAdults(d.adults || 1);
+      setAdults(d.adults ?? 1);
       setChildren(d.children || 0);
       setActiveTraveler(0);
       // Vault picks are kept by id; any document since removed from the vault is dropped.
@@ -1125,7 +1139,8 @@ export default function ApplyPage() {
         children,
         travelDate: travelStartDate,
         travelEndDate,
-        travellers: travelers.map((tr) => ({ key: tr.key, parents: tr.type === 'child' ? parentLinksOf(tr.key) : [] })),
+        travellers: travelers.map((tr) => ({ key: tr.key, parents: tr.type === 'child' && !childOnly ? parentLinksOf(tr.key) : [] })),
+        ...(childOnly && parentApp ? { parentLink: { applicationId: parentApp.applicationId, parents: parentApp.parents } } : {}),
         acceptedTerms: visaTerms.filter((_, i) => termsAccepted[i]).map((t) => t.text),
       });
       const appId = r.data.data._id;
@@ -1149,7 +1164,7 @@ export default function ApplyPage() {
         Object.fromEntries(keys.filter((k) => pv[k]?.trim()).map((k) => [k, pv[k].trim()]));
 
       for (const tr of travelers) {
-        for (const req of docsForTraveler(reqs, tr, formData)) {
+        for (const req of [...docsForTraveler(reqs, tr, formData), ...extraReqsFor(tr)]) {
           const label = `${tr.label} - ${req.name}`;
           const because = triggerText(req, tr);
           if (isPassportPair(req) && req.ocrEnabled !== false) {
@@ -1258,6 +1273,29 @@ export default function ApplyPage() {
     setParentLinks(childKey, parentLinksOf(childKey).map((l) => (l.key === adultKey ? { ...l, relation } : l)));
   const needsParentLink = (tr: Traveler) => tr.type === 'child' && adults > 0;
 
+  // ── Child-only orders travel on a parent's earlier application ──
+  const childOnly = adults === 0 && children > 0;
+  const parentApp: ParentLinkValue | null = (() => {
+    try { return formData[PARENT_APP_KEY] ? JSON.parse(formData[PARENT_APP_KEY]) : null; } catch { return null; }
+  })();
+  const setParentApp = (v: ParentLinkValue | null) =>
+    setFormData((prev) => {
+      const next = { ...prev };
+      if (v) next[PARENT_APP_KEY] = JSON.stringify(v); else delete next[PARENT_APP_KEY];
+      return next;
+    });
+
+  const extraReqsFor = (tr: Traveler): DocumentRequirement[] => {
+    if (tr.type !== 'child') return [];
+    const links = childOnly ? parentApp?.parents || [] : parentLinksOf(tr.key);
+    const extras: DocumentRequirement[] = [];
+    if (links.length === 1 || links.some((l) => l.relation === 'guardian')) extras.push(NOC_REQ);
+    const asksBirth = requirements.some((r) => appliesToTraveler(r.applicantType, 'child') && /birth/i.test(r.name));
+    if (childOnly && !asksBirth) extras.push(BIRTH_REQ);
+    return extras;
+  };
+  const reqsFor = (tr: Traveler) => [...docsForTraveler(requirements, tr, formData), ...extraReqsFor(tr)];
+
   // The answer that made a conditional upload appear, e.g. "Marital Status = Married".
   const triggerText = (req: DocumentRequirement, tr: Traveler) => {
     if (!req.showWhen?.field || !selectedVisa) return '';
@@ -1268,7 +1306,7 @@ export default function ApplyPage() {
 
   const travelerComplete = (tr: Traveler) => {
     const fieldsOk = questionsForTraveler(sortedFields, tr, formData).filter((f) => f.required).every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim());
-    const docsOk = docsForTraveler(requirements, tr, formData).filter((r) => r.required).every((r) => {
+    const docsOk = reqsFor(tr).filter((r) => r.required).every((r) => {
       if (isPassportPair(r) && r.ocrEnabled !== false) return !!docSources[docKey(tr, r.name, '__front')] && !!docSources[docKey(tr, r.name, '__back')];
       return !!docSources[docKey(tr, r.name)];
     });
@@ -1302,13 +1340,16 @@ export default function ApplyPage() {
   };
 
   const sections = [
-    { id: 'sec-visa', label: 'Visa & travellers', done: !!selectedVisa && adults >= 1 && adults + children <= MAX_TRAVELLERS },
+    { id: 'sec-visa', label: 'Visa & travellers', done: !!selectedVisa && adults + children >= 1 && adults + children <= MAX_TRAVELLERS },
     { id: 'sec-dates', label: 'Travel dates', done: datesOk },
+    ...(childOnly ? [{ id: 'sec-parent', label: 'Parent / guardian link', done: parentLinkValid(parentApp) }] : []),
     { id: 'sec-travellers', label: 'Travellers & documents', done: travelers.every(travelerComplete) },
     { id: 'sec-contact', label: 'Contact details', done: !contactErrors.email && !contactErrors.mobile },
     { id: 'sec-review', label: 'Review & pay', done: allRequiredTermsAccepted },
   ];
   const doneCount = sections.filter((x) => x.done).length;
+  const secNo = (id: string) => sections.findIndex((x) => x.id === id) + 1;
+  const secDone = (id: string) => !!sections.find((x) => x.id === id)?.done;
   const allDone = doneCount === sections.length;
   const [showErrors, setShowErrors] = useState(false);
 
@@ -1514,7 +1555,7 @@ export default function ApplyPage() {
     const fieldError = (msg: string) => showErrors && msg ? <p className="text-xs text-red-600 mt-1" role="alert">{msg}</p> : null;
 
     const docTotals = travelers.reduce((acc, tr) => {
-      for (const req of docsForTraveler(requirements, tr, formData).filter((x) => x.required)) {
+      for (const req of reqsFor(tr).filter((x) => x.required)) {
         acc.total++;
         const ok = isPassportPair(req) && req.ocrEnabled !== false
           ? !!docSources[docKey(tr, req.name, '__front')] && !!docSources[docKey(tr, req.name, '__back')]
@@ -1552,7 +1593,7 @@ export default function ApplyPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start pb-24 lg:pb-0">
         <div className="space-y-5 min-w-0">
           {/* 1 · Visa & travellers */}
-          <FormSection id="sec-visa" n={1} title="Visa & travellers" done={sections[0].done}
+          <FormSection id="sec-visa" n={secNo('sec-visa')} title="Visa & travellers" done={secDone('sec-visa')}
             aside={<button type="button" onClick={() => setStep(2)} className="text-xs font-semibold text-brand-700 hover:underline">Change visa</button>}>
             <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 mb-4">
               <img src={`https://flagcdn.com/w40/${country.flag}.png`} alt="" className="w-8 h-5 object-cover rounded mt-0.5" />
@@ -1571,20 +1612,20 @@ export default function ApplyPage() {
                   <p className="text-sm font-semibold text-slate-900">Adults</p>
                   <p className="text-xs text-slate-400">18+ years on departure</p>
                 </div>
-                <Counter value={adults} min={1} max={MAX_TRAVELLERS - children} onChange={setAdults} />
+                <Counter value={adults} min={children > 0 ? 0 : 1} max={MAX_TRAVELLERS - children} onChange={setAdults} />
               </div>
               <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Children</p>
                   <p className="text-xs text-slate-400">Under 18 on departure</p>
                 </div>
-                <Counter value={children} min={0} max={Math.min(9, MAX_TRAVELLERS - adults)} onChange={setChildren} />
+                <Counter value={children} min={adults === 0 ? 1 : 0} max={Math.min(9, MAX_TRAVELLERS - adults)} onChange={setChildren} />
               </div>
             </div>
           </FormSection>
 
           {/* 2 · Travel dates */}
-          <FormSection id="sec-dates" n={2} title="Travel dates" done={sections[1].done}>
+          <FormSection id="sec-dates" n={secNo('sec-dates')} title="Travel dates" done={secDone('sec-dates')}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="departure">Departure date <span className="text-red-500">*</span></Label>
@@ -1636,7 +1677,21 @@ export default function ApplyPage() {
           </FormSection>
 
           {/* 3 · Travellers: answers and uploads, one tab per person */}
-          <FormSection id="sec-travellers" n={3} title="Travellers & documents" done={sections[2].done}
+          {childOnly && (
+            <FormSection id="sec-parent" n={secNo('sec-parent')} title="Link with parent / guardian application" done={secDone('sec-parent')}>
+              <ParentApplicationPicker
+                countryId={country._id}
+                from={travelStartDate}
+                to={travelEndDate}
+                value={parentApp}
+                onChange={setParentApp}
+                onParentApplyingNow={() => { setAdults(1); setParentApp(null); }}
+                showErrors={showErrors}
+              />
+            </FormSection>
+          )}
+
+          <FormSection id="sec-travellers" n={secNo('sec-travellers')} title="Travellers & documents" done={secDone('sec-travellers')}
             aside={<span className="text-xs text-slate-400">PDF, JPG, PNG, DOC · max 10 MB</span>}>
             <div className="flex flex-wrap gap-2 mb-5 border-b border-slate-100 pb-3" role="tablist">
               {travelers.map((tr, idx) => {
@@ -1656,7 +1711,7 @@ export default function ApplyPage() {
             </div>
 
             {activeTr && (() => {
-              const items = itemsForTraveler(sortedFields, requirements, activeTr, formData);
+              const items = itemsForTraveler(sortedFields, reqsFor(activeTr), activeTr);
               const links = parentLinksOf(activeTr.key);
               return (
                 <div className="space-y-5">
@@ -1748,7 +1803,7 @@ export default function ApplyPage() {
           </FormSection>
 
           {/* 4 · Contact */}
-          <FormSection id="sec-contact" n={4} title="Contact details" done={sections[3].done}>
+          <FormSection id="sec-contact" n={secNo('sec-contact')} title="Contact details" done={secDone('sec-contact')}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="contact-email">Email <span className="text-red-500">*</span></Label>
@@ -1776,11 +1831,12 @@ export default function ApplyPage() {
           </FormSection>
 
           {/* 5 · Review, promo, terms, submit */}
-          <FormSection id="sec-review" n={5} title="Review & confirm" done={sections[4].done}>
+          <FormSection id="sec-review" n={secNo('sec-review')} title="Review & confirm" done={secDone('sec-review')}>
             <div className="mb-4">
               {reviewRow('Visa', `${country.name} · ${visa.name}`, 'visa')}
               {reviewRow('Dates', travelStartDate && travelEndDate ? `${fmtDisplay(travelStartDate)} to ${fmtDisplay(travelEndDate)} (${stayDays} day${stayDays === 1 ? '' : 's'})` : <span className="text-slate-400">Not chosen yet</span>, 'sec-dates')}
               {reviewRow(travelers.length > 1 ? 'Family' : 'Traveller', familyText, 'sec-travellers')}
+              {childOnly && reviewRow('Parent', parentApp ? `Travels with ${parentApp.ref}` : <span className="text-slate-400">Not linked yet</span>, 'sec-parent')}
               {reviewRow('Documents', `${docTotals.done} of ${docTotals.total} required uploaded`, 'sec-travellers')}
               {reviewRow('Contact', `${contactEmail || 'no email'} · +91 ${mobileDigits(contactMobile) || '...'}`, 'sec-contact')}
             </div>

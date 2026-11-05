@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth.middleware';
-import Application from '../../models/Application';
+import Application, { IApplication } from '../../models/Application';
 import Document from '../../models/Document';
 import VisaFile from '../../models/VisaFile';
 import VisaType from '../../models/VisaType';
@@ -8,11 +8,13 @@ import Country from '../../models/Country';
 import VisaConfigOption from '../../models/VisaConfigOption';
 import Payment from '../../models/Payment';
 import { loadPaymentConfig } from '../../services/payment.service';
-import { uploadToCloudinary } from '../../services/cloudinary.service';
+import { deliveryUrl, uploadToCloudinary } from '../../services/cloudinary.service';
+import { buildCarryChecklist } from '../admin/processing.controller';
 import { isWordFile } from '../../middleware/upload.middleware';
 import { extractPassport } from '../../services/ocr.service';
 import { generateVisaSummaryPDF } from '../../services/pdf.service';
 import { buildTravellers } from '../../utils/travellers';
+import { resolveParentLink } from './parentLink.controller';
 import { sendSuccess, sendError } from '../../utils/response';
 import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf, GST_RATE } from '../../utils/pricing';
 
@@ -44,7 +46,7 @@ export const getApplications = async (req: AuthRequest, res: Response): Promise<
 };
 
 export const createApplication = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { visaTypeId, formResponses, adults, children, travelDate, travelEndDate, acceptedTerms, travellers } = req.body;
+  const { visaTypeId, formResponses, adults, children, travelDate, travelEndDate, acceptedTerms, travellers, parentLink } = req.body;
   if (!visaTypeId) { sendError(res, 'Visa type is required'); return; }
 
   const visaType = await VisaType.findById(visaTypeId);
@@ -75,8 +77,17 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   if (!referenceId) referenceId = `PRS-${rawCode}-${Date.now().toString().slice(-4)}`;
 
   const pricingTier = pricingTierOf(req.user);
-  const numAdults = Math.max(1, Number(adults) || 1);
   const numChildren = Math.max(0, Number(children) || 0);
+  // Zero adults is a child-only order, which has to travel on a parent's application.
+  const numAdults = Math.max(numChildren > 0 ? 0 : 1, Number(adults ?? 1) || 0);
+  let link = null;
+  if (numAdults === 0) {
+    const resolved = await resolveParentLink(req.user!._id, parentLink, {
+      countryId: String(visaType.country), from: String(travelDate || ''), to: String(travelEndDate || ''),
+    });
+    if ('error' in resolved) { sendError(res, resolved.error); return; }
+    link = resolved.link;
+  }
 
   const breakdown = computeVisaPricing(visaType, pricingTier, req.user!._id);
   const { adultBase, adultVfs, adultFee, childBase, childVfs, childFee } = breakdown;
@@ -95,6 +106,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     travelDate: travelDate || (formResponses?.travelDate ?? ''),
     travelEndDate: String(travelEndDate || ''),
     travellers: buildTravellers(referenceId, numAdults, numChildren, travellers),
+    parentLink: link,
     paymentAmount,
     adultBase, adultVfs, adultFee, childBase, childVfs, childFee, gstAmount,
     pricingTier,
@@ -160,8 +172,11 @@ export const getApplication = async (req: AuthRequest, res: Response): Promise<v
   // The populated visa type carries every price override; keep only this customer's own.
   const app = application.toJSON() as Record<string, any>;
   if (app.visaType && typeof app.visaType === 'object') app.visaType = sanitizeVisaType(app.visaType, req.user);
+  const vfsLetterUrl = application.vfsAppointment?.letterUrl
+    ? deliveryUrl(application.vfsAppointment.letterUrl, application.vfsAppointment.letterPublicId)
+    : '';
   sendSuccess(res, {
-    application: app, documents, visaFile, payment,
+    application: app, documents, visaFile, payment, vfsLetterUrl,
     verificationHours: paymentConfig.verificationHours,
   });
 };
@@ -170,10 +185,28 @@ export const getApplication = async (req: AuthRequest, res: Response): Promise<v
 const UPLOAD_STAGES = ['submitted', 'payment_completed', 'documents_under_review', 'documents_approved'];
 
 // Rejecting a document is an explicit request for a replacement, so that one document
-// stays replaceable even once the application has moved past the upload stages.
-async function canReplace(applicationId: unknown, requirementName: string): Promise<boolean> {
-  const existing = await Document.findOne({ application: applicationId, requirementName });
+// stays replaceable even once the application has moved past the upload stages. The same
+// goes for documents the embassy asked for after biometrics.
+async function canReplace(application: IApplication, requirementName: string): Promise<boolean> {
+  if (application.additionalDocs?.items.some((i) => i.requirementName === requirementName)) return true;
+  const existing = await Document.findOne({ application: application._id, requirementName });
   return existing?.status === 'rejected';
+}
+
+// An upload answering an additional-documents request ticks it off and tells the team.
+async function markAdditionalUploaded(application: IApplication, requirementName: string): Promise<void> {
+  const item = application.additionalDocs?.items.find((i) => i.requirementName === requirementName);
+  if (!item || item.status === 'uploaded') return;
+  item.status = 'uploaded';
+  application.markModified('additionalDocs');
+  await application.save();
+  const AdminNotification = (await import('../../models/AdminNotification')).default;
+  await AdminNotification.create({
+    title: 'Additional document uploaded',
+    message: `${application.referenceId}: ${requirementName}`,
+    type: 'general',
+    application: application._id,
+  });
 }
 
 export const uploadDocument = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -184,7 +217,7 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
 
-  if (!UPLOAD_STAGES.includes(application.status) && !(await canReplace(application._id, requirementName))) {
+  if (!UPLOAD_STAGES.includes(application.status) && !(await canReplace(application, requirementName))) {
     sendError(res, 'Cannot upload documents at this stage'); return;
   }
 
@@ -243,6 +276,7 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
   } else {
     doc = await Document.create({ application: application._id, requirementName, url, publicId, docType, extractedData: safeData, triggeredBy });
   }
+  await markAdditionalUploaded(application, requirementName);
 
   sendSuccess(res, doc, 'Document uploaded');
 };
@@ -437,7 +471,7 @@ export const addDocumentFromVault = async (req: AuthRequest, res: Response): Pro
 
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
-  if (!UPLOAD_STAGES.includes(application.status) && !(await canReplace(application._id, requirementName))) {
+  if (!UPLOAD_STAGES.includes(application.status) && !(await canReplace(application, requirementName))) {
     sendError(res, 'Cannot add documents at this stage'); return;
   }
 
@@ -458,5 +492,17 @@ export const addDocumentFromVault = async (req: AuthRequest, res: Response): Pro
   } else {
     doc = await Document.create({ application: application._id, requirementName, url: vaultDoc.url, publicId: vaultDoc.publicId, triggeredBy });
   }
+  await markAdditionalUploaded(application, requirementName);
   sendSuccess(res, doc, 'Document linked from vault');
+};
+
+/** The documents-to-carry checklist for the customer's VFS appointment. */
+export const downloadCarryChecklist = async (req: AuthRequest, res: Response): Promise<void> => {
+  const app = await Application.findOne({ _id: req.params.id, user: req.user!._id })
+    .populate('country', 'name').populate('visaType', 'name');
+  if (!app) { sendError(res, 'Application not found', 404); return; }
+  const pdf = await buildCarryChecklist(app);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="checklist-${app.referenceId}.pdf"`);
+  res.end(pdf);
 };

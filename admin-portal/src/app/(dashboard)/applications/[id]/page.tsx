@@ -22,7 +22,8 @@ import { PaymentReviewActions } from '@/components/shared/payment-review-actions
 import { PAYMENT_METHOD_LABELS, formatDate, formatCurrency } from '@/lib/utils';
 import { PaymentProofLink } from '@/components/shared/payment-proof-link';
 import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib/applicationReview';
-import type { Application, Document, EmbassyMail, Payment, PaymentStatus, VisaFile } from '@/types';
+import type { Application, Document, EmbassyMail, LinkedChild, LinkedParent, Payment, PaymentStatus, VisaFile } from '@/types';
+import { AdditionalDocsPanel, DispatchPanel, ParentLinkCard, VfsPanel } from '@/components/applications/processing-panels';
 import { STATUS_LABELS, SELECTABLE_STATUSES, PIPELINE_STAGES, stageIndexOf } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -71,6 +72,9 @@ export default function AdminApplicationDetailPage() {
   const [visaFile, setVisaFile] = useState<VisaFile | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [embassyMails, setEmbassyMails] = useState<EmbassyMail[]>([]);
+  const [linkedParent, setLinkedParent] = useState<LinkedParent | null>(null);
+  const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>([]);
+  const [vfsLetterUrl, setVfsLetterUrl] = useState('');
   const [mailOpen, setMailOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -101,6 +105,9 @@ export default function AdminApplicationDetailPage() {
       setVisaFile(r.data.data.visaFile);
       setPayments(r.data.data.payments || []);
       setEmbassyMails(r.data.data.embassyMails || []);
+      setLinkedParent(r.data.data.linkedParent || null);
+      setLinkedChildren(r.data.data.linkedChildren || []);
+      setVfsLetterUrl(r.data.data.vfsLetterUrl || '');
       setNewStatus(app.status);
       setProcessingRef(app.processingReferenceNumber || '');
       setEmbassyName(app.embassyName || '');
@@ -457,6 +464,8 @@ export default function AdminApplicationDetailPage() {
             </Card>
           )}
 
+          <ParentLinkCard application={application} linkedParent={linkedParent} linkedChildren={linkedChildren} onChanged={fetchData} />
+
           {/* Submitted Form, uploads and answers replayed in the order they were filled */}
           {(documents.length > 0 || Object.keys(application.formResponses).length > 0) && (
             <Card>
@@ -654,6 +663,18 @@ export default function AdminApplicationDetailPage() {
                 })}
               </CardContent>
             </Card>
+          )}
+
+          {/* Appointment and submission only apply to visas that need a centre visit (not e-visas). */}
+          {(application.vfsAppointment || (!/e-?visa|arrival/i.test(application.visaType?.visaSubType || '')
+            && ['documents_under_review', 'documents_approved', 'visa_processing', 'embassy_review'].includes(application.status))) && (
+            <VfsPanel application={application} letterUrl={vfsLetterUrl} onChanged={fetchData} />
+          )}
+          {(application.additionalDocs?.items.length || ['visa_processing', 'embassy_review'].includes(application.status)) ? (
+            <AdditionalDocsPanel application={application} documents={documents} onChanged={fetchData} />
+          ) : null}
+          {(application.dispatch || ['visa_approved', 'visa_delivered'].includes(application.status)) && (
+            <DispatchPanel application={application} visaFile={visaFile} onChanged={fetchData} />
           )}
         </div>
 

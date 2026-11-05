@@ -27,7 +27,8 @@ const emptyForm: CountryForm = { name: '', flag: '', description: '' };
 const DEFAULT_PREFS = {
   view: 'grid' as 'grid' | 'list',
   sortBy: 'name-asc' as 'name-asc' | 'name-desc' | 'active-first' | 'inactive-first' | 'website-first',
-  filterStatus: 'all' as 'all' | 'active' | 'inactive',
+  // Active countries first; the client's team rarely needs the switched-off ones.
+  filterStatus: 'active' as 'all' | 'active' | 'inactive',
   filterWeb: 'all' as 'all' | 'shown' | 'hidden',
 };
 
@@ -228,11 +229,11 @@ export default function CountriesPage() {
           </button>
         ))}
 
-        {(filterStatus !== 'all' || filterWeb !== 'all' || sortBy !== 'name-asc') && (
+        {(filterStatus !== 'active' || filterWeb !== 'all' || sortBy !== 'name-asc') && (
           <>
             <div className="w-px h-5 bg-border mx-1" />
             <button
-              onClick={() => updatePrefs({ sortBy: 'name-asc', filterStatus: 'all', filterWeb: 'all' })}
+              onClick={() => updatePrefs({ sortBy: 'name-asc', filterStatus: 'active', filterWeb: 'all' })}
               className="px-3 py-1 rounded-full text-xs font-semibold text-destructive border border-destructive/20 hover:bg-destructive/10 transition-colors"
             >
               Reset

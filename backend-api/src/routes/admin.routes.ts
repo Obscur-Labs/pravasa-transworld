@@ -4,6 +4,7 @@ import { upload, uploadDownload } from '../middleware/upload.middleware';
 import * as countries from '../controllers/admin/countries.controller';
 import * as visaTypes from '../controllers/admin/visaTypes.controller';
 import * as apps from '../controllers/admin/applications.controller';
+import * as processing from '../controllers/admin/processing.controller';
 import * as leads from '../controllers/admin/contactLeads.controller';
 import * as inquiries from '../controllers/admin/serviceInquiries.controller';
 import * as notifications from '../controllers/admin/notifications.controller';
@@ -105,6 +106,13 @@ router.post('/applications/:id/embassy-mail', embassyMail.sendApplicationEmbassy
 router.get('/applications/:id/documents/zip', apps.downloadApplicationDocumentsZip);
 router.get('/applications/:id/receipt', apps.downloadApplicationReceipt);
 router.delete('/applications/:id', apps.deleteApplication);
+router.put('/applications/:id/vfs-appointment', upload.single('letter'), processing.updateVfsAppointment);
+router.get('/applications/:id/carry-checklist', processing.downloadCarryChecklist);
+router.put('/applications/:id/travellers/:key/submission', processing.updateSubmission);
+router.post('/applications/:id/additional-docs', processing.requestAdditionalDocs);
+router.put('/applications/:id/additional-docs/submitted', processing.markAdditionalDocsSubmitted);
+router.put('/applications/:id/dispatch', processing.updateDispatch);
+router.put('/applications/:id/parent-link', processing.updateParentLink);
 
 // AI content writer
 router.post('/ai/generate', aiLimiter, ai.generateAiContent);

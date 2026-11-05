@@ -153,6 +153,16 @@ export const requestCourier = (id: string, data: { requested: boolean; instructi
 export const markCourierReceived = (id: string) =>
   api.put(`/admin/applications/${id}/courier/received`);
 export const deleteApplication = (id: string) => api.delete(`/admin/applications/${id}`);
+export const updateVfsAppointment = (id: string, data: FormData) => api.put(`/admin/applications/${id}/vfs-appointment`, data);
+export const downloadCarryChecklist = (id: string) =>
+  api.get(`/admin/applications/${id}/carry-checklist`, { responseType: 'blob' });
+export const updateTravellerSubmission = (id: string, key: string, data: object) =>
+  api.put(`/admin/applications/${id}/travellers/${key}/submission`, data);
+export const requestAdditionalDocs = (id: string, data: object) => api.post(`/admin/applications/${id}/additional-docs`, data);
+export const markAdditionalDocsSubmitted = (id: string, data: object) =>
+  api.put(`/admin/applications/${id}/additional-docs/submitted`, data);
+export const updateDispatch = (id: string, data: object) => api.put(`/admin/applications/${id}/dispatch`, data);
+export const updateParentLink = (id: string, data: object) => api.put(`/admin/applications/${id}/parent-link`, data);
 
 // AI content writer
 export const generateAiContent = (data: { purpose: string; context: Record<string, unknown>; currentText?: string; countryId?: string }) =>

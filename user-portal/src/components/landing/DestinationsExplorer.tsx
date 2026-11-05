@@ -48,7 +48,7 @@ export default function DestinationsExplorer() {
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
           <div className="inline-flex items-center gap-2 bg-brand-50 border border-brand-100 text-brand-600 text-xs font-bold px-4 py-1.5 rounded-full mb-5 uppercase tracking-widest">
             <Globe2 className="w-3.5 h-3.5" />
-            50+ Destinations
+            {countries.length ? `${countries.length} destination${countries.length === 1 ? '' : 's'}` : 'Destinations'}
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight leading-tight">
             Where Are You<br />

@@ -17,6 +17,17 @@ export const otpVerifyLimiter = limiter(50, 'Too many verification attempts from
 export const adminLoginLimiter = limiter(30, 'Too many sign-in attempts from this network. Please try again in a few minutes.');
 export const inquiryLimiter = limiter(30, 'Too many requests from this network. Please try again in a few minutes.');
 
+// Per signed-in customer: looking up other customers' applications is capped so passport
+// numbers and dates of birth can't be guessed at.
+export const parentLookupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  keyGenerator: (req) => String((req as { user?: { _id: unknown } }).user?._id ?? 'anonymous'),
+  message: { success: false, message: 'Too many lookups. Please try again in an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Per signed-in admin (runs after adminProtect), to keep the Groq quota from being drained.
 export const aiLimiter = rateLimit({
   windowMs: 60 * 1000,

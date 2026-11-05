@@ -18,6 +18,7 @@ import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf } from '
 import { logActivity } from '../../utils/activityLog';
 import { POST_PAYMENT_STAGES, PRE_PAYMENT_STAGES, hasCompletedPayment } from '../../services/payment.service';
 import { sendSuccess, sendError } from '../../utils/response';
+import { markChildrenBroken, parentAdults } from '../../utils/parentLink';
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -76,7 +77,25 @@ export const getApplication = async (req: AdminRequest, res: Response): Promise<
   // What has already been forwarded to the embassy, so a second send is a decision
   // rather than an accident.
   const embassyMails = await EmbassyMail.find({ application: application._id }).sort({ createdAt: -1 });
-  sendSuccess(res, { application, documents, visaFile, payments, embassyMails });
+
+  // Family links across applications: the parent a child-only order travels on (with the
+  // parent passports it reuses), and the child-only orders riding on this one.
+  let linkedParent = null;
+  if (application.parentLink) {
+    const parent = await Application.findById(application.parentLink.application).select('referenceId status travellers formResponses adults');
+    if (parent) {
+      const linkedLabels = parentAdults(parent).filter((a) => application.parentLink!.parents.some((p) => p.key === a.key)).map((a) => a.label);
+      const passports = (await Document.find({ application: parent._id, requirementName: /passport/i }))
+        .filter((d) => !/^(Adult|Child) \d+/.test(d.requirementName) || linkedLabels.some((l) => d.requirementName.startsWith(`${l} -`)));
+      linkedParent = { _id: parent._id, referenceId: parent.referenceId, status: parent.status, adults: parentAdults(parent).map(({ key, label, name }) => ({ key, label, name })), passports };
+    }
+  }
+  const linkedChildren = await Application.find({ 'parentLink.application': application._id })
+    .select('referenceId status parentLink children');
+  const vfsLetterUrl = application.vfsAppointment?.letterUrl
+    ? deliveryUrl(application.vfsAppointment.letterUrl, application.vfsAppointment.letterPublicId)
+    : '';
+  sendSuccess(res, { application, documents, visaFile, payments, embassyMails, linkedParent, linkedChildren, vfsLetterUrl });
 };
 
 export const getDashboardStats = async (_req: AdminRequest, res: Response): Promise<void> => {
@@ -269,6 +288,7 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
   const user = application.user as unknown as { name: string; email: string };
   const label = STATUS_LABELS[status as ApplicationStatus] || status;
   logActivity(req, 'update', 'Application', `${application.referenceId} → ${label}`);
+  if (status === 'visa_rejected') await markChildrenBroken(application, 'was rejected');
 
   const notif = await Notification.create({
     user: application.user,
@@ -496,6 +516,7 @@ export const deleteApplication = async (req: AdminRequest, res: Response): Promi
     data: raw,
   });
   await Application.deleteOne({ _id: app._id });
+  await markChildrenBroken(app, 'was removed');
   logActivity(req, 'delete', 'Application', app.referenceId || 'Application');
   sendSuccess(res, null, 'Application moved to trash');
 };

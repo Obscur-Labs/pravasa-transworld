@@ -437,3 +437,63 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
   doc.fontSize(8).fillColor('#94a3b8').font('Helvetica')
     .text('This document is for informational purposes only and does not constitute a visa guarantee.', MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN, align: 'center' });
 }
+
+export interface CarryChecklistData {
+  referenceId: string;
+  countryName: string;
+  visaName: string;
+  travellers: string[];
+  appointment: { centre: string; date: string; time: string; reference: string } | null;
+  items: string[];
+}
+
+/** One page the customer prints and takes to the VFS appointment: when, where, and what to carry. */
+export async function generateCarryChecklistPDF(data: CarryChecklistData): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: MARGIN, size: 'A4' });
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    doc.rect(0, 0, doc.page.width, 70).fill('#0B2E3D');
+    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(18).text('Pravasa Transworld', MARGIN, 22);
+    doc.fontSize(10).font('Helvetica').text('Documents to carry', MARGIN, 46);
+
+    doc.y = 95;
+    doc.fillColor('#061E27').font('Helvetica-Bold').fontSize(15)
+      .text(`${data.countryName}: ${data.visaName}`, MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN });
+    doc.font('Helvetica').fontSize(9).fillColor('#64748b')
+      .text(`Application ${data.referenceId} | ${data.travellers.join(', ')}`, { width: PAGE_RIGHT - MARGIN });
+    doc.moveDown(0.8);
+
+    if (data.appointment) {
+      const a = data.appointment;
+      const rows: [string, string][] = [['Centre', a.centre], ['Date', a.date], ['Time', a.time], ['Reference', a.reference]];
+      const top = doc.y;
+      doc.rect(MARGIN, top, PAGE_RIGHT - MARGIN, rows.length * 18 + 14).fill('#F6F4EF');
+      rows.forEach(([k, v], i) => {
+        doc.font('Helvetica').fontSize(9).fillColor('#64748b').text(k, MARGIN + 12, top + 8 + i * 18, { width: 90 });
+        doc.font('Helvetica-Bold').fillColor('#061E27').text(v || '-', MARGIN + 110, top + 8 + i * 18, { width: PAGE_RIGHT - MARGIN - 120 });
+      });
+      doc.y = top + rows.length * 18 + 24;
+    }
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#061E27').text('Carry with you', MARGIN, doc.y);
+    doc.moveDown(0.4);
+    for (const item of data.items) {
+      if (doc.y > 770) doc.addPage();
+      const y = doc.y;
+      doc.rect(MARGIN, y + 1, 9, 9).lineWidth(0.8).strokeColor('#9F7437').stroke();
+      doc.font('Helvetica').fontSize(10).fillColor('#061E27').text(item, MARGIN + 18, y, { width: PAGE_RIGHT - MARGIN - 18 });
+      doc.moveDown(0.35);
+    }
+
+    doc.moveDown(1);
+    doc.font('Helvetica').fontSize(8).fillColor('#64748b').text(
+      'Reach the centre 15 minutes early with every original. VFS and embassy fees, where they apply, are paid at the centre.',
+      MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN },
+    );
+    doc.end();
+  });
+}

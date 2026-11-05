@@ -60,6 +60,19 @@ export interface ICourierRequest {
 export type ParentRelation = 'father' | 'mother' | 'guardian';
 export const PARENT_RELATIONS: ParentRelation[] = ['father', 'mother', 'guardian'];
 
+// How a traveller gets to the embassy: they visit VFS for biometrics, or Pravasa submits
+// for them because their fingerprints are still reusable (Schengen: taken within 2 years).
+export type SubmissionMode = '' | 'visit_vfs' | 'pravasa';
+export interface ISubmission {
+  mode: SubmissionMode;
+  biometricsWithin2Years: '' | 'yes' | 'no';
+  previousVisaVerified: boolean;
+  centre: string;
+  reference: string;
+  date: string;
+  notifiedAt: Date | null;
+}
+
 // One person on the order. The order's referenceId is the family group; each traveller
 // gets its own ID under it. Names stay in the encrypted formResponses, never here.
 export interface ITraveller {
@@ -69,6 +82,56 @@ export interface ITraveller {
   label: string;
   // Only on children: the adults on the same order who are this child's parents or guardian.
   parents: { key: string; relation: ParentRelation }[];
+  submission?: ISubmission;
+}
+
+// A child-only order travels on a parent's earlier application. `parents` are adult
+// traveller keys on that application. A rejected or removed parent breaks the link.
+export interface IParentLink {
+  application: mongoose.Types.ObjectId;
+  ref: string;
+  parents: { key: string; relation: ParentRelation }[];
+  status: 'ok' | 'broken';
+  reason: string;
+  checkedAt: Date;
+}
+
+export interface IVfsAppointment {
+  centre: string;
+  date: string;
+  time: string;
+  reference: string;
+  letterUrl: string;
+  letterPublicId: string;
+  letterName: string;
+  sentAt: Date | null;
+}
+
+// Documents the embassy asks for after biometrics. The customer uploads each one under
+// `requirementName`; the team then marks the set as handed to VFS / the embassy.
+export interface IAdditionalDoc {
+  _id?: mongoose.Types.ObjectId;
+  name: string;
+  appliesTo: string;
+  requirementName: string;
+  status: 'requested' | 'uploaded';
+  requestedAt: Date;
+}
+export interface IAdditionalDocs {
+  items: IAdditionalDoc[];
+  note: string;
+  dueDate: string;
+  submittedMethod: string;
+  submittedRef: string;
+  submittedDate: string;
+}
+
+export interface IDispatch {
+  method: '' | 'courier' | 'pickup' | 'digital';
+  courier: string;
+  trackingNumber: string;
+  dispatchedAt: Date | null;
+  notifiedAt: Date | null;
 }
 
 export interface IApplication extends Document {
@@ -106,6 +169,10 @@ export interface IApplication extends Document {
   acceptedTerms: { text: string; required: boolean }[];
   courier: ICourierRequest;
   travellers: ITraveller[];
+  parentLink: IParentLink | null;
+  vfsAppointment: IVfsAppointment | null;
+  additionalDocs: IAdditionalDocs | null;
+  dispatch: IDispatch | null;
   referenceId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -132,13 +199,87 @@ const CourierSchema = new Schema<ICourierRequest>(
   { _id: false }
 );
 
+const ParentRefSchema = new Schema(
+  { key: { type: String, required: true }, relation: { type: String, enum: PARENT_RELATIONS, required: true } },
+  { _id: false }
+);
+
+const SubmissionSchema = new Schema<ISubmission>(
+  {
+    mode: { type: String, enum: ['', 'visit_vfs', 'pravasa'], default: '' },
+    biometricsWithin2Years: { type: String, enum: ['', 'yes', 'no'], default: '' },
+    previousVisaVerified: { type: Boolean, default: false },
+    centre: { type: String, default: '' },
+    reference: { type: String, default: '' },
+    date: { type: String, default: '' },
+    notifiedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const TravellerSchema = new Schema<ITraveller>(
   {
     ref: { type: String, required: true },
     key: { type: String, required: true },
     kind: { type: String, enum: ['adult', 'child'], required: true },
     label: { type: String, default: '' },
-    parents: [{ key: { type: String, required: true }, relation: { type: String, enum: PARENT_RELATIONS, required: true }, _id: false }],
+    parents: { type: [ParentRefSchema], default: [] },
+    submission: { type: SubmissionSchema, default: undefined },
+  },
+  { _id: false }
+);
+
+const ParentLinkSchema = new Schema<IParentLink>(
+  {
+    application: { type: Schema.Types.ObjectId, ref: 'Application', required: true },
+    ref: { type: String, default: '' },
+    parents: { type: [ParentRefSchema], default: [] },
+    status: { type: String, enum: ['ok', 'broken'], default: 'ok' },
+    reason: { type: String, default: '' },
+    checkedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const VfsAppointmentSchema = new Schema<IVfsAppointment>(
+  {
+    centre: { type: String, default: '' },
+    date: { type: String, default: '' },
+    time: { type: String, default: '' },
+    reference: { type: String, default: '' },
+    letterUrl: { type: String, default: '' },
+    letterPublicId: { type: String, default: '' },
+    letterName: { type: String, default: '' },
+    sentAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
+const AdditionalDocsSchema = new Schema<IAdditionalDocs>(
+  {
+    items: [{
+      name: { type: String, required: true },
+      appliesTo: { type: String, default: 'All' },
+      requirementName: { type: String, required: true },
+      status: { type: String, enum: ['requested', 'uploaded'], default: 'requested' },
+      requestedAt: { type: Date, default: Date.now },
+    }],
+    note: { type: String, default: '' },
+    dueDate: { type: String, default: '' },
+    submittedMethod: { type: String, default: '' },
+    submittedRef: { type: String, default: '' },
+    submittedDate: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
+const DispatchSchema = new Schema<IDispatch>(
+  {
+    method: { type: String, enum: ['', 'courier', 'pickup', 'digital'], default: '' },
+    courier: { type: String, default: '' },
+    trackingNumber: { type: String, default: '' },
+    dispatchedAt: { type: Date, default: null },
+    notifiedAt: { type: Date, default: null },
   },
   { _id: false }
 );
@@ -154,7 +295,8 @@ const ApplicationSchema = new Schema<IApplication>(
       default: 'submitted',
     },
     formResponses: { type: Map, of: String, default: {} },
-    adults: { type: Number, default: 1, min: 1 },
+    // 0 only on a child-only order linked to a parent's application.
+    adults: { type: Number, default: 1, min: 0 },
     children: { type: Number, default: 0, min: 0 },
     travelDate: { type: String, default: '' },
     travelEndDate: { type: String, default: '' },
@@ -177,10 +319,16 @@ const ApplicationSchema = new Schema<IApplication>(
     acceptedTerms: [{ text: { type: String }, required: { type: Boolean, default: false }, _id: false }],
     courier: { type: CourierSchema, default: () => ({}) },
     travellers: { type: [TravellerSchema], default: [] },
+    parentLink: { type: ParentLinkSchema, default: null },
+    vfsAppointment: { type: VfsAppointmentSchema, default: null },
+    additionalDocs: { type: AdditionalDocsSchema, default: null },
+    dispatch: { type: DispatchSchema, default: null },
     referenceId: { type: String, unique: true },
   },
   { timestamps: true }
 );
+
+ApplicationSchema.index({ 'parentLink.application': 1 });
 
 ApplicationSchema.plugin(encryptionPlugin, { fields: ['formResponses'] });
 

@@ -18,6 +18,7 @@ import { formatDate, formatCurrency } from '@/lib/utils';
 import { buildReviewRows, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import StatusTimeline from '@/components/dashboard/StatusTimeline';
 import PaymentDialog from '@/components/payment/PaymentDialog';
+import { AdditionalDocsCard, DispatchCard, ParentLinkNotice, VfsCard } from '@/components/applications/ProcessingCards';
 import type { Application, ApplicationPayment, Document as AppDocument, VisaFile, DocumentRequirement, VaultDocument } from '@/types';
 import { STATUS_LABELS } from '@/types';
 
@@ -84,6 +85,7 @@ export default function ApplicationDetailPage() {
   const [application, setApplication] = useState<Application | null>(null);
   const [documents, setDocuments] = useState<AppDocument[]>([]);
   const [visaFile, setVisaFile] = useState<VisaFile | null>(null);
+  const [vfsLetterUrl, setVfsLetterUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [payment, setPayment] = useState<ApplicationPayment | null>(null);
@@ -116,6 +118,7 @@ export default function ApplicationDetailPage() {
       setApplication(app);
       setDocuments(r.data.data.documents);
       setVisaFile(r.data.data.visaFile);
+      setVfsLetterUrl(r.data.data.vfsLetterUrl || '');
       setPayment(r.data.data.payment || null);
       setVerificationHours(r.data.data.verificationHours || 24);
       setCourierTracking(app.courier?.trackingNumber || '');
@@ -388,6 +391,11 @@ export default function ApplicationDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          <ParentLinkNotice application={application} />
+          <DispatchCard application={application} />
+          <AdditionalDocsCard application={application} documents={documents} onUploaded={fetchData} />
+          <VfsCard application={application} letterUrl={vfsLetterUrl} />
 
           {/* Courier the original documents */}
           {application.courier?.requested && (

@@ -251,6 +251,46 @@ export async function sendVisaDeliveredEmail(
   );
 }
 
+/**
+ * A processing update the customer has to act on or know about (VFS appointment, extra
+ * documents, dispatch). `lines` are label/value rows shown in a details box.
+ */
+export async function sendApplicationUpdateEmail(opts: {
+  email: string;
+  name: string;
+  subject: string;
+  title: string;
+  message: string;
+  lines?: [string, string][];
+  referenceId: string;
+  applicationId: string;
+}): Promise<void> {
+  const rows = (opts.lines || [])
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<tr><td style="padding: 4px 12px 4px 0; color: #64748b; font-size: 14px;">${escapeHtml(k)}</td><td style="padding: 4px 0; color: #061E27; font-size: 14px; font-weight: 600;">${escapeHtml(v)}</td></tr>`)
+    .join('');
+  await sendMail(
+    opts.email,
+    opts.subject,
+    `
+      <div style="${baseStyle}">
+        ${header(escapeHtml(opts.title))}
+        <div style="padding: 40px 32px;">
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${escapeHtml(opts.name)},</p>
+          <p style="color: #475569; font-size: 15px; margin: 0 0 16px;">${escapeHtml(opts.message)}</p>
+          ${rows ? `<table style="background: #F8F9FA; border-radius: 8px; padding: 12px 16px; margin: 0 0 24px; width: 100%;">${rows}</table>` : ''}
+          <p style="color: #94a3b8; font-size: 13px; margin: 0 0 24px;">Application ${escapeHtml(opts.referenceId)}</p>
+          <a href="${frontendUrl}/applications/${opts.applicationId}" style="display: inline-block; background: #0B2E3D; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Open Application
+          </a>
+        </div>
+        ${footer()}
+      </div>
+    `,
+    'APP_UPDATE'
+  );
+}
+
 /** The outcome of an admin checking a payment against the bank statement. */
 export async function sendPaymentReviewEmail(
   email: string,

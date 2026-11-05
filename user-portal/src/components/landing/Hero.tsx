@@ -9,50 +9,51 @@ export default function Hero() {
   const hasSession = useHasSession();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+  // Illustrative cards for destinations we actually serve; names are samples.
   const visaTemplates = [
-    { 
-      country: 'Canada', 
-      flag: '🇨🇦', 
-      type: 'Tourist Visa', 
-      applicant: 'Sarah Jenkins', 
-      badge: '✓ Approved', 
-      rate: '99%', 
-      processing: '8–12 Days', 
+    {
+      country: 'Dubai (UAE)',
+      flag: '🇦🇪',
+      type: 'Tourist e-Visa',
+      applicant: 'Sample applicant',
+      badge: '✓ Approved',
+      rate: 'PDF e-Visa',
+      processing: '3–4 working days',
       statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-      bgGradient: 'from-brand-50/10 to-gold-50/5' 
+      bgGradient: 'from-brand-50/10 to-gold-50/5'
     },
-    { 
-      country: 'United Kingdom', 
-      flag: '🇬🇧', 
-      type: 'Student Visa', 
-      applicant: 'Alex Rivera', 
-      badge: '⟳ In Review', 
-      rate: '97%', 
-      processing: '5–10 Days', 
+    {
+      country: 'Vietnam',
+      flag: '🇻🇳',
+      type: 'Tourist e-Visa',
+      applicant: 'Sample applicant',
+      badge: '⟳ In Review',
+      rate: 'PDF e-Visa',
+      processing: '4–5 working days',
       statusColor: 'bg-amber-50 text-amber-700 border-amber-200/50',
-      bgGradient: 'from-gold-50/10 to-brand-50/5' 
+      bgGradient: 'from-gold-50/10 to-brand-50/5'
     },
-    { 
-      country: 'United States', 
-      flag: '🇺🇸', 
-      type: 'Business Visa', 
-      applicant: 'Liam Chen', 
-      badge: '✓ Approved', 
-      rate: '98%', 
-      processing: '10–15 Days', 
+    {
+      country: 'France',
+      flag: '🇫🇷',
+      type: 'Schengen Visa',
+      applicant: 'Sample applicant',
+      badge: '✓ Approved',
+      rate: 'Sticker visa',
+      processing: '8–12 working days',
       statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-      bgGradient: 'from-brand-50/10 to-gold-50/5' 
+      bgGradient: 'from-brand-50/10 to-gold-50/5'
     },
-    { 
-      country: 'France', 
-      flag: '🇪🇺', 
-      type: 'Schengen Visa', 
-      applicant: 'Emma Dubois', 
-      badge: '✓ Approved', 
-      rate: '99%', 
-      processing: '3–7 Days', 
+    {
+      country: 'Turkey',
+      flag: '🇹🇷',
+      type: 'Tourist e-Visa',
+      applicant: 'Sample applicant',
+      badge: '✓ Approved',
+      rate: 'PDF e-Visa',
+      processing: '1–2 working days',
       statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-      bgGradient: 'from-amber-50/10 to-gold-50/5' 
+      bgGradient: 'from-amber-50/10 to-gold-50/5'
     }
   ];
 
@@ -69,7 +70,7 @@ export default function Hero() {
           <div>
             <div className="inline-flex items-center gap-2 bg-brand-50 text-brand-800 border border-brand-100/60 px-4 py-1.5 rounded-full text-sm font-semibold mb-8 shadow-sm">
               <Star className="w-3.5 h-3.5 fill-brand-600 text-brand-600" />
-              Trusted by 50,000+ travelers worldwide
+              Visa partner for Indian travellers, from Surat
             </div>
 
             <h1 className="text-5xl lg:text-7xl font-black leading-tight mb-6 text-slate-900 tracking-tight">
@@ -107,7 +108,7 @@ export default function Hero() {
               {[
                 { icon: Shield, text: 'Secure & encrypted', color: 'text-brand-600' },
                 { icon: Clock, text: 'Real-time tracking', color: 'text-brand-600' },
-                { icon: CheckCircle, text: '98% success rate', color: 'text-brand-600' },
+                { icon: CheckCircle, text: 'Pay by UPI', color: 'text-brand-600' },
               ].map(({ icon: Icon, text, color }) => (
                 <div key={text} className="flex items-center gap-2 group cursor-pointer">
                   <Icon className={`w-4.5 h-4.5 ${color}`} />
@@ -189,14 +190,14 @@ export default function Hero() {
                 </div>
               </div>
 
-              {/* Floating Card 1: Success Rate */}
+              {/* Floating Card 1: how the visa arrives */}
               <div className="absolute -bottom-6 -left-12 bg-white/95 rounded-2xl p-3.5 flex items-center gap-3 border border-slate-100 shadow-[0_10px_30px_rgba(48,149,192,0.05)] animate-float-reverse pointer-events-auto select-none">
                 <div className="w-9 h-9 bg-brand-50 rounded-xl flex items-center justify-center border border-brand-100/50">
                   <Shield className="w-4.5 h-4.5 text-brand-600" />
                 </div>
                 <div>
                   <p className="text-xs font-black text-slate-800">{visaTemplates[selectedIndex].rate}</p>
-                  <p className="text-[10px] text-slate-500 font-bold">Success Rate</p>
+                  <p className="text-[10px] text-slate-500 font-bold">Delivered as</p>
                 </div>
               </div>
 
@@ -217,10 +218,10 @@ export default function Hero() {
         {/* Stats Row with subtle hovers */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-24">
           {[
-            { value: '50K+', label: 'Visas Processed' },
-            { value: '40+', label: 'Destinations' },
-            { value: '98%', label: 'Approval Rate' },
-            { value: '24/7', label: 'Support Solutions' },
+            { value: 'Online', label: 'Apply from home' },
+            { value: 'UPI', label: 'Pay securely' },
+            { value: 'WhatsApp', label: 'Live updates' },
+            { value: 'Surat', label: 'Office in Gujarat' },
           ].map((s) => (
             <div 
               key={s.label} 

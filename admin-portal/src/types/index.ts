@@ -555,6 +555,10 @@ export interface Application {
   paymentAmount: number;
   courier?: CourierRequest;
   travellers?: Traveller[];
+  parentLink?: ParentLink | null;
+  vfsAppointment?: VfsAppointment | null;
+  additionalDocs?: AdditionalDocs | null;
+  dispatch?: Dispatch | null;
   referenceId: string;
   createdAt: string;
   updatedAt: string;
@@ -569,6 +573,79 @@ export interface Traveller {
   kind: 'adult' | 'child';
   label: string;
   parents: { key: string; relation: ParentRelation }[];
+  submission?: Submission;
+}
+
+export type SubmissionMode = '' | 'visit_vfs' | 'pravasa';
+export interface Submission {
+  mode: SubmissionMode;
+  biometricsWithin2Years: '' | 'yes' | 'no';
+  previousVisaVerified: boolean;
+  centre: string;
+  reference: string;
+  date: string;
+  notifiedAt: string | null;
+}
+
+/** A child-only order travelling on a parent's earlier application. */
+export interface ParentLink {
+  application: string;
+  ref: string;
+  parents: { key: string; relation: ParentRelation }[];
+  status: 'ok' | 'broken';
+  reason: string;
+  checkedAt: string;
+}
+
+export interface LinkedParent {
+  _id: string;
+  referenceId: string;
+  status: ApplicationStatus;
+  adults: { key: string; label: string; name: string }[];
+  passports: Document[];
+}
+
+export interface LinkedChild {
+  _id: string;
+  referenceId: string;
+  status: ApplicationStatus;
+  children: number;
+  parentLink: ParentLink;
+}
+
+export interface VfsAppointment {
+  centre: string;
+  date: string;
+  time: string;
+  reference: string;
+  letterName: string;
+  sentAt: string | null;
+}
+
+export interface AdditionalDoc {
+  _id: string;
+  name: string;
+  appliesTo: string;
+  requirementName: string;
+  status: 'requested' | 'uploaded';
+  requestedAt: string;
+}
+
+export interface AdditionalDocs {
+  items: AdditionalDoc[];
+  note: string;
+  dueDate: string;
+  submittedMethod: string;
+  submittedRef: string;
+  submittedDate: string;
+}
+
+export interface Dispatch {
+  method: '' | 'courier' | 'pickup' | 'digital';
+  courier: string;
+  trackingNumber: string;
+  dispatchedAt: string | null;
+  notifiedAt: string | null;
 }
 
 export interface Document {

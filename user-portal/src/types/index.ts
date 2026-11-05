@@ -254,6 +254,13 @@ export interface Application {
   paymentAmount: number;
   courier?: CourierRequest;
   travellers?: Traveller[];
+  parentLink?: { application: string; ref: string; parents: { key: string; relation: ParentRelation }[]; status: 'ok' | 'broken'; reason: string } | null;
+  vfsAppointment?: { centre: string; date: string; time: string; reference: string; letterName: string; sentAt: string | null } | null;
+  additionalDocs?: {
+    items: { name: string; appliesTo: string; requirementName: string; status: 'requested' | 'uploaded' }[];
+    note: string; dueDate: string; submittedMethod: string; submittedRef: string; submittedDate: string;
+  } | null;
+  dispatch?: { method: '' | 'courier' | 'pickup' | 'digital'; courier: string; trackingNumber: string; notifiedAt: string | null } | null;
   referenceId: string;
   createdAt: string;
   updatedAt: string;
@@ -268,6 +275,21 @@ export interface Traveller {
   kind: 'adult' | 'child';
   label: string;
   parents: { key: string; relation: ParentRelation }[];
+  submission?: { mode: '' | 'visit_vfs' | 'pravasa'; centre: string; reference: string; date: string; notifiedAt: string | null };
+}
+
+/** An application a child-only order could travel on, as the parent search returns it. */
+export interface ParentCandidate {
+  _id: string;
+  referenceId: string;
+  visaName: string;
+  status: ApplicationStatus;
+  from: string;
+  to: string;
+  own: boolean;
+  needsDob?: boolean;
+  adults: { key: string; label: string; ref: string; name: string }[];
+  eligibility: { ok: boolean; code: string; reason: string };
 }
 
 export interface Document {

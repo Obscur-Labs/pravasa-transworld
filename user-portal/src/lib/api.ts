@@ -58,9 +58,18 @@ export const createApplication = (data: {
   visaTypeId: string; formResponses: Record<string, string>; adults?: number; children?: number;
   travelDate?: string; travelEndDate?: string; acceptedTerms?: string[];
   travellers?: { key: string; parents: { key: string; relation: string }[] }[];
+  parentLink?: { applicationId: string; parents: { key: string; relation: string }[] };
 }) =>
   api.post('/user/applications', data);
 export const getApplication = (id: string) => api.get(`/user/applications/${id}`);
+export const downloadCarryChecklist = (id: string) =>
+  api.get(`/user/applications/${id}/carry-checklist`, { responseType: 'blob' });
+export const getParentCandidates = (params: { country: string; from: string; to: string }) =>
+  api.get('/user/parent-applications', { params });
+export const lookupParentApplication = (data: { query: string; country: string; from: string; to: string }) =>
+  api.post('/user/parent-applications/lookup', data);
+export const verifyParentApplication = (data: { applicationId: string; dob: string }) =>
+  api.post('/user/parent-applications/verify', data);
 export const uploadDocument = (id: string, formData: FormData) =>
   api.post(`/user/applications/${id}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 export const addDocumentFromVault = (id: string, data: { vaultDocId: string; requirementName: string; triggeredBy?: string }) =>

@@ -12,20 +12,20 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.
 export const metadata: Metadata = {
   title: 'Visa Services Online: Apply for Tourist, Student & Work Visas',
   description:
-    'Apply for your visa online with Pravasa Transworld. Expert immigration assistance for 50+ countries: tourist, student, work, and business visas. Real-time tracking, fast processing, transparent pricing.',
+    'Apply for your visa online with Pravasa Transworld. Expert immigration assistance for Indian travellers: tourist, student, work, and business visas. Real-time tracking, fast processing, transparent pricing.',
   alternates: {
     canonical: BASE_URL,
   },
   openGraph: {
     title: 'Pravasa Transworld | Apply for Your Visa Online',
     description:
-      'Immigration made simple. Apply for tourist, student, work, or business visas for 50+ countries. Track your application in real time.',
+      'Immigration made simple. Apply for tourist, student, work, or business visas for Indian travellers. Track your application in real time.',
     url: BASE_URL,
   },
   twitter: {
     title: 'Pravasa Transworld | Apply for Your Visa Online',
     description:
-      'Immigration made simple. Apply for tourist, student, work, or business visas for 50+ countries. Track your application in real time.',
+      'Immigration made simple. Apply for tourist, student, work, or business visas for Indian travellers. Track your application in real time.',
   },
 };
 
@@ -36,7 +36,7 @@ const organizationSchema = {
   url: BASE_URL,
   logo: `${BASE_URL}/logo.png`,
   description:
-    'Professional visa and immigration consultancy services for 50+ countries including tourist, student, work, and business visas.',
+    'Professional visa and immigration consultancy services for Indian travellers including tourist, student, work, and business visas.',
   contactPoint: {
     '@type': 'ContactPoint',
     contactType: 'customer service',
@@ -51,7 +51,7 @@ const websiteSchema = {
   '@type': 'WebSite',
   name: 'Pravasa Transworld',
   url: BASE_URL,
-  description: 'Professional visa and immigration consultancy for 50+ countries.',
+  description: 'Professional visa and immigration consultancy for Indian travellers.',
   potentialAction: {
     '@type': 'SearchAction',
     target: { '@type': 'EntryPoint', urlTemplate: `${BASE_URL}/?q={search_term_string}` },
@@ -65,7 +65,7 @@ const serviceSchema = {
   name: 'Visa Application & Immigration Services',
   provider: { '@type': 'Organization', name: 'Pravasa Transworld', url: BASE_URL },
   description:
-    'End-to-end visa application processing for tourist, student, work, and business visas across 50+ countries.',
+    'End-to-end visa application processing for tourist, student, work, and business visas across Indian travellers.',
   areaServed: 'Worldwide',
   hasOfferCatalog: {
     '@type': 'OfferCatalog',

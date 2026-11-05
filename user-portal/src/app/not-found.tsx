@@ -3,6 +3,7 @@ import { Compass, ArrowRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import NotFoundWhatsApp from '@/components/layout/NotFoundWhatsApp';
 
 export default function NotFound() {
   return (
@@ -28,10 +29,11 @@ export default function NotFound() {
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold">
-              <Link href="/contact">
-                Contact Us <ArrowRight className="w-4 h-4 ml-2" />
+              <Link href="/countries">
+                All destinations <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
+            <NotFoundWhatsApp />
           </div>
         </div>
       </main>

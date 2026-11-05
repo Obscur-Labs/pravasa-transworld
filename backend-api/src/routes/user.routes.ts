@@ -9,6 +9,8 @@ import * as payments from '../controllers/user/payments.controller';
 import * as profile from '../controllers/user/profile.controller';
 import * as promos from '../controllers/user/promoCodes.controller';
 import * as drafts from '../controllers/user/drafts.controller';
+import * as parentLink from '../controllers/user/parentLink.controller';
+import { parentLookupLimiter } from '../middleware/rateLimiter';
 
 const router = asyncRouter();
 router.use(protect);
@@ -24,10 +26,16 @@ router.get('/countries', apps.getActiveCountries as any);
 // Dashboard
 router.get('/dashboard', apps.getDashboard);
 
+// Parent applications a child-only order can travel on
+router.get('/parent-applications', parentLink.listParentCandidates);
+router.post('/parent-applications/lookup', parentLookupLimiter, parentLink.lookupParent);
+router.post('/parent-applications/verify', parentLookupLimiter, parentLink.verifyParent);
+
 // Applications
 router.get('/applications', apps.getApplications);
 router.post('/applications', apps.createApplication);
 router.get('/applications/:id', apps.getApplication);
+router.get('/applications/:id/carry-checklist', apps.downloadCarryChecklist);
 router.post('/ocr/passport', upload.single('file'), apps.scanPassport);
 router.post('/applications/:id/documents', uploadApplicationDoc.single('file'), apps.uploadDocument);
 router.post('/applications/:id/documents/from-vault', apps.addDocumentFromVault);

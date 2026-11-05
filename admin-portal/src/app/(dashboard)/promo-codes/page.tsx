@@ -50,9 +50,10 @@ function StatusBadge({ active }: { active: boolean }) {
 
 function DiscountBadge({ type, value }: { type: string; value: number }) {
   return (
-    <span className={`inline-flex items-center gap-0.5 text-sm font-bold px-2.5 py-0.5 rounded-full ${type === 'percentage' ? 'bg-violet-500/10 text-violet-600' : 'bg-primary/10 text-primary'}`}>
-      {type === 'percentage' ? <Percent className="w-3 h-3" /> : <span>₹</span>}
-      {value}{type === 'percentage' ? ' off' : ' off'}
+    <span className={`inline-flex items-center gap-1 text-sm font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap ${type === 'percentage' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}`}
+      title={type === 'percentage' ? 'Percentage of the order' : 'Flat amount in rupees'}>
+      {type === 'percentage' ? `${value}% off` : `₹${value.toLocaleString('en-IN')} off`}
+      <span className="text-[10px] font-semibold opacity-70">{type === 'percentage' ? 'percent' : 'flat'}</span>
     </span>
   );
 }

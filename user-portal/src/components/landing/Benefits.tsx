@@ -1,10 +1,10 @@
-﻿import { Zap, Shield, Activity, Globe2, Clock, HeartHandshake } from 'lucide-react';
+import { Zap, Shield, Activity, Globe2, Clock, HeartHandshake } from 'lucide-react';
 
 const benefits = [
   {
     icon: Zap,
     title: 'Fast Processing',
-    desc: 'Get your visa processed in as little as 5 business days with our expedited service.',
+    desc: 'e-Visas such as Dubai can be ready in 3–4 working days, with Express options where the embassy offers them.',
     gradient: 'from-brand-50 to-gold-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },
@@ -24,8 +24,8 @@ const benefits = [
   },
   {
     icon: Globe2,
-    title: '40+ Destinations',
-    desc: 'Apply for visas to over 40 countries with one unified platform.',
+    title: 'Visas & Arrival Cards',
+    desc: 'e-Visas, Schengen visas and arrival cards, all applied for in one place.',
     gradient: 'from-brand-50 to-gold-50/50 border-brand-100/50',
     iconColor: 'text-brand-600',
   },

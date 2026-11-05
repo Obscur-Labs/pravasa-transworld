@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
 
   description:
-    'Pravasa Transworld offers expert visa consultancy for 50+ countries. Apply online for tourist, student, work, or business visas with fast processing and real-time status tracking.',
+    'Pravasa Transworld offers expert visa consultancy for Indian travellers. Apply online for tourist, student, work, or business visas with fast processing and real-time status tracking.',
 
   keywords: [
     'visa services india',
@@ -37,9 +37,9 @@ export const metadata: Metadata = {
     'business visa',
     'immigration assistance',
     'schengen visa',
-    'usa visa',
-    'uk visa',
-    'canada visa',
+    'dubai visa',
+    'vietnam e-visa',
+    'france schengen visa',
     'australia visa',
     'visa processing',
     'pravasa transworld',
@@ -69,14 +69,14 @@ export const metadata: Metadata = {
     siteName: 'Pravasa Transworld',
     title: 'Pravasa Transworld | Professional Visa & Immigration Services',
     description:
-      'Expert visa consultancy for 50+ countries. Fast online applications, real-time tracking, and dedicated immigration support.',
+      'Expert visa consultancy for Indian travellers. Fast online applications, real-time tracking, and dedicated immigration support.',
   },
 
   twitter: {
     card: 'summary_large_image',
     title: 'Pravasa Transworld | Professional Visa & Immigration Services',
     description:
-      'Expert visa consultancy for 50+ countries. Fast online applications, real-time tracking, and dedicated immigration support.',
+      'Expert visa consultancy for Indian travellers. Fast online applications, real-time tracking, and dedicated immigration support.',
     creator: '@pravasatransworld',
     site: '@pravasatransworld',
   },
