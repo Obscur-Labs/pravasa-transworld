@@ -139,6 +139,7 @@ router.post('/applications/:id/additional-docs', processing.requestAdditionalDoc
 router.put('/applications/:id/additional-docs/submitted', processing.markAdditionalDocsSubmitted);
 router.put('/applications/:id/dispatch', processing.updateDispatch);
 router.put('/applications/:id/parent-link', processing.updateParentLink);
+router.put('/applications/:id/embassy-reference', processing.updateEmbassyReference);
 router.route('/applications/:id/notes').get(notes.getNotes).post(notes.addNote);
 
 // AI content writer

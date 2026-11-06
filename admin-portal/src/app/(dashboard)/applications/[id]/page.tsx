@@ -25,6 +25,7 @@ import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib
 import type { Application, Document, EmbassyMail, LinkedChild, LinkedParent, Payment, PaymentStatus, VisaFile } from '@/types';
 import { AdditionalDocsPanel, DispatchPanel, ParentLinkCard, VfsPanel } from '@/components/applications/processing-panels';
 import { NotesCard } from '@/components/applications/notes-card';
+import { DocumentViewer } from '@/components/applications/document-viewer';
 import { STATUS_LABELS, SELECTABLE_STATUSES, PIPELINE_STAGES, stageIndexOf } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -76,6 +77,7 @@ export default function AdminApplicationDetailPage() {
   const [linkedParent, setLinkedParent] = useState<LinkedParent | null>(null);
   const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>([]);
   const [vfsLetterUrl, setVfsLetterUrl] = useState('');
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [mailOpen, setMailOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -141,6 +143,12 @@ export default function AdminApplicationDetailPage() {
   );
 
   const generalRows = useMemo(() => generalAnswers(application), [application]);
+
+  // The uploads in the open traveller tab, in review order, for the full-screen viewer.
+  const viewerDocs = useMemo(
+    () => reviewRows.flatMap((r) => (r.kind === 'doc' ? [{ id: r.doc._id, label: r.label, url: r.doc.url, status: r.doc.status }] : [])),
+    [reviewRows],
+  );
 
   const docCountFor = (tab: string) => documents.filter((d) => travelerOf(d.requirementName) === tab).length;
 
@@ -586,10 +594,10 @@ export default function AdminApplicationDetailPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                          <button type="button" onClick={() => setViewerIndex(viewerDocs.findIndex((d) => d.id === doc._id))}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80">
                             <ExternalLink className="w-3.5 h-3.5" /> View
-                          </a>
+                          </button>
                           {doc.status !== 'approved' && (
                             <Button size="sm" variant="outline" className="text-success border-success/20 hover:bg-success/10"
                               onClick={() => handleDocReview(doc._id, 'approved')} disabled={processing}>
@@ -1083,6 +1091,17 @@ export default function AdminApplicationDetailPage() {
           </Card>
         </div>
       </div>
+
+      {viewerIndex !== null && viewerDocs[viewerIndex] && (
+        <DocumentViewer
+          docs={viewerDocs}
+          index={viewerIndex}
+          onIndex={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+          onApprove={(id) => handleDocReview(id, 'approved')}
+          onReject={(id) => { setViewerIndex(null); openReject(id); }}
+        />
+      )}
 
       <EmbassyMailDialog
         applicationId={id}

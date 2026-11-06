@@ -296,3 +296,14 @@ export const updateParentLink = async (req: AdminRequest, res: Response): Promis
   logActivity(req, 'update', 'Application', `${app.referenceId}: parent changed from ${previous} to ${parent.referenceId}`);
   sendSuccess(res, app, `Linked to ${parent.referenceId}`);
 };
+
+/** The embassy / VFS file number, saved on its own so the customer isn't notified. */
+export const updateEmbassyReference = async (req: AdminRequest, res: Response): Promise<void> => {
+  const app = await Application.findById(req.params.id).select('referenceId processingReferenceNumber');
+  if (!app) { sendError(res, 'Application not found', 404); return; }
+  const previous = app.processingReferenceNumber || '';
+  app.processingReferenceNumber = str(req.body?.reference, 80);
+  await app.save();
+  logActivity(req, 'update', 'Application', `${app.referenceId}: embassy reference`, [{ field: 'embassy reference', from: previous, to: app.processingReferenceNumber }]);
+  sendSuccess(res, app, 'Embassy reference saved');
+};

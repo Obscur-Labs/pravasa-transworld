@@ -191,6 +191,7 @@ export const markAdditionalDocsSubmitted = (id: string, data: object) =>
   api.put(`/admin/applications/${id}/additional-docs/submitted`, data);
 export const updateDispatch = (id: string, data: object) => api.put(`/admin/applications/${id}/dispatch`, data);
 export const updateParentLink = (id: string, data: object) => api.put(`/admin/applications/${id}/parent-link`, data);
+export const updateEmbassyReference = (id: string, reference: string) => api.put(`/admin/applications/${id}/embassy-reference`, { reference });
 
 // AI content writer
 export const generateAiContent = (data: { purpose: string; context: Record<string, unknown>; currentText?: string; countryId?: string }) =>
