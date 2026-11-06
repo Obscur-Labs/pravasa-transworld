@@ -47,6 +47,7 @@ export default function Footer() {
                 ['/arrival-cards', 'Arrival Cards'],
                 ['/b2b-agents', 'B2B Agents'],
                 ['/testimonials', 'Reviews'],
+                ['/blog', 'Blog'],
                 ['/about', 'About'],
                 ['/contact', 'Contact'],
                 ['/login', 'Apply Now'],

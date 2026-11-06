@@ -8,6 +8,7 @@ import { submitServiceInquiry } from '../controllers/public/serviceInquiries.con
 import { getBusinessInfo } from '../controllers/public/businessInfo.controller';
 import { optionalAuth } from '../middleware/auth.middleware';
 import { inquiryLimiter, reviewLimiter } from '../middleware/rateLimiter';
+import { getPost, getPosts } from '../controllers/public/blog.controller';
 import { getTestimonials, getTestimonialSummary, submitTestimonial } from '../controllers/public/testimonials.controller';
 
 const router = asyncRouter();
@@ -17,6 +18,8 @@ router.get('/countries/:slug', optionalAuth as any, getPublicCountryBySlug as an
 router.get('/visa-types', optionalAuth as any, getPublicVisaTypes as any);
 router.get('/visa-types/:id/pdf', downloadVisaSummaryPdf as any);
 router.post('/contact', inquiryLimiter, submitContactLead);
+router.get('/blog', getPosts);
+router.get('/blog/:slug', getPost);
 router.get('/testimonials', getTestimonials);
 router.get('/testimonials/summary', getTestimonialSummary);
 router.post('/testimonials', reviewLimiter, submitTestimonial);

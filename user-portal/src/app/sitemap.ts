@@ -17,7 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.9,
     },
-    ...['arrival-cards', 'b2b-agents', 'testimonials', 'about', 'contact'].map((path) => ({
+    ...['arrival-cards', 'b2b-agents', 'testimonials', 'blog', 'about', 'contact'].map((path) => ({
       url: `${BASE}/${path}`,
       lastModified: new Date('2026-11-06'),
       changeFrequency: 'monthly' as const,
