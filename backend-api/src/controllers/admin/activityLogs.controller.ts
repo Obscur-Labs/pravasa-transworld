@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { istDay } from '../../utils/ist';
 import mongoose from 'mongoose';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import ActivityLog, { logRetentionDays } from '../../models/ActivityLog';
@@ -57,6 +58,6 @@ export const exportActivityLogsCsv = async (req: AdminRequest, res: Response): P
       (l.changes || []).map((c) => `${c.field}: ${c.from || '(empty)'} -> ${c.to || '(empty)'}`).join('; ')]),
   ];
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="activity-log-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.setHeader('Content-Disposition', `attachment; filename="activity-log-${istDay()}.csv"`);
   res.end(`\uFEFF${rows.map((r) => r.map(csvCell).join(',')).join('\r\n')}`);
 };

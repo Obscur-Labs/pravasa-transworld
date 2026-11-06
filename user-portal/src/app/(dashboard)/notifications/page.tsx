@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, deleteAllNotifications } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { formatDateTimeIST } from '@/lib/utils';
 import type { Notification } from '@/types';
 
 export default function NotificationsPage() {
@@ -110,7 +110,7 @@ export default function NotificationsPage() {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${n.read ? 'text-slate-700' : 'text-slate-900'}`}>{n.title}</p>
                   <p className="text-sm text-slate-500 mt-0.5">{n.message}</p>
-                  <p className="text-xs text-slate-400 mt-1">{formatDate(n.createdAt)}</p>
+                  <p className="text-xs text-slate-400 mt-1">{formatDateTimeIST(n.createdAt)}</p>
                   {n.application && (
                     <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-600 mt-1.5">
                       Open application <ChevronRight className="w-3 h-3" />

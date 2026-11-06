@@ -24,7 +24,7 @@ import StartOverDialog from '@/components/apply/StartOverDialog';
 import ParentApplicationPicker, { parentLinkValid } from '@/components/apply/ParentApplicationPicker';
 import type { ParentLinkValue } from '@/components/apply/ParentApplicationPicker';
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { checkVisaPhoto } from '@/lib/photoCheck';
 import { compressImage } from '@/lib/compressImage';
 import { isSchengen, passportPrefill, passportValidityProblem } from '@/lib/passportPrefill';
@@ -97,7 +97,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 };
 
 const fmtDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const fmtDisplay = (s: string) => s ? new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+const fmtDisplay = (s: string) => (s ? formatDate(s) : '');
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -2267,8 +2267,8 @@ export default function ApplyPage() {
                 {travelStartDate && (
                   <span className="flex items-center gap-1 text-xs text-brand-600 bg-brand-50 border border-brand-200 px-2.5 py-1 rounded-full font-medium">
                     <Calendar className="w-3 h-3" />
-                    {new Date(travelStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    {travelEndDate && <> → {new Date(travelEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</>}
+                    {fmtDisplay(travelStartDate)}
+                    {travelEndDate && <> → {fmtDisplay(travelEndDate)}</>}
                   </span>
                 )}
                 <span className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full font-medium">

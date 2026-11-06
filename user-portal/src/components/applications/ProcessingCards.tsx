@@ -1,12 +1,13 @@
 'use client';
 import { useState } from 'react';
+import { formatDate } from '@/lib/utils';
 import { AlertTriangle, CalendarClock, Check, Download, FileText, Fingerprint, Link2, Loader2, Truck, Upload } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCarryChecklist, uploadDocument } from '@/lib/api';
 import type { Application, Document as AppDocument } from '@/types';
 
-const fmt = (d: string) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const fmt = (s: string) => (s ? formatDate(s) : '');
 const MAX_BYTES = 10 * 1024 * 1024;
 
 const nameOf = (app: Application, label: string) => {

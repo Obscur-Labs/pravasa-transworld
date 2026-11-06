@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import { formatDateTimeIST } from '@/lib/utils';
 import Link from 'next/link';
 import { FileText, Clock, CheckCircle, XCircle, Plus, ArrowRight, Check } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,8 +14,6 @@ import type { Application } from '@/types';
 
 interface LatestUpdate { title: string; message: string; at: string }
 
-const when = (d: string) =>
-  new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 const isDone = (s: Application['status']) => s === 'visa_approved' || s === 'visa_delivered';
 
@@ -70,7 +69,7 @@ function Tracker({ app, update }: { app: Application; update?: LatestUpdate }) {
                     {failed ? 'Rejected' : stage.label}
                   </span>
                   <span className="block text-xs text-slate-400">
-                    {times[i] && (done || active) ? when(times[i]) : active ? 'In progress' : ''}
+                    {times[i] && (done || active) ? formatDateTimeIST(times[i]) : active ? 'In progress' : ''}
                   </span>
                 </span>
               </li>
@@ -80,7 +79,7 @@ function Tracker({ app, update }: { app: Application; update?: LatestUpdate }) {
 
         {(update || rejected) && (
           <div className="mt-6 rounded-xl bg-slate-50 p-4" aria-live="polite">
-            <p className="text-sm font-semibold text-slate-900">Latest update{update ? ` · ${when(update.at)}` : ''}</p>
+            <p className="text-sm font-semibold text-slate-900">Latest update{update ? ` · ${formatDateTimeIST(update.at)}` : ''}</p>
             <p className="text-sm text-slate-600 mt-0.5">{update ? update.message : app.rejectionReason || 'Please contact support for more information.'}</p>
           </div>
         )}

@@ -14,7 +14,7 @@ import { toast } from '@/components/ui/use-toast';
 import {
   getApplication, uploadDocument, getVaultDocuments, addDocumentFromVault, getUserPayments, downloadReceipt, submitCourierDetails,
 } from '@/lib/api';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { formatDate, formatCurrency, todayIST } from '@/lib/utils';
 import { buildReviewRows, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import StatusTimeline from '@/components/dashboard/StatusTimeline';
 import PaymentDialog from '@/components/payment/PaymentDialog';
@@ -494,7 +494,7 @@ export default function ApplicationDetailPage() {
                             type="date"
                             value={courierExpected}
                             onChange={(e) => setCourierExpected(e.target.value)}
-                            min={new Date().toISOString().slice(0, 10)}
+                            min={todayIST()}
                             className="w-full h-9 px-3 rounded-lg border border-gold-200 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500"
                           />
                           <p className="text-[11px] text-gold-500 mt-1">The delivery date your courier estimated.</p>

@@ -7,8 +7,8 @@ import { getPublicCountries } from '@/lib/api';
 import { useHasSession } from '@/lib/useHasSession';
 import { telHref, useBusinessInfo, whatsappHref } from '@/lib/business';
 import type { Country } from '@/types';
+import { formatCurrency } from '@/lib/utils';
 
-const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 const countryHref = (c: Country) => `/countries/${c.slug || c._id}`;
 // The four the client sells most; anything missing is filled from the rest of the list.
 const POPULAR = [/dubai|emirates|uae/i, /vietnam/i, /france|schengen/i, /turkey|t[uü]rkiye/i];
@@ -71,7 +71,7 @@ export default function HomeSections() {
             {popular.length > 0 && (
               <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
                 {popular.slice(0, 2).filter((c) => c.fromPrice).map((c) => (
-                  <li key={c._id} className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-green-600" />{c.name} from <b className="text-slate-900">{inr(c.fromPrice!)}</b></li>
+                  <li key={c._id} className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-green-600" />{c.name} from <b className="text-slate-900">{formatCurrency(c.fromPrice!)}</b></li>
                 ))}
                 <li className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-green-600" />Pay by UPI</li>
               </ul>
@@ -129,7 +129,7 @@ export default function HomeSections() {
                     <span className="font-bold text-white">{c.name}</span>
                   </div>
                   <div className="p-4 flex flex-col flex-1">
-                    {c.fromPrice ? <p className="text-sm text-slate-500">from <b className="text-2xl text-brand-950">{inr(c.fromPrice)}</b></p> : <p className="text-sm text-slate-500">Price on request</p>}
+                    {c.fromPrice ? <p className="text-sm text-slate-500">from <b className="text-2xl text-brand-950">{formatCurrency(c.fromPrice)}</b></p> : <p className="text-sm text-slate-500">Price on request</p>}
                     {c.processingTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Clock className="w-3.5 h-3.5" />{c.processingTime}</p>}
                     <Link href={countryHref(c)} className="mt-auto pt-4">
                       <span className="block rounded-lg bg-brand-950 py-2.5 text-center text-sm font-bold text-white hover:bg-brand-900">Apply now</span>
@@ -172,7 +172,7 @@ export default function HomeSections() {
                   <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt="" className="h-6 rounded-sm" />
                   <span>
                     <b className="block text-sm text-brand-950">{c.name}</b>
-                    {c.arrivalCard?.price ? <span className="text-xs text-slate-500">{inr(c.arrivalCard.price)}</span> : null}
+                    {c.arrivalCard?.price ? <span className="text-xs text-slate-500">{formatCurrency(c.arrivalCard.price)}</span> : null}
                   </span>
                 </Link>
               ))}

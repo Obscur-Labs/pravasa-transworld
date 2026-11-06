@@ -1,4 +1,5 @@
 import Application, { IApplication } from '../models/Application';
+import { istDay } from './ist';
 import Payment from '../models/Payment';
 import AdminNotification from '../models/AdminNotification';
 import { notifyCustomer } from './customerNotify';
@@ -81,7 +82,7 @@ export async function checkParent(
   if (!parentAdults(parent).length) return no('NO_ADULT', 'No adult traveller on this application');
 
   const { from, to } = tripDates(parent);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istDay();
   if (to && to < today) return no('TRAVELLED', 'This trip has already ended');
   if (from && to && child.from && child.to && (child.from < from || child.to > to)) {
     return no('DATES_OUTSIDE', `The child's dates must fall within the parent's trip (${from} to ${to})`);

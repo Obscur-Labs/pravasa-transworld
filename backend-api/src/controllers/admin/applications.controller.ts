@@ -19,6 +19,7 @@ import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf } from '
 import { logActivity } from '../../utils/activityLog';
 import { POST_PAYMENT_STAGES, PRE_PAYMENT_STAGES, hasCompletedPayment } from '../../services/payment.service';
 import { sendSuccess, sendError } from '../../utils/response';
+import { istDay } from '../../utils/ist';
 import { markChildrenBroken, parentAdults } from '../../utils/parentLink';
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -130,7 +131,7 @@ export const exportApplicationsCsv = async (req: AdminRequest, res: Response): P
   ];
   logActivity(req, 'create', 'Report Export', `Applications CSV (${apps.length} rows)`);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="applications-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.setHeader('Content-Disposition', `attachment; filename="applications-${istDay()}.csv"`);
   res.end(`\uFEFF${rows.map((r) => r.map(csvCell).join(',')).join('\r\n')}`);
 };
 
@@ -190,8 +191,6 @@ export const getApplication = async (req: AdminRequest, res: Response): Promise<
   sendSuccess(res, { application, documents, visaFile, payments, embassyMails, linkedParent, linkedChildren, vfsLetterUrl });
 };
 
-const IST_MS = 5.5 * 3600000;
-const istDay = (d: Date) => new Date(d.getTime() + IST_MS).toISOString().slice(0, 10);
 const istStart = (day: string) => new Date(`${day}T00:00:00+05:30`);
 
 // Stages where the team is working on an application (paid, not yet decided).
@@ -293,21 +292,18 @@ export const getDashboardStats = async (req: AdminRequest, res: Response): Promi
 
   // 14-day applications trend for the dashboard analytics widget.
   const days = 14;
-  const since = new Date();
-  since.setDate(since.getDate() - (days - 1));
-  since.setHours(0, 0, 0, 0);
+  const since = istStart(istDay(new Date(Date.now() - (days - 1) * 86400000)));
 
+  // Days are IST calendar days, so a 1 AM IST application counts on the right date.
   const raw = await Application.aggregate([
     { $match: { createdAt: { $gte: since } } },
-    { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+    { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Kolkata' } }, count: { $sum: 1 } } },
   ]);
   const countByDate = new Map<string, number>(raw.map((r) => [r._id as string, r.count as number]));
 
   const trend: { date: string; count: number }[] = [];
   for (let i = 0; i < days; i++) {
-    const d = new Date(since);
-    d.setDate(since.getDate() + i);
-    const key = d.toISOString().slice(0, 10);
+    const key = istDay(new Date(since.getTime() + i * 86400000));
     trend.push({ date: key, count: countByDate.get(key) || 0 });
   }
 
@@ -778,7 +774,7 @@ export const exportUsersCsv = async (req: AdminRequest, res: Response): Promise<
   ];
   logActivity(req, 'create', 'Report Export', `Customers CSV (${users.length} rows)`);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="customers-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.setHeader('Content-Disposition', `attachment; filename="customers-${istDay()}.csv"`);
   res.end(`\uFEFF${rows.map((r) => r.map(csvCell).join(',')).join('\r\n')}`);
 };
 

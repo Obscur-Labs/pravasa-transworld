@@ -155,7 +155,7 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
     ry = doc.y;
   };
   rightRow('Receipt No. :', receiptNo);
-  rightRow('Date :', paidDate.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }));
+  rightRow('Date :', paidDate.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Kolkata' }));
   rightRow('Reference :', data.appRef);
   if (isCorporate && company.stateName) rightRow('Place Of Supply :', `${company.stateName.toUpperCase()}${company.stateCode ? ` - (${company.stateCode})` : ''}`);
 

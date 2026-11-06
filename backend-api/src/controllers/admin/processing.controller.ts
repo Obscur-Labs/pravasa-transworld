@@ -32,7 +32,7 @@ function travellerNames(app: IApplication): string[] {
   return list.map((t) => [r[`${t.label} - Given Name(s)`], r[`${t.label} - Surname`]].filter(Boolean).join(' ') || t.label);
 }
 
-const fmtDate = (d: string) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const fmtDate = (d: string) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '');
 
 /** What to take to the centre: originals of everything uploaded, plus the usual extras. */
 export async function buildCarryChecklist(app: IApplication) {

@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { formatDateTimeIST } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Bell, X } from 'lucide-react';
@@ -93,7 +94,7 @@ export default function NotificationDropdown() {
                   </div>
                 </div>
                 <p className="text-xs text-slate-600">{notif.message}</p>
-                <span className="text-[11px] text-slate-500 mt-2 block">{new Date(notif.createdAt).toLocaleString()}</span>
+                <span className="text-[11px] text-slate-500 mt-2 block">{formatDateTimeIST(notif.createdAt)}</span>
               </div>
             ))
           )}

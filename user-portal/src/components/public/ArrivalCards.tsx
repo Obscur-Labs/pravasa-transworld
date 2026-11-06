@@ -7,9 +7,8 @@ import { getPublicCountries } from '@/lib/api';
 import { useHasSession } from '@/lib/useHasSession';
 import { useBusinessInfo, whatsappHref } from '@/lib/business';
 import type { Country } from '@/types';
+import { formatCurrency, todayIST } from '@/lib/utils';
 
-const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
 const NOTES = [
   { title: 'What you need', text: 'Passport, flight number and your hotel address in the destination.' },
@@ -40,7 +39,7 @@ export default function ArrivalCards() {
 
   const selected = countries?.find((c) => c._id === countryId);
   const price = selected?.arrivalCard?.price ?? null;
-  const today = useMemo(() => isoDay(new Date()), []);
+  const today = useMemo(() => todayIST(), []);
 
   const applyHref = (c: Country, extra = '') =>
     hasSession ? `/apply?country=${c._id}&visa=${c.arrivalCard!.visaId}${extra}` : '/register';
@@ -63,7 +62,7 @@ export default function ArrivalCards() {
             </p>
             {price !== null && (
               <p className="mt-6 flex items-baseline gap-2">
-                <span className="text-5xl font-extrabold text-gold-400">{inr(price)}</span>
+                <span className="text-5xl font-extrabold text-gold-400">{formatCurrency(price)}</span>
                 <span className="text-white/70">per traveller</span>
               </p>
             )}
@@ -126,7 +125,7 @@ export default function ArrivalCards() {
                   <img src={`https://flagcdn.com/w80/${c.flag}.png`} alt="" className="h-9 mx-auto mb-3 rounded shadow-sm" />
                   <h3 className="text-lg font-bold text-brand-950">{c.name}</h3>
                   <p className="text-sm text-slate-500">{c.arrivalCard!.name}</p>
-                  {c.arrivalCard!.price !== null && <p className="text-2xl font-extrabold text-brand-950 my-3">{inr(c.arrivalCard!.price)}</p>}
+                  {c.arrivalCard!.price !== null && <p className="text-2xl font-extrabold text-brand-950 my-3">{formatCurrency(c.arrivalCard!.price)}</p>}
                   <Link href={applyHref(c)} className="inline-flex items-center gap-1.5 rounded-lg border border-brand-950 px-4 py-2 text-sm font-bold text-brand-950 hover:bg-brand-950 hover:text-white transition-colors">
                     <Plane className="w-4 h-4" />Apply for Arrival Card
                   </Link>

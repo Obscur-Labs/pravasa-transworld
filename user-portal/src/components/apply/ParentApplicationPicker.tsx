@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { formatDate } from '@/lib/utils';
 import { Check, Link2, Loader2, Search, ShieldCheck, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { getParentCandidates, lookupParentApplication, verifyParentApplication } from '@/lib/api';
@@ -21,7 +22,7 @@ export const parentLinkValid = (v: ParentLinkValue | null) => !!v && v.parents.l
 const RELATIONS: { value: ParentRelation; label: string }[] = [
   { value: 'father', label: 'Father' }, { value: 'mother', label: 'Mother' }, { value: 'guardian', label: 'Guardian' },
 ];
-const fmt = (d: string) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const fmt = (s: string) => (s ? formatDate(s) : '');
 const errorOf = (err: unknown) => (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Please try again.';
 
 /**

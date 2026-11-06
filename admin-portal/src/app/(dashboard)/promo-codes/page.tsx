@@ -22,7 +22,7 @@ import {
   togglePromoActive, togglePromoWebsite, getPromoHistory,
 } from '@/lib/api';
 import type { PromoCode, PromoHistory } from '@/types';
-import { formatDate, formatDateTimeIST } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTimeIST } from '@/lib/utils';
 
 const DISCOUNT_TYPES = [
   { value: 'percentage', label: 'Percentage (%)', icon: Percent },
@@ -464,7 +464,7 @@ export default function PromoCodesPage() {
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-bold text-success">-₹{entry.discountApplied}</p>
+                          <p className="text-sm font-bold text-success">-{formatCurrency(entry.discountApplied)}</p>
                           <p className="text-xs text-muted-foreground">{formatDateTimeIST(entry.usedAt)}</p>
                         </div>
                       </div>
