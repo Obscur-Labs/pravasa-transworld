@@ -7,6 +7,7 @@ import VisaType from '../../models/VisaType';
 import Country from '../../models/Country';
 import VisaConfigOption from '../../models/VisaConfigOption';
 import Payment from '../../models/Payment';
+import Notification from '../../models/Notification';
 import { loadPaymentConfig } from '../../services/payment.service';
 import { deliveryUrl, uploadToCloudinary } from '../../services/cloudinary.service';
 import { buildCarryChecklist } from '../admin/processing.controller';
@@ -29,12 +30,22 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
   ]);
 
   const recent = await Application.find({ user: userId })
-    .populate('visaType', 'name price')
+    .select('-formResponses')
+    .populate('visaType', 'name price processingTime')
     .populate('country', 'name flag')
     .sort({ createdAt: -1 })
     .limit(5);
 
-  sendSuccess(res, { stats: { active, pending, approved, rejected, total }, recent });
+  // The newest message sent about each order, shown as its "Latest update".
+  const notes = await Notification.find({ user: userId, application: { $in: recent.map((a) => a._id) }, type: { $ne: 'otp' } })
+    .sort({ createdAt: -1 }).select('application title message createdAt').lean();
+  const latestUpdate: Record<string, { title: string; message: string; at: Date }> = {};
+  for (const n of notes) {
+    const key = String(n.application);
+    latestUpdate[key] ??= { title: n.title, message: n.message, at: n.createdAt };
+  }
+
+  sendSuccess(res, { stats: { active, pending, approved, rejected, total }, recent, latestUpdate });
 };
 
 export const getApplications = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -358,11 +369,12 @@ const adultDisplayPrice = (v: Parameters<typeof computeVisaPricing>[0]) => {
 export const getPublicCountries = async (_req: AuthRequest, res: Response): Promise<void> => {
   const countries = await Country.find({ isActive: true, showOnWebsite: true }).sort({ name: 1 }).lean();
   const visas = await VisaType.find({ country: { $in: countries.map((c) => c._id) }, isActive: true })
-    .select('country price adultPrice adultVfsFee adultServiceFee processingTime visaSubType')
+    .select('country name price adultPrice adultVfsFee adultServiceFee processingTime visaSubType')
     .lean();
 
   sendSuccess(res, countries.map((c) => {
     const own = visas.filter((v) => String(v.country) === String(c._id));
+    const arrival = own.find((v) => /arrival/i.test(v.visaSubType || '') || /arrival card/i.test(v.name));
     const cheapest = own
       .map((v) => ({ v, price: adultDisplayPrice(v as any) }))
       .filter((x) => x.price > 0)
@@ -373,6 +385,7 @@ export const getPublicCountries = async (_req: AuthRequest, res: Response): Prom
       fromPrice: cheapest?.price ?? null,
       processingTime: cheapest?.v.processingTime || own[0]?.processingTime || '',
       visaSubTypes: [...new Set(own.map((v) => v.visaSubType).filter(Boolean))],
+      arrivalCard: arrival ? { visaId: arrival._id, name: arrival.name, price: adultDisplayPrice(arrival as any) || null } : null,
     };
   }));
 };

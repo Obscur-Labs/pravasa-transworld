@@ -139,6 +139,8 @@ export interface IApplication extends Document {
   visaType: mongoose.Types.ObjectId;
   country: mongoose.Types.ObjectId;
   status: ApplicationStatus;
+  /** Every status the order has been in, with when it got there; drives the customer tracker. */
+  statusHistory: { status: ApplicationStatus; at: Date }[];
   formResponses: Map<string, string>;
   adults: number;
   children: number;
@@ -296,6 +298,10 @@ const ApplicationSchema = new Schema<IApplication>(
       enum: APPLICATION_STATUSES,
       default: 'submitted',
     },
+    statusHistory: {
+      type: [{ _id: false, status: { type: String, enum: APPLICATION_STATUSES }, at: { type: Date, default: Date.now } }],
+      default: [],
+    },
     formResponses: { type: Map, of: String, default: {} },
     // 0 only on a child-only order linked to a parent's application.
     adults: { type: Number, default: 1, min: 0 },
@@ -340,6 +346,7 @@ ApplicationSchema.pre('save', function (next) {
     const num = String(Math.floor(1000 + Math.random() * 9000));
     this.referenceId = `PRS-GEN-${num}`;
   }
+  if (this.isNew || this.isModified('status')) this.statusHistory.push({ status: this.status, at: new Date() });
   next();
 });
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import ContactSection from '@/components/landing/ContactSection';
+import OfficeMap from '@/components/public/OfficeMap';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { MessageCircle } from 'lucide-react';
 
@@ -50,6 +51,12 @@ export default function ContactPage() {
       </section>
 
       <ContactSection />
+      <section className="px-4 sm:px-6 lg:px-8 pb-16 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-2xl font-extrabold text-slate-900 mb-4">Find our office</h2>
+          <OfficeMap className="h-80" />
+        </div>
+      </section>
       <Footer />
     </div>
   );

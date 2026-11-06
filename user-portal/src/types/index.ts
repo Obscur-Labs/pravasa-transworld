@@ -64,6 +64,8 @@ export interface Country {
   fromPrice?: number | null;
   processingTime?: string;
   visaSubTypes?: string[];
+  // Set when one of the country's visas is an arrival card (Thailand, Malaysia...).
+  arrivalCard?: { visaId: string; name: string; price: number | null } | null;
 }
 
 // Widened to plain string, these value sets are admin-configurable on the Visa Config page.
@@ -247,6 +249,7 @@ export interface Application {
   visaType: VisaType;
   country: Country;
   status: ApplicationStatus;
+  statusHistory?: { status: ApplicationStatus; at: string }[];
   formResponses: Record<string, string>;
   adults: number;
   children: number;

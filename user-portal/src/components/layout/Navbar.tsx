@@ -21,10 +21,12 @@ export default function Navbar() {
 
   const navLinks = [
     { href: '/countries', label: 'Destinations' },
+    { href: '/arrival-cards', label: 'Arrival Cards' },
+    { href: '/b2b-agents', label: 'B2B Agents' },
     { href: '/about', label: 'About' },
     { href: '/contact', label: 'Contact' },
   ];
-  const linkClass = 'text-sm font-semibold text-slate-600 hover:text-brand-600 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all duration-200';
+  const linkClass = 'text-sm font-semibold text-slate-600 hover:text-brand-600 px-3 py-2 rounded-lg hover:bg-slate-50 transition-all duration-200';
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${
@@ -46,7 +48,7 @@ export default function Navbar() {
             />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1">
             <Link href={navLinks[0].href} className={linkClass}>{navLinks[0].label}</Link>
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger className={`${linkClass} flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 data-[state=open]:text-brand-600 data-[state=open]:bg-slate-50 group`}>
@@ -71,7 +73,7 @@ export default function Navbar() {
             ))}
           </nav>
 
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2">
             <InstallAppButton
               iconOnly
               className="p-2 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
@@ -103,7 +105,7 @@ export default function Navbar() {
           </div>
 
           <button
-            className="md:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+            className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
             onClick={() => setOpen(!open)}
             aria-label={open ? 'Close menu' : 'Open menu'}
             aria-expanded={open}
@@ -114,7 +116,7 @@ export default function Navbar() {
       </div>
 
       {open && (
-        <div className="md:hidden bg-white/98 backdrop-blur-xl border-t border-slate-100 px-4 py-4 space-y-1">
+        <div className="lg:hidden bg-white/98 backdrop-blur-xl border-t border-slate-100 px-4 py-4 space-y-1">
           {navLinks.map((l) => (
             <Link
               key={l.href}

@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import PromoPopup from '@/components/landing/PromoPopup';
-import DestinationsExplorer from '@/components/landing/DestinationsExplorer';
+import HomeSections from '@/components/home/HomeSections';
 import { JsonLd } from '@/components/seo/JsonLd';
-import { ArrowRight } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
 
@@ -80,7 +78,7 @@ const serviceSchema = {
 };
 
 // Deliberately not async and fetching nothing: this page is static shell + SEO metadata,
-// and DestinationsExplorer loads the country list in the browser. Rendering the list here
+// and HomeSections loads the country list in the browser. Rendering the list here
 // would make Next prerender it at build time, so newly published countries would not show
 // on the live site until the next deploy.
 export default function LandingPage() {
@@ -91,21 +89,7 @@ export default function LandingPage() {
       <JsonLd data={serviceSchema} />
       <Navbar />
 
-      <DestinationsExplorer />
-
-      {/* ── CTA ── */}
-      <section className="py-14 px-4 bg-white border-t border-slate-100">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Ready to apply?</h2>
-          <p className="text-slate-500 font-medium mb-6">Create a free account and track your visa in real time.</p>
-          <Link
-            href="/register"
-            className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-white font-bold px-7 py-3.5 rounded-xl transition-all shadow-lg shadow-brand-600/20 hover:scale-105 duration-200"
-          >
-            Get Started Free <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </section>
+      <HomeSections />
 
       <Footer />
       <PromoPopup />

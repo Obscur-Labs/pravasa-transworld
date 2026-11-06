@@ -44,6 +44,8 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm font-semibold">
               {[
                 ['/countries', 'Destinations'],
+                ['/arrival-cards', 'Arrival Cards'],
+                ['/b2b-agents', 'B2B Agents'],
                 ['/about', 'About'],
                 ['/contact', 'Contact'],
                 ['/login', 'Apply Now'],

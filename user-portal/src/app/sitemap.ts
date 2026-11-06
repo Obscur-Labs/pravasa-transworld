@@ -17,6 +17,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.9,
     },
+    ...['arrival-cards', 'b2b-agents', 'about', 'contact'].map((path) => ({
+      url: `${BASE}/${path}`,
+      lastModified: new Date('2026-11-06'),
+      changeFrequency: 'monthly' as const,
+      priority: 0.8,
+    })),
     ...SERVICES.map((s) => ({
       url: `${BASE}/services/${s.slug}`,
       lastModified: new Date('2026-10-01'),

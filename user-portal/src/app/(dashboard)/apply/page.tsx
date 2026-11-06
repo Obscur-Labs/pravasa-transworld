@@ -25,6 +25,7 @@ import ParentApplicationPicker, { parentLinkValid } from '@/components/apply/Par
 import type { ParentLinkValue } from '@/components/apply/ParentApplicationPicker';
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
 import { formatCurrency } from '@/lib/utils';
+import { checkVisaPhoto } from '@/lib/photoCheck';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useAuthStore } from '@/store/auth.store';
 import { docRuleMet, mergeFormItems, shownSubFields } from '@/types';
@@ -799,6 +800,8 @@ export default function ApplyPage() {
   const [selectedVisa, setSelectedVisa] = useState<VisaType | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [docSources, setDocSources] = useState<Record<string, DocSource>>({});
+  // Non-blocking warnings from the in-browser photo check, keyed like docSources.
+  const [photoWarnings, setPhotoWarnings] = useState<Record<string, string[]>>({});
   const [vaultDocs, setVaultDocs] = useState<VaultDocument[]>([]);
   const [countrySearch, setCountrySearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -858,7 +861,9 @@ export default function ApplyPage() {
     const linkCountry = params.get('country');
     if (linkCountry && !savedDraftId) {
       window.history.replaceState(null, '', '/apply');
-      startFromLink(linkCountry, params.get('visa')).finally(() => setDraftRestored(true));
+      startFromLink(linkCountry, params.get('visa'), {
+        date: params.get('date'), adults: Number(params.get('adults')), children: Number(params.get('children')),
+      }).finally(() => setDraftRestored(true));
       return;
     }
     if (savedDraftId) {
@@ -945,7 +950,8 @@ export default function ApplyPage() {
     }
   };
 
-  const startFromLink = async (countryId: string, visaId: string | null) => {
+  // Quick-apply forms (arrival cards) can also pass the travel date and traveller counts.
+  const startFromLink = async (countryId: string, visaId: string | null, prefill?: { date: string | null; adults: number; children: number }) => {
     setLoading(true);
     try {
       const list: Country[] = (await getActiveCountries()).data.data;
@@ -958,6 +964,9 @@ export default function ApplyPage() {
       const visa = visaId ? fresh.find((v) => v._id === visaId) ?? null : null;
       setSelectedVisa(visa);
       setStep(visa ? 3 : 2);
+      if (prefill?.date && /^\d{4}-\d{2}-\d{2}$/.test(prefill.date)) setTravelStartDate(prefill.date);
+      if (prefill && prefill.adults >= 1 && prefill.adults <= 10) setAdults(Math.floor(prefill.adults));
+      if (prefill && prefill.children >= 0 && prefill.children <= 9) setChildren(Math.floor(prefill.children));
     } catch {
       toast({ title: 'Could not open that visa', description: 'Pick your destination below.', variant: 'destructive' });
     } finally {
@@ -1086,6 +1095,9 @@ export default function ApplyPage() {
       if (tooBig.length) toast({ title: 'File too large', description: `${tooBig.map((f) => f.name).join(', ')} is over ${rules.maxMb} MB.`, variant: 'destructive' });
       const ok = picked.filter((f) => extOk(f) && f.size <= rules.maxBytes);
       if (!ok.length) return;
+      if (req && (req.docType === 'photo' || /\bphoto/i.test(req.name))) {
+        checkVisaPhoto(ok[0]).then((w) => setPhotoWarnings((prev) => ({ ...prev, [storeKey]: w })));
+      }
       setDocSources((prev) => {
         const cur = prev[storeKey];
         const existing = cur?.type === 'files' ? cur.files : [];
@@ -1554,6 +1566,11 @@ export default function ApplyPage() {
           )}
           <span className="text-[11px] text-slate-400">{uploadRules(req).hint}</span>
         </div>
+        {source?.type === 'files' && photoWarnings[sk]?.length ? (
+          <div className="ml-11 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" role="status">
+            {photoWarnings[sk].map((w) => <p key={w} className="flex gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />{w}</p>)}
+          </div>
+        ) : null}
       </div>
     );
   };
