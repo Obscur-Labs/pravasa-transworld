@@ -110,6 +110,21 @@ export default function AgentsPage() {
     URL.revokeObjectURL(url);
   };
 
+  // The table as a CSV for Excel, built from what is already loaded.
+  const exportCsv = () => {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = [
+      ['Code', 'Agency', 'Contact', 'City', 'Email', 'Phone', 'GSTIN', 'Credit limit', 'Used', 'Used %', 'Commission %', 'Terms (days)', 'Apps (30d)', 'Status'],
+      ...agents.map((a) => [a.agentCode, a.name, a.contactPerson, a.city, a.email, a.phone, a.gstNumber, a.creditLimit, a.used, a.pct, a.commissionPct, a.paymentTermsDays, a.apps30, STATUS[a.status].label]),
+    ];
+    const url = URL.createObjectURL(new Blob(['﻿' + rows.map((r) => r.map(esc).join(',')).join('\n')], { type: 'text/csv' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `b2b-agents-${istToday()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const lastMonth = (() => { const d = new Date(Date.now() + 5.5 * 3600000); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); })();
   const field = (key: keyof typeof emptyForm, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div>
@@ -126,6 +141,7 @@ export default function AgentsPage() {
         action={
           <div className="flex gap-2">
             <Button variant="outline" disabled={busy} onClick={() => run(() => postAgentCommission(lastMonth), 'Commission posted')}>Post {lastMonth} commission</Button>
+            <Button variant="outline" disabled={!agents.length} onClick={exportCsv}><Download className="w-4 h-4 mr-1.5" />Export</Button>
             <Button onClick={() => openForm('new')}><Plus className="w-4 h-4 mr-1.5" />Add agent</Button>
           </div>
         }
