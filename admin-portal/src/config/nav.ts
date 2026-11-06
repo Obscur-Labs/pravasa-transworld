@@ -48,7 +48,7 @@ export const bottomNavItems: NavItem[] = [
   { href: '/team', label: 'Team & Roles', icon: ShieldHalf, superAdminOnly: true },
 ];
 
-// Grouped under the "Other Options" accordion in the sidebar.
+// Listed in the sidebar's Insights & Comms and Admin sections.
 export const otherNavItems: NavItem[] = [
   { href: '/notifications', label: 'Notifications', icon: Bell },
   { href: '/trash', label: 'Trash', icon: Trash2, module: 'trash' },

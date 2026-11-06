@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { Settings, MoreHorizontal, type LucideIcon } from 'lucide-react';
+import { Settings, type LucideIcon } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import { topNavItems, configNavItems, bottomNavItems, otherNavItems, type NavItem } from '@/config/nav';
@@ -74,18 +74,25 @@ function NavGroup({
   );
 }
 
+// Sidebar sections in the order of the redesign; each lists page links by href.
+const SECTIONS: { label: string; hrefs: string[] }[] = [
+  { label: 'Operations', hrefs: ['/dashboard', '/applications', '/payments', '/processing'] },
+  { label: 'Catalogue', hrefs: ['/countries', '/promo-codes'] },
+  { label: 'Customers', hrefs: ['/users', '/agents', '/inquiries'] },
+  { label: 'Insights & Comms', hrefs: ['/reports', '/testimonials', '/blog', '/notifications'] },
+  { label: 'Admin', hrefs: ['/team', '/logs', '/trash'] },
+];
+
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { can, isSuperAdmin } = usePermissions();
   // Only pages this member can open are listed.
   const visible = (items: NavItem[]) => items.filter((i) => (i.superAdminOnly ? isSuperAdmin : !i.module || can(i.module)));
   const configItems = visible(configNavItems);
-  const otherItems = visible(otherNavItems);
+  const allItems = [...topNavItems, ...bottomNavItems, ...otherNavItems];
 
-  const [openGroups, setOpenGroups] = useState<string[]>(() => [
-    ...(configNavItems.some(({ href }) => isActivePath(pathname, href)) ? ['config'] : []),
-    ...(otherNavItems.some(({ href }) => isActivePath(pathname, href)) ? ['other'] : []),
-  ]);
+  const [openGroups, setOpenGroups] = useState<string[]>(() =>
+    configNavItems.some(({ href }) => isActivePath(pathname, href)) ? ['config'] : []);
 
   return (
     <>
@@ -97,19 +104,28 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </Link>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {visible(topNavItems).map((item) => (
-          <NavLink key={item.href} {...item} active={isActivePath(pathname, item.href)} onNavigate={onNavigate} />
-        ))}
-
-        {visible(bottomNavItems).map((item) => (
-          <NavLink key={item.href} {...item} active={isActivePath(pathname, item.href)} onNavigate={onNavigate} />
-        ))}
-
-        <Accordion type="multiple" value={openGroups} onValueChange={setOpenGroups}>
-          {configItems.length > 0 && <NavGroup value="config" label="Configurations" icon={Settings} items={configItems} pathname={pathname} onNavigate={onNavigate} />}
-          {otherItems.length > 0 && <NavGroup value="other" label="Other Options" icon={MoreHorizontal} items={otherItems} pathname={pathname} onNavigate={onNavigate} />}
-        </Accordion>
+      <nav className="flex-1 p-4 overflow-y-auto">
+        {SECTIONS.map((section) => {
+          const items = visible(allItems.filter((i) => section.hrefs.includes(i.href)))
+            .sort((a, b) => section.hrefs.indexOf(a.href) - section.hrefs.indexOf(b.href));
+          const showConfig = section.label === 'Admin' && configItems.length > 0;
+          if (!items.length && !showConfig) return null;
+          return (
+            <div key={section.label} className="mb-4">
+              <p className="px-3 mb-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{section.label}</p>
+              <div className="space-y-1">
+                {items.map((item) => (
+                  <NavLink key={item.href} {...item} active={isActivePath(pathname, item.href)} onNavigate={onNavigate} />
+                ))}
+                {showConfig && (
+                  <Accordion type="multiple" value={openGroups} onValueChange={setOpenGroups}>
+                    <NavGroup value="config" label="Configurations" icon={Settings} items={configItems} pathname={pathname} onNavigate={onNavigate} />
+                  </Accordion>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </nav>
     </>
   );
