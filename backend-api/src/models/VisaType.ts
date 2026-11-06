@@ -49,6 +49,11 @@ export interface IDocumentRequirement {
   order: number;
   // Conditional upload: asked only when the traveller's answer to `field` is one of `values`.
   showWhen?: IDocumentShowWhen | null;
+  /** A filled-in example the customer can open (link or uploaded file). */
+  sampleUrl?: string;
+  /** Allowed kinds (pdf, jpg, png, doc) and size; empty means the site defaults. */
+  fileTypes?: string[];
+  maxSizeMb?: number;
 }
 
 export interface IDocumentShowWhen {
@@ -170,6 +175,9 @@ export const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
     type: new Schema({ field: { type: String, default: '' }, values: [{ type: String }] }, { _id: false }),
     default: null,
   },
+  sampleUrl: { type: String, default: '' },
+  fileTypes: { type: [String], default: undefined },
+  maxSizeMb: { type: Number, min: 1, max: 10 },
 });
 
 export const VisaTermSchema = new Schema<IVisaTerm>({

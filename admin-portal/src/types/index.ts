@@ -98,7 +98,19 @@ export interface DocumentRequirement {
   order: number;
   // Conditional upload: shown only when the answer to `field` is one of `values`.
   showWhen?: DocumentShowWhen | null;
+  // A filled-in example for the customer, plus allowed kinds and size (empty = site defaults).
+  sampleUrl?: string;
+  fileTypes?: DocFileType[];
+  maxSizeMb?: number;
 }
+
+export type DocFileType = 'pdf' | 'jpg' | 'png' | 'doc';
+export const DOC_FILE_TYPES: { value: DocFileType; label: string }[] = [
+  { value: 'pdf', label: 'PDF' },
+  { value: 'jpg', label: 'JPG' },
+  { value: 'png', label: 'PNG' },
+  { value: 'doc', label: 'Word' },
+];
 
 export interface DocumentShowWhen {
   field: string;

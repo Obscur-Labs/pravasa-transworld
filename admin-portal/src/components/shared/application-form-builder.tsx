@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { OptionListEditor } from './option-list-editor';
 import { ApplicantTypeSelector } from './applicant-type-selector';
+import { DocUploadRules } from './doc-upload-rules';
+import { FormPreviewDialog } from './form-preview-dialog';
 import { DOC_TYPE_OPTIONS, hasOptions, mergeFormItems, toFieldName } from '@/types';
 import type { FormField, FormItem, DocumentRequirement, DocumentShowWhen, DocumentType, FieldType, SubField } from '@/types';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -178,6 +180,13 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
   const items = mergeFormItems(fields, docs);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [filter, setFilter] = useState<'all' | 'adult' | 'child'>('all');
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const shown = (it: FormItem) => {
+    if (filter === 'all') return true;
+    const type = (it.kind === 'field' ? it.field.applicantType : it.doc.applicantType) || 'adult';
+    return type === 'both' || type === filter;
+  };
 
   // Position in the merged list is the order, rewritten on every edit.
   const commit = (next: FormItem[]) =>
@@ -252,6 +261,9 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
           </p>
         </div>
         <div className="flex gap-2">
+          <Button type="button" size="sm" variant="ghost" onClick={() => setPreviewOpen(true)} disabled={!items.length}>
+            <Eye className="w-3.5 h-3.5 mr-1" />Preview as customer
+          </Button>
           <Button type="button" size="sm" variant="outline" onClick={addField}>
             <Plus className="w-3.5 h-3.5 mr-1" />Add Field
           </Button>
@@ -267,8 +279,21 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
           : <>Use <span className="font-medium">Applies to</span> to pick which travellers see each row, <span className="font-medium">Follow-up</span> to ask more questions for certain answers, and <span className="font-medium">Show when</span> on a document to ask for it only for certain answers.</>}
       </p>
 
+      {items.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-2 text-xs">
+          <span className="text-muted-foreground">Show rows for</span>
+          {(['all', 'adult', 'child'] as const).map((f) => (
+            <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
+              className={cn('px-2 py-0.5 rounded-md border font-medium capitalize transition-colors',
+                filter === f ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-border hover:text-foreground')}>
+              {f === 'all' ? 'Everyone' : f}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-2">
-        {items.map((item, i) => (
+        {items.map((item, i) => !shown(item) ? null : (
           <div
             key={i}
             onDragOver={(e) => { if (dragIndex !== null) { e.preventDefault(); setDropIndex(i); } }}
@@ -412,11 +437,13 @@ export function ApplicationFormBuilder({ fields, docs, onChange }: ApplicationFo
                 {item.doc.showWhen && (
                   <DocShowWhenEditor key="open" rule={item.doc.showWhen} questions={triggerQuestions} onChange={(r) => updateDoc(i, 'showWhen', r)} />
                 )}
+                <DocUploadRules doc={item.doc} onChange={(patch) => setDoc(i, (d) => ({ ...d, ...patch }))} />
               </>
             )}
           </div>
         ))}
       </div>
+      <FormPreviewDialog open={previewOpen} onOpenChange={setPreviewOpen} items={items} />
     </div>
   );
 }

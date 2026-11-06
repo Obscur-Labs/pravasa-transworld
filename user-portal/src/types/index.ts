@@ -168,6 +168,10 @@ export interface DocumentRequirement {
   order?: number;
   // Conditional upload: asked only when the answer to `field` is one of `values`.
   showWhen?: { field: string; values: string[] } | null;
+  // A filled-in example, and the kinds (pdf, jpg, png, doc) and size allowed; empty = defaults.
+  sampleUrl?: string;
+  fileTypes?: string[];
+  maxSizeMb?: number;
 }
 
 /** Whether a conditional upload applies, given how the traveller answered its trigger question. */

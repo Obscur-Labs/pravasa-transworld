@@ -19,6 +19,20 @@ export function toFieldName(label: string): string {
 
 const str = (v: unknown) => String(v ?? '').trim();
 
+const FILE_TYPES = ['pdf', 'jpg', 'png', 'doc'];
+
+/** Sample link must be http(s); file types from the known list; size 1 to 10 MB. */
+function cleanUploadRules(doc: any) {
+  const sample = str(doc?.sampleUrl);
+  const types = (Array.isArray(doc?.fileTypes) ? doc.fileTypes : []).map((t: unknown) => str(t).toLowerCase()).filter((t: string) => FILE_TYPES.includes(t));
+  const size = Number(doc?.maxSizeMb);
+  return {
+    sampleUrl: /^https?:\/\//i.test(sample) ? sample.slice(0, 500) : '',
+    fileTypes: [...new Set(types)],
+    maxSizeMb: Number.isFinite(size) && size >= 1 && size <= 10 ? Math.round(size) : undefined,
+  };
+}
+
 /**
  * Drops rows the admin never filled in, fills any missing `fieldName` from the label
  * (keeping keys unique), and renumbers `order` across both arrays as one sequence.
@@ -83,7 +97,7 @@ export function normalizeFormItems<T extends { formFields?: any[]; documentRequi
         subFields: normalizeSubFields(entry.field),
       });
     } else {
-      nextDocs.push({ ...entry.doc, name: str(entry.doc?.name), order });
+      nextDocs.push({ ...entry.doc, name: str(entry.doc?.name), order, ...cleanUploadRules(entry.doc) });
     }
   });
 

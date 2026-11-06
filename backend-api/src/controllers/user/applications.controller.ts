@@ -209,6 +209,26 @@ async function markAdditionalUploaded(application: IApplication, requirementName
   });
 }
 
+const KIND_OF: Record<string, string> = {
+  'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+  'application/msword': 'doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'doc',
+};
+const KIND_LABEL: Record<string, string> = { pdf: 'PDF', jpg: 'JPG', png: 'PNG', doc: 'Word' };
+
+/** The admin's type and size rules for one slot; extras named "Name (2)" share the slot's rules. */
+async function uploadRuleProblem(visaTypeId: unknown, requirementName: string, file: Express.Multer.File) {
+  const visa = await VisaType.findById(visaTypeId).select('documentRequirements').lean();
+  const base = requirementName.replace(/ \(\d+\)$/, '');
+  const slot = visa?.documentRequirements?.find((d) => d.name === requirementName || d.name === base);
+  if (!slot) return '';
+  const types = slot.fileTypes || [];
+  if (types.length && !types.includes(KIND_OF[file.mimetype])) {
+    return `${slot.name} takes ${types.map((t) => KIND_LABEL[t] || t).join(', ')} files only`;
+  }
+  if (slot.maxSizeMb && file.size > slot.maxSizeMb * 1024 * 1024) return `${slot.name} must be ${slot.maxSizeMb} MB or smaller`;
+  return '';
+}
+
 export const uploadDocument = async (req: AuthRequest, res: Response): Promise<void> => {
   if (!req.file) { sendError(res, 'File is required'); return; }
   const { requirementName } = req.body;
@@ -220,6 +240,9 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
   if (!UPLOAD_STAGES.includes(application.status) && !(await canReplace(application, requirementName))) {
     sendError(res, 'Cannot upload documents at this stage'); return;
   }
+
+  const ruleProblem = await uploadRuleProblem(application.visaType, String(requirementName), req.file);
+  if (ruleProblem) { sendError(res, ruleProblem); return; }
 
   const userId = String(req.user!._id);
   // Word files are stored raw with their extension, so downloads and attachments open correctly.

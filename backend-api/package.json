@@ -9,6 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node src/utils/seed.ts",
+    "seed:france-preset": "ts-node src/utils/seedFrancePreset.ts",
     "migrate:private-assets": "ts-node src/utils/migratePrivateAssets.ts"
   },
   "dependencies": {

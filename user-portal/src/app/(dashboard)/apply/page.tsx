@@ -39,8 +39,18 @@ type Traveler = { key: string; label: string; type: 'adult' | 'child' };
 
 const STEPS = ['Country', 'Visa Type', 'Application Form'];
 const DRAFT_KEY = 'visa_app_draft';
-const ACCEPTED = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const TYPE_EXTENSIONS: Record<string, string[]> = { pdf: ['pdf'], jpg: ['jpg', 'jpeg'], png: ['png'], doc: ['doc', 'docx'] };
+const TYPE_LABELS: Record<string, string> = { pdf: 'PDF', jpg: 'JPG', png: 'PNG', doc: 'Word' };
+
+/** The kinds and size one document slot takes, from the admin's rules or the site defaults. */
+function uploadRules(req?: DocumentRequirement) {
+  const types = (req?.fileTypes || []).filter((t) => TYPE_EXTENSIONS[t]);
+  const exts = types.length ? types.flatMap((t) => TYPE_EXTENSIONS[t]) : ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'];
+  const maxMb = req?.maxSizeMb && req.maxSizeMb > 0 && req.maxSizeMb < 10 ? req.maxSizeMb : 10;
+  const kinds = (types.length ? types : ['pdf', 'jpg', 'png', 'doc']).map((t) => TYPE_LABELS[t]).join(', ');
+  return { accept: exts.map((e) => `.${e}`).join(','), exts, maxBytes: maxMb * 1024 * 1024, maxMb, hint: `${kinds} up to ${maxMb} MB` };
+}
+
 // The first file keeps the requirement's name, extras get "(2)", "(3)" so they share its slot.
 const partName = (label: string, i: number) => (i === 0 ? label : `${label} (${i + 1})`);
 // Fixed 18% GST applied to the service fee only (visa + VFS are untaxed), mirrors backend.
@@ -1061,16 +1071,20 @@ export default function ApplyPage() {
   const docKey = (tr: Traveler, reqName: string, suffix = '') => `${tr.key}::${reqName}${suffix}`;
 
   // Adds files to a document slot; a slot holds several files or one vault pick.
-  const pickFilesFor = (storeKey: string) => {
+  const pickFilesFor = (storeKey: string, req?: DocumentRequirement) => {
+    const rules = uploadRules(req);
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = ACCEPTED;
+    input.accept = rules.accept;
     input.multiple = true;
     input.onchange = (e: any) => {
       const picked: File[] = Array.from(e.target?.files || []);
-      const tooBig = picked.filter((f) => f.size > MAX_FILE_BYTES);
-      if (tooBig.length) toast({ title: 'File too large', description: `${tooBig.map((f) => f.name).join(', ')} is over 10 MB.`, variant: 'destructive' });
-      const ok = picked.filter((f) => f.size <= MAX_FILE_BYTES);
+      const extOk = (f: File) => rules.exts.includes(f.name.split('.').pop()?.toLowerCase() || '');
+      const wrongType = picked.filter((f) => !extOk(f));
+      if (wrongType.length) toast({ title: 'File type not accepted', description: `${wrongType.map((f) => f.name).join(', ')}: this document takes ${rules.hint}.`, variant: 'destructive' });
+      const tooBig = picked.filter((f) => extOk(f) && f.size > rules.maxBytes);
+      if (tooBig.length) toast({ title: 'File too large', description: `${tooBig.map((f) => f.name).join(', ')} is over ${rules.maxMb} MB.`, variant: 'destructive' });
+      const ok = picked.filter((f) => extOk(f) && f.size <= rules.maxBytes);
       if (!ok.length) return;
       setDocSources((prev) => {
         const cur = prev[storeKey];
@@ -1528,11 +1542,17 @@ export default function ApplyPage() {
           </div>
         )}
 
-        <div className="ml-11">
-          <button onClick={() => pickFilesFor(sk)} className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg border border-brand-100 transition-colors">
+        <div className="ml-11 flex items-center gap-3 flex-wrap">
+          <button onClick={() => pickFilesFor(sk, req)} className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg border border-brand-100 transition-colors">
             <Upload className="w-3.5 h-3.5" />
             {source?.type === 'files' ? 'Add more files' : 'Upload files'}
           </button>
+          {req.sampleUrl && (
+            <a href={req.sampleUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-semibold text-gold-700 hover:underline">
+              <FileText className="w-3.5 h-3.5" />View sample
+            </a>
+          )}
+          <span className="text-[11px] text-slate-400">{uploadRules(req).hint}</span>
         </div>
       </div>
     );
