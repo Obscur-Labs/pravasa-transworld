@@ -17,6 +17,15 @@ export const otpVerifyLimiter = limiter(50, 'Too many verification attempts from
 export const adminLoginLimiter = limiter(30, 'Too many sign-in attempts from this network. Please try again in a few minutes.');
 export const inquiryLimiter = limiter(30, 'Too many requests from this network. Please try again in a few minutes.');
 
+// Reviews: 3 a day per network keeps spam out of the moderation queue.
+export const reviewLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  limit: 3,
+  message: { success: false, message: 'You can send up to 3 reviews a day.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Per signed-in customer: looking up other customers' applications is capped so passport
 // numbers and dates of birth can't be guessed at.
 export const parentLookupLimiter = rateLimit({

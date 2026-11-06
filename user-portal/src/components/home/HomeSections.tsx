@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Clock, MessageCircle, Phone, Plane, Search } from 'lucide-react';
-import { getPublicCountries } from '@/lib/api';
+import api, { getPublicCountries } from '@/lib/api';
 import { useHasSession } from '@/lib/useHasSession';
 import { telHref, useBusinessInfo, whatsappHref } from '@/lib/business';
 import type { Country } from '@/types';
@@ -26,9 +26,11 @@ export default function HomeSections() {
   const biz = useBusinessInfo();
   const [countries, setCountries] = useState<Country[] | null>(null);
   const [query, setQuery] = useState('');
+  const [reviews, setReviews] = useState<{ _id: string; name: string; city: string; rating: number; text: string }[]>([]);
 
   useEffect(() => {
     getPublicCountries().then((r) => setCountries(r.data.data)).catch(() => setCountries([]));
+    api.get('/public/testimonials', { params: { featured: 'true' } }).then((r) => setReviews(r.data.data.items.slice(0, 3))).catch(() => {});
   }, []);
 
   const visas = useMemo(() => (countries ?? []).filter((c) => !c.arrivalCard), [countries]);
@@ -175,6 +177,26 @@ export default function HomeSections() {
                     {c.arrivalCard?.price ? <span className="text-xs text-slate-500">{formatCurrency(c.arrivalCard.price)}</span> : null}
                   </span>
                 </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {reviews.length > 0 && (
+        <section className="py-14 px-4 sm:px-6 lg:px-8 bg-[#f4f2ee]">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-end justify-between gap-4 mb-8">
+              <h2 className="text-3xl font-extrabold text-brand-950">What travellers say</h2>
+              <Link href="/testimonials" className="shrink-0 text-sm font-bold text-brand-950 hover:underline">All reviews</Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {reviews.map((r) => (
+                <figure key={r._id} className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <p className="text-gold-600" aria-label={`${r.rating} out of 5 stars`}>{'★'.repeat(r.rating)}</p>
+                  <blockquote className="mt-2 text-sm text-slate-700 leading-relaxed">{r.text}</blockquote>
+                  <figcaption className="mt-3 text-sm font-semibold text-brand-950">{r.name}{r.city ? <span className="font-normal text-slate-500"> · {r.city}</span> : null}</figcaption>
+                </figure>
               ))}
             </div>
           </div>

@@ -23,6 +23,7 @@ export default function Navbar() {
     { href: '/countries', label: 'Destinations' },
     { href: '/arrival-cards', label: 'Arrival Cards' },
     { href: '/b2b-agents', label: 'B2B Agents' },
+    { href: '/testimonials', label: 'Reviews' },
     { href: '/about', label: 'About' },
     { href: '/contact', label: 'Contact' },
   ];
