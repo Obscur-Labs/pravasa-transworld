@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import ReceiptConfig, { IReceiptConfig } from '../../models/ReceiptConfig';
 import { sendSuccess } from '../../utils/response';
+import { openNow } from '../../utils/businessHours';
 
 // Used until the admin fills Configurations > Receipt; matches the client's handoff.
 const DEFAULTS = {
@@ -25,5 +26,6 @@ export const getBusinessInfo = async (_req: Request, res: Response): Promise<voi
     email: c?.email?.trim() || DEFAULTS.email,
     website: c?.website?.trim() || DEFAULTS.website,
     businessHours: c?.businessHours?.trim() || DEFAULTS.businessHours,
+    openNow: c?.hoursSchedule?.length ? openNow(c.hoursSchedule) : null,
   });
 };

@@ -1,6 +1,10 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { SERVICE_KEYS, ServiceKey } from '../config/serviceInquiries';
 
+export const INQUIRY_STATUSES = ['new', 'open', 'awaiting_customer', 'converted', 'closed'] as const;
+export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
+
+
 export interface InquiryDetail {
   key: string;
   label: string;
@@ -18,6 +22,7 @@ export interface IServiceInquiry extends Document {
   /** Answers in form order, already formatted for display. */
   details: InquiryDetail[];
   read: boolean;
+  status: InquiryStatus;
   createdAt: Date;
 }
 
@@ -31,6 +36,7 @@ const ServiceInquirySchema = new Schema<IServiceInquiry>(
     summary: { type: String, default: '' },
     details: [{ _id: false, key: String, label: String, value: String }],
     read: { type: Boolean, default: false },
+    status: { type: String, enum: INQUIRY_STATUSES, default: 'new', index: true },
   },
   { timestamps: true }
 );

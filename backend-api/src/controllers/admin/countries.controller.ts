@@ -3,7 +3,7 @@ import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import Country from '../../models/Country';
 import { sendSuccess, sendError } from '../../utils/response';
 import { moveToTrash } from '../../utils/trash';
-import { logActivity } from '../../utils/activityLog';
+import { diffFields, logActivity } from '../../utils/activityLog';
 import { uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudinary.service';
 
 export const getCountries = async (_req: AdminRequest, res: Response): Promise<void> => {
@@ -29,9 +29,10 @@ export const createCountry = async (req: AdminRequest, res: Response): Promise<v
 };
 
 export const updateCountry = async (req: AdminRequest, res: Response): Promise<void> => {
+  const previous = await Country.findById(req.params.id).lean();
   const country = await Country.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
   if (!country) { sendError(res, 'Country not found', 404); return; }
-  logActivity(req, 'update', 'Country', country.name);
+  logActivity(req, 'update', 'Country', country.name, diffFields(previous, country.toObject(), ['name', 'code', 'isActive', 'showOnWebsite', 'description', 'embassyEmail', 'slug']));
   sendSuccess(res, country, 'Country updated');
 };
 

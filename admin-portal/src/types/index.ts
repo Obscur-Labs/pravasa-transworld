@@ -266,6 +266,8 @@ export interface ReceiptConfig {
   phone2: string;
   website: string;
   businessHours: string;
+  /** Day-by-day hours (Sunday = 0); businessHours is generated from it. */
+  hoursSchedule?: { day: number; open: boolean; from: string; to: string }[];
 }
 
 /** The house format every embassy mail starts from, one saved record, edited on the config page. */
@@ -436,6 +438,10 @@ export interface User {
   isActive: boolean;
   promoApplicable: boolean;
   createdAt: string;
+  /** From the customers list: totals across their applications and verified payments. */
+  applicationCount?: number;
+  lifetimeValue?: number;
+  lastActiveAt?: string | null;
 }
 
 export type CorporateType = 'corporate' | 'b2b_agent';
@@ -686,6 +692,8 @@ export interface TrashItem {
   sublabel: string;
   originalId: string;
   deletedAt: string;
+  /** Days until it is removed for good. */
+  daysLeft?: number;
 }
 
 export type ActivityAction = 'create' | 'update' | 'delete';
@@ -760,6 +768,10 @@ export interface AdminNotification {
   message: string;
   type: string;
   application: string | null;
+  /** The application's number, for grouping. */
+  applicationRef?: string;
+  /** Set on @mentions; only that member sees it. */
+  recipient?: string | null;
   read: boolean;
   createdAt: string;
 }
@@ -774,10 +786,13 @@ export interface ActivityLog {
   action: ActivityAction;
   entityType: string;
   entityLabel: string;
+  /** Before/after values, on entries that recorded them. */
+  changes?: { field: string; from: string; to: string }[];
   createdAt: string;
 }
 
-export type InquiryService = 'flight' | 'hotel' | 'transport' | 'insurance' | 'forex';
+export type InquiryService = 'flight' | 'hotel' | 'transport' | 'insurance' | 'forex' | 'b2b_agent';
+export type InquiryStatus = 'new' | 'open' | 'awaiting_customer' | 'converted' | 'closed';
 
 /** A request from one of the website's "More Services" forms. */
 export interface ServiceInquiry {
@@ -791,6 +806,7 @@ export interface ServiceInquiry {
   /** Answers in form order, already formatted for display. */
   details: { key: string; label: string; value: string }[];
   read: boolean;
+  status?: InquiryStatus;
   createdAt: string;
 }
 
@@ -801,5 +817,6 @@ export interface ContactLead {
   phone: string;
   message: string;
   read: boolean;
+  status?: InquiryStatus;
   createdAt: string;
 }

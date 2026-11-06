@@ -38,7 +38,8 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
 
   try {
     const countryCode = (app.country?.flag || 'XX').toUpperCase();
-    const yearShort = new Date().getFullYear().toString().slice(-2);
+    // From the payment date, so the number matches the GST register.
+    const yearShort = new Date(payment.paidAt || Date.now()).getFullYear().toString().slice(-2);
     const appLastNum = (app.referenceId || '').split('-').pop() || '0000';
 
     const allPayments = await Payment.find({ application: app._id, status: 'completed' }).sort({ paidAt: 1 });

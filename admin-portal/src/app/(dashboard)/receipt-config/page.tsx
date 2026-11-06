@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getReceiptConfig, updateReceiptConfig, downloadDemoReceipt } from '@/lib/api';
 import type { ReceiptConfig } from '@/types';
+import { BusinessHoursCard } from '@/components/shared/business-hours-card';
 
 type FormState = Omit<ReceiptConfig, '_id'>;
 
@@ -19,7 +20,7 @@ const empty: FormState = {
   phone2: '', website: '', businessHours: '',
 };
 
-const FIELDS: { key: keyof FormState; label: string; placeholder: string; span?: 1 | 2 }[] = [
+const FIELDS: { key: Exclude<keyof FormState, 'hoursSchedule'>; label: string; placeholder: string; span?: 1 | 2 }[] = [
   { key: 'companyName', label: 'Company Name', placeholder: 'e.g. Pravasa Transworld Pvt. Ltd.', span: 2 },
   { key: 'addressLine1', label: 'Address Line 1', placeholder: 'Building, street', span: 2 },
   { key: 'addressLine2', label: 'Address Line 2', placeholder: 'City, state, PIN', span: 2 },
@@ -28,7 +29,6 @@ const FIELDS: { key: keyof FormState; label: string; placeholder: string; span?:
   { key: 'fax', label: 'Fax', placeholder: 'Optional' },
   { key: 'email', label: 'Email', placeholder: 'billing@yourcompany.com' },
   { key: 'website', label: 'Website', placeholder: 'www.pravasatransworld.com' },
-  { key: 'businessHours', label: 'Business Hours', placeholder: 'Mon–Sat 10 AM – 7 PM IST' },
   { key: 'logoUrl', label: 'Logo URL', placeholder: 'https://... (optional)' },
   { key: 'gstin', label: 'Company GSTIN', placeholder: 'e.g. 27AACCA7715P1Z9' },
   { key: 'pan', label: 'Company PAN', placeholder: 'e.g. AACCA7715P' },
@@ -135,6 +135,14 @@ export default function ReceiptConfigPage() {
           </div>
         </CardContent>
       </Card>
+
+      {!loading && (
+        <BusinessHoursCard
+          schedule={form.hoursSchedule}
+          label={form.businessHours}
+          onSaved={(businessHours, hoursSchedule) => setForm((f) => ({ ...f, businessHours, hoursSchedule }))}
+        />
+      )}
     </div>
   );
 }

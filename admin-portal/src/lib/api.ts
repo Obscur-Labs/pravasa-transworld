@@ -136,6 +136,7 @@ export const deleteVisaConfigOption = (id: string) => api.delete(`/admin/visa-co
 // Receipt Config
 export const getReceiptConfig = () => api.get('/admin/receipt-config');
 export const updateReceiptConfig = (data: object) => api.put('/admin/receipt-config', data);
+export const updateBusinessHours = (schedule: object[]) => api.put('/admin/receipt-config/hours', { schedule });
 export const downloadDemoReceipt = () => api.get('/admin/receipt-config/demo', { responseType: 'blob' });
 
 // Embassy Mail
@@ -149,14 +150,15 @@ export const sendEmbassyMail = (
 ) => api.post(`/admin/applications/${id}/embassy-mail`, data);
 
 // Activity Logs
-export const getActivityLogs = (params: { admin?: string; module?: string; action?: string } = {}) => api.get('/admin/activity-logs', { params });
-export const deleteAllActivityLogs = () => api.delete('/admin/activity-logs');
+export const getActivityLogs = (params: { admin?: string; module?: string; action?: string; search?: string } = {}) => api.get('/admin/activity-logs', { params });
+export const exportActivityLogsCsv = (params: { admin?: string; module?: string; action?: string; search?: string } = {}) =>
+  api.get('/admin/activity-logs/export.csv', { params, responseType: 'blob' });
 
 // Trash
 export const getTrash = () => api.get('/admin/trash');
 export const restoreTrashItem = (id: string) => api.put(`/admin/trash/${id}/restore`);
-export const deleteTrashItem = (id: string) => api.delete(`/admin/trash/${id}`);
-export const emptyTrash = () => api.delete('/admin/trash');
+export const deleteTrashItem = (id: string, confirm: string) => api.delete(`/admin/trash/${id}`, { data: { confirm } });
+export const emptyTrash = (confirm: string) => api.delete('/admin/trash', { data: { confirm } });
 
 // Applications
 export const getApplications = (params?: object) => api.get('/admin/applications', { params });
@@ -205,6 +207,7 @@ export const updatePaymentConfig = (data: object) => api.put('/admin/payment-con
 
 // Users
 export const getUsers = () => api.get('/admin/users');
+export const exportUsersCsv = () => api.get('/admin/users/export.csv', { responseType: 'blob' });
 export const createUser = (data: object) => api.post('/admin/users', data);
 export const updateUser = (userId: string, data: object) => api.put(`/admin/users/${userId}`, data);
 export const deleteUser = (userId: string) => api.delete(`/admin/users/${userId}`);
@@ -231,6 +234,8 @@ export const deleteLead = (id: string) => api.delete(`/admin/leads/${id}`);
 export const getServiceInquiries = () => api.get('/admin/inquiries');
 export const markServiceInquiryRead = (id: string) => api.patch(`/admin/inquiries/${id}/read`);
 export const deleteServiceInquiry = (id: string) => api.delete(`/admin/inquiries/${id}`);
+export const setInquiryStatus = (kind: 'lead' | 'inquiry', id: string, status: string) =>
+  api.patch(`/admin/inquiry-status/${kind}/${id}`, { status });
 
 // Notifications
 export const getAdminNotifications = (before?: string) => api.get('/admin/notifications', { params: { before } });
@@ -238,3 +243,7 @@ export const markAdminNotificationRead = (id: string) => api.put(`/admin/notific
 export const markAllAdminNotificationsRead = () => api.put('/admin/notifications/read-all');
 export const deleteAdminNotification = (id: string) => api.delete(`/admin/notifications/${id}`);
 export const deleteAllAdminNotifications = () => api.delete('/admin/notifications/all');
+export const getNotificationPreferences = () => api.get('/admin/notifications/preferences');
+export const updateNotificationPreferences = (muted: string[]) => api.put('/admin/notifications/preferences', { muted });
+export const getApplicationNotes = (id: string) => api.get(`/admin/applications/${id}/notes`);
+export const addApplicationNote = (id: string, data: { text: string; mentions: string[] }) => api.post(`/admin/applications/${id}/notes`, data);

@@ -3,8 +3,9 @@ import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import ReceiptConfig from '../../models/ReceiptConfig';
 import { generateReceiptPDF, ReceiptData } from '../../services/pdf.service';
 import { getCompanyInfo } from '../../utils/receiptData';
-import { logActivity } from '../../utils/activityLog';
-import { sendSuccess } from '../../utils/response';
+import { diffFields, logActivity } from '../../utils/activityLog';
+import { cleanSchedule, summarizeSchedule } from '../../utils/businessHours';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const EDITABLE_FIELDS = [
   'companyName', 'addressLine1', 'addressLine2', 'phone', 'fax', 'email',
@@ -22,8 +23,9 @@ export const updateReceiptConfig = async (req: AdminRequest, res: Response): Pro
   for (const field of EDITABLE_FIELDS) {
     if (req.body[field] !== undefined) update[field] = String(req.body[field]);
   }
+  const previous = await ReceiptConfig.findOne().lean();
   const config = await ReceiptConfig.findOneAndUpdate({}, update, { upsert: true, new: true, setDefaultsOnInsert: true });
-  logActivity(req, 'update', 'Receipt Config', config.companyName);
+  logActivity(req, 'update', 'Receipt Config', config.companyName, diffFields(previous, config.toObject(), Object.keys(update)));
   sendSuccess(res, config, 'Receipt settings updated');
 };
 
@@ -69,4 +71,15 @@ export const downloadDemoReceipt = async (_req: AdminRequest, res: Response): Pr
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="receipt-demo.pdf"');
   res.end(pdfBuffer);
+};
+
+/** Saves the weekly opening hours and rewrites the website's hours line from them. */
+export const updateBusinessHours = async (req: AdminRequest, res: Response): Promise<void> => {
+  const result = cleanSchedule(req.body?.schedule);
+  if ('error' in result) { sendError(res, result.error); return; }
+  const previous = await ReceiptConfig.findOne().lean();
+  const businessHours = summarizeSchedule(result.schedule);
+  const config = await ReceiptConfig.findOneAndUpdate({}, { $set: { hoursSchedule: result.schedule, businessHours } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  logActivity(req, 'update', 'Business Hours', businessHours, diffFields(previous, config.toObject(), ['businessHours']));
+  sendSuccess(res, config, 'Business hours saved');
 };

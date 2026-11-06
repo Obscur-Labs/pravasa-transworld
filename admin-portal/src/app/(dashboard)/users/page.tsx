@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Search, ChevronRight, Users, User, Building2, Tag, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Search, ChevronRight, Users, User, Building2, Tag, Plus, Pencil, Trash2, Download, Loader2, IndianRupee } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Pagination, usePagination } from '@/components/ui/pagination';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { CustomerFormDialog } from '@/components/shared/customer-form-dialog';
-import { getUsers, toggleUserPromoApplicable, deleteUser } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { getUsers, toggleUserPromoApplicable, deleteUser, exportUsersCsv } from '@/lib/api';
+import { formatCurrency, formatDate, formatNumber, timeAgo } from '@/lib/utils';
+import { toast } from '@/components/ui/use-toast';
 import type { User as IUser } from '@/types';
 
 type Tab = 'individual' | 'corporate';
@@ -27,7 +28,25 @@ export default function CustomersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<IUser | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<IUser | null>(null);
+  const [exporting, setExporting] = useState(false);
   const router = useRouter();
+
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const r = await exportUsersCsv();
+      const url = URL.createObjectURL(r.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Export failed', variant: 'destructive' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     getUsers()
@@ -80,28 +99,35 @@ export default function CustomersPage() {
   const individualCount = allUsers.filter((u) => (u.accountType || 'individual') === 'individual').length;
   const corporateCount = allUsers.filter((u) => u.accountType === 'corporate').length;
 
-  const columns = ['Customer', 'Email', 'Phone', ...(tab === 'corporate' ? ['GST Number'] : []), 'Joined', 'Status', 'Promo', ''];
+  const lifetimeTotal = allUsers.reduce((t, u) => t + (u.lifetimeValue || 0), 0);
+  const columns = ['Customer', 'Phone', ...(tab === 'corporate' ? ['GST Number'] : []), 'Applications', 'Lifetime value', 'Last active', 'Status', 'Promo', ''];
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader
         title="Customers"
-        description={`${allUsers.length} registered customers`}
+        description={`${formatNumber(allUsers.length)} registered customers`}
         action={
-          <Button onClick={openCreate}>
-            <Plus className="w-4 h-4 mr-2" /> Add Customer
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportCsv} disabled={exporting || allUsers.length === 0}>
+              {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}Export CSV
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="w-4 h-4 mr-2" /> Add Customer
+            </Button>
+          </div>
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {loading ? (
-          Array.from({ length: 3 }).map((_, i) => <StatTile key={i} loading label="" value="" icon={Users} tone="" />)
+          Array.from({ length: 4 }).map((_, i) => <StatTile key={i} loading label="" value="" icon={Users} tone="" />)
         ) : (
           <>
-            <StatTile label="Total Customers" value={allUsers.length} icon={Users} tone="text-primary bg-primary/10" />
-            <StatTile label="Individual" value={individualCount} icon={User} tone="text-info bg-info/10" />
-            <StatTile label="Corporate" value={corporateCount} icon={Building2} tone="text-warning bg-warning/10" />
+            <StatTile label="Total Customers" value={formatNumber(allUsers.length)} icon={Users} tone="text-primary bg-primary/10" />
+            <StatTile label="Individual" value={formatNumber(individualCount)} icon={User} tone="text-info bg-info/10" />
+            <StatTile label="Corporate & B2B" value={formatNumber(corporateCount)} icon={Building2} tone="text-warning bg-warning/10" />
+            <StatTile label="Lifetime value (verified payments)" value={formatCurrency(lifetimeTotal)} icon={IndianRupee} tone="text-success bg-success/10" />
           </>
         )}
       </div>
@@ -174,18 +200,25 @@ export default function CustomersPage() {
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tab === 'corporate' ? 'bg-warning/10' : 'bg-primary/10'}`}>
                         <span className={`text-xs font-semibold ${tab === 'corporate' ? 'text-warning' : 'text-primary'}`}>{u.name?.[0]?.toUpperCase()}</span>
                       </div>
-                      <span className="font-medium text-foreground">{u.name}</span>
-                      {tab === 'corporate' && u.corporateType === 'b2b_agent' && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400">B2B</span>
-                      )}
+                      <span className="min-w-0">
+                        <span className="block font-medium text-foreground">{u.name}</span>
+                        <span className="block text-xs text-muted-foreground truncate">{u.email}</span>
+                      </span>
+                      <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                        u.accountType !== 'corporate' ? 'bg-info/10 text-info' : u.corporateType === 'b2b_agent' ? 'bg-primary/10 text-primary' : 'bg-warning/10 text-warning'}`}>
+                        {u.accountType !== 'corporate' ? 'Individual' : u.corporateType === 'b2b_agent' ? 'B2B' : 'Corporate'}
+                      </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.phone}</TableCell>
+                  <TableCell className="text-muted-foreground whitespace-nowrap">{u.phone}</TableCell>
                   {tab === 'corporate' && (
                     <TableCell className="text-muted-foreground font-mono text-xs">{u.gstNumber || '-'}</TableCell>
                   )}
-                  <TableCell className="text-muted-foreground">{formatDate(u.createdAt)}</TableCell>
+                  <TableCell className="tabular-nums">{formatNumber(u.applicationCount || 0)}</TableCell>
+                  <TableCell className="font-semibold tabular-nums whitespace-nowrap">{formatCurrency(u.lifetimeValue || 0)}</TableCell>
+                  <TableCell className="text-muted-foreground whitespace-nowrap text-xs" title={`Joined ${formatDate(u.createdAt)}`}>
+                    {u.lastActiveAt ? timeAgo(u.lastActiveAt) : `Joined ${formatDate(u.createdAt)}`}
+                  </TableCell>
                   <TableCell>
                     <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${u.isActive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
                       {u.isActive ? 'Active' : 'Inactive'}
@@ -196,7 +229,7 @@ export default function CustomersPage() {
                       onClick={(e) => handlePromoToggle(e, u)}
                       disabled={toggling === u._id}
                       title={u.promoApplicable !== false ? 'Disable promos for this user' : 'Enable promos for this user'}
-                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors ${u.promoApplicable !== false ? 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20' : 'bg-muted text-muted-foreground hover:bg-muted-foreground/10'}`}
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors ${u.promoApplicable !== false ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-muted text-muted-foreground hover:bg-muted-foreground/10'}`}
                     >
                       <Tag className="w-3 h-3" />
                       {u.promoApplicable !== false ? 'Eligible' : 'Blocked'}

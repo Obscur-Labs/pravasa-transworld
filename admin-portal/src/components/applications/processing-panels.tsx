@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
 import { toast } from '@/components/ui/use-toast';
+import { formatDate } from '@/lib/utils';
 import {
   downloadCarryChecklist, markAdditionalDocsSubmitted, requestAdditionalDocs, updateDispatch,
   updateParentLink, updateTravellerSubmission, updateVfsAppointment,
@@ -397,7 +398,7 @@ export function AdditionalDocsPanel({ application, documents, onChanged }: { app
         {ad?.items.length ? (
           <>
             <p className="text-xs text-muted-foreground">
-              {ad.note}{ad.dueDate && <> · due {new Date(ad.dueDate).toLocaleDateString('en-IN')}</>}
+              {ad.note}{ad.dueDate && <> · due {formatDate(ad.dueDate)}</>}
             </p>
             <div className="space-y-1.5">
               {ad.items.map((i) => {

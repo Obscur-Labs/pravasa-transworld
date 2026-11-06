@@ -464,6 +464,7 @@ async function changeStatus(
   if (await startsWorkUnpaid(application, status)) return 'Verify the payment before moving this application into processing';
 
   const { rejectionReason, adminNotes, processingReferenceNumber, embassyName, submissionDate, expectedDate } = extras as Record<string, string | undefined>;
+  const previousStatus = application.status;
   application.status = status as ApplicationStatus;
   if (rejectionReason) application.rejectionReason = rejectionReason;
   if (adminNotes) application.adminNotes = adminNotes;
@@ -475,7 +476,8 @@ async function changeStatus(
 
   const user = application.user as unknown as { name: string; email: string };
   const label = STATUS_LABELS[status as ApplicationStatus] || status;
-  logActivity(req, 'update', 'Application', `${application.referenceId} → ${label}${notify ? '' : ' (customer not notified)'}`);
+  logActivity(req, 'update', 'Application', `${application.referenceId} → ${label}${notify ? '' : ' (customer not notified)'}`,
+    previousStatus !== status ? [{ field: 'status', from: STATUS_LABELS[previousStatus] || previousStatus, to: label }] : undefined);
   if (status === 'visa_rejected') await markChildrenBroken(application, 'was rejected');
   if (!notify) return null;
 
@@ -735,11 +737,47 @@ export const deleteApplication = async (req: AdminRequest, res: Response): Promi
   sendSuccess(res, null, 'Application moved to trash');
 };
 
+/** Per-customer totals: applications, verified payments (lifetime value) and last activity. */
+async function customerTotals(userIds: unknown[]) {
+  const [apps, paid] = await Promise.all([
+    Application.aggregate([{ $match: { user: { $in: userIds } } }, { $group: { _id: '$user', count: { $sum: 1 }, last: { $max: '$updatedAt' } } }]),
+    Payment.aggregate([{ $match: { user: { $in: userIds }, status: 'completed' } }, { $group: { _id: '$user', total: { $sum: '$amount' } } }]),
+  ]);
+  const appsOf = new Map(apps.map((a) => [String(a._id), a]));
+  const paidOf = new Map(paid.map((p) => [String(p._id), p.total as number]));
+  return (id: unknown) => ({
+    applicationCount: appsOf.get(String(id))?.count ?? 0,
+    lifetimeValue: paidOf.get(String(id)) ?? 0,
+    lastActiveAt: appsOf.get(String(id))?.last ?? null,
+  });
+}
+
 export const getUsers = async (req: AdminRequest, res: Response): Promise<void> => {
   const filter: Record<string, unknown> = {};
   if (req.query.accountType) filter.accountType = req.query.accountType;
   const users = await User.find(filter).sort({ createdAt: -1 });
-  sendSuccess(res, users);
+  const totals = await customerTotals(users.map((u) => u._id));
+  sendSuccess(res, users.map((u) => ({ ...u.toJSON(), ...totals(u._id) })));
+};
+
+const customerType = (u: { accountType?: string; corporateType?: string }) =>
+  u.accountType !== 'corporate' ? 'Individual' : u.corporateType === 'b2b_agent' ? 'B2B agent' : 'Corporate';
+
+export const exportUsersCsv = async (req: AdminRequest, res: Response): Promise<void> => {
+  const users = await User.find(req.query.accountType ? { accountType: req.query.accountType } : {}).sort({ createdAt: -1 }).limit(20000).lean();
+  const totals = await customerTotals(users.map((u) => u._id));
+  const day = (d?: Date | null) => (d ? new Date(new Date(d).getTime() + 5.5 * 3600000).toISOString().slice(0, 10) : '');
+  const rows = [
+    ['Name', 'Email', 'Phone', 'Type', 'GSTIN', 'Applications', 'Lifetime value (INR)', 'Joined', 'Last active'],
+    ...users.map((u) => {
+      const t = totals(u._id);
+      return [u.name, u.email, u.phone, customerType(u), u.gstNumber || '', t.applicationCount, t.lifetimeValue, day(u.createdAt as Date), day(t.lastActiveAt)];
+    }),
+  ];
+  logActivity(req, 'create', 'Report Export', `Customers CSV (${users.length} rows)`);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="customers-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.end(`\uFEFF${rows.map((r) => r.map(csvCell).join(',')).join('\r\n')}`);
 };
 
 export const getUserApplications = async (req: AdminRequest, res: Response): Promise<void> => {
@@ -761,7 +799,7 @@ export const downloadApplicationReceipt = async (req: AdminRequest, res: Respons
   const app = payment.application as any;
 
   const countryCode = (app.country?.flag || 'XX').toUpperCase();
-  const yearShort = new Date().getFullYear().toString().slice(-2);
+  const yearShort = new Date(payment.paidAt || Date.now()).getFullYear().toString().slice(-2);
   const appLastNum = (app.referenceId || '').split('-').pop() || '0000';
 
   const allPayments = await Payment.find({ application: app._id, status: 'completed' }).sort({ paidAt: 1 });

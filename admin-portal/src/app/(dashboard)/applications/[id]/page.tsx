@@ -24,6 +24,7 @@ import { PaymentProofLink } from '@/components/shared/payment-proof-link';
 import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import type { Application, Document, EmbassyMail, LinkedChild, LinkedParent, Payment, PaymentStatus, VisaFile } from '@/types';
 import { AdditionalDocsPanel, DispatchPanel, ParentLinkCard, VfsPanel } from '@/components/applications/processing-panels';
+import { NotesCard } from '@/components/applications/notes-card';
 import { STATUS_LABELS, SELECTABLE_STATUSES, PIPELINE_STAGES, stageIndexOf } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -676,6 +677,8 @@ export default function AdminApplicationDetailPage() {
           {(application.dispatch || ['visa_approved', 'visa_delivered'].includes(application.status)) && (
             <DispatchPanel application={application} visaFile={visaFile} onChanged={fetchData} />
           )}
+
+          <NotesCard applicationId={application._id} />
         </div>
 
         {/* Right Panel */}

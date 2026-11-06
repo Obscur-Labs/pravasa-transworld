@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  Mail, Phone, MapPin, Trash2, Eye, MessageSquare, Search, Plane, Hotel, Bus, ShieldCheck, Banknote, MessageCircle,
+  Mail, Phone, MapPin, Trash2, Eye, MessageSquare, Search, Plane, Hotel, Bus, ShieldCheck, Banknote, MessageCircle, Briefcase,
 } from 'lucide-react';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
@@ -13,10 +14,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/use-toast';
 import {
-  getLeads, markLeadRead, deleteLead, getServiceInquiries, markServiceInquiryRead, deleteServiceInquiry,
+  getLeads, markLeadRead, deleteLead, getServiceInquiries, markServiceInquiryRead, deleteServiceInquiry, setInquiryStatus,
 } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
-import type { ContactLead, InquiryService, ServiceInquiry } from '@/types';
+import { formatDateTimeIST } from '@/lib/utils';
+import type { ContactLead, InquiryService, InquiryStatus, ServiceInquiry } from '@/types';
 import { useBadgesStore } from '@/store/badges.store';
 
 type Tab = 'contact' | InquiryService;
@@ -28,6 +29,23 @@ const TABS: { key: Tab; label: string; icon: LucideIcon }[] = [
   { key: 'transport', label: 'Transport', icon: Bus },
   { key: 'insurance', label: 'Insurance', icon: ShieldCheck },
   { key: 'forex', label: 'Forex', icon: Banknote },
+  { key: 'b2b_agent', label: 'B2B agents', icon: Briefcase },
+];
+
+const STATUSES: { key: InquiryStatus; label: string; tone: string }[] = [
+  { key: 'new', label: 'New', tone: 'bg-primary/10 text-primary' },
+  { key: 'open', label: 'Open', tone: 'bg-info/10 text-info' },
+  { key: 'awaiting_customer', label: 'Awaiting customer', tone: 'bg-warning/10 text-warning' },
+  { key: 'converted', label: 'Converted', tone: 'bg-success/10 text-success' },
+  { key: 'closed', label: 'Closed', tone: 'bg-muted text-muted-foreground' },
+];
+
+// One tap fills the reply; the team edits it in WhatsApp or the mail app before sending.
+const REPLIES: { label: string; text: (name: string) => string }[] = [
+  { label: 'Thanks, calling soon', text: (n) => `Namaste ${n}, thank you for contacting Pravasa Transworld. Our team will call you shortly.` },
+  { label: 'Need more details', text: (n) => `Namaste ${n}, thanks for your request. Could you share your travel dates and the number of travellers so we can help you faster?` },
+  { label: 'Quote ready', text: (n) => `Namaste ${n}, your quote is ready. Please let us know a good time to walk you through the options.` },
+  { label: 'Documents checklist', text: (n) => `Namaste ${n}, here is what we need to start: passport front and back, a recent photo with white background, and your travel dates.` },
 ];
 
 /** Contact leads and service inquiries in one shape, so a single card renders both. */
@@ -42,19 +60,20 @@ interface Item {
   message: string;
   details: { label: string; value: string }[];
   read: boolean;
+  status: InquiryStatus;
   createdAt: string;
 }
 
 const fromLead = (l: ContactLead): Item => ({
   _id: l._id, tab: 'contact', name: l.name, email: l.email, phone: l.phone || '', location: '',
-  summary: '', message: l.message, details: [], read: l.read, createdAt: l.createdAt,
+  summary: '', message: l.message, details: [], read: l.read, status: l.status || (l.read ? 'open' : 'new'), createdAt: l.createdAt,
 });
 
 // Free-text notes read better as a paragraph than as a grid cell.
 const fromInquiry = (q: ServiceInquiry): Item => ({
   _id: q._id, tab: q.service, name: q.name, email: q.email, phone: q.phone, location: q.location,
   summary: q.summary, message: q.details.find((d) => d.key === 'notes')?.value || '',
-  details: q.details.filter((d) => d.key !== 'notes'), read: q.read, createdAt: q.createdAt,
+  details: q.details.filter((d) => d.key !== 'notes'), read: q.read, status: q.status || (q.read ? 'open' : 'new'), createdAt: q.createdAt,
 });
 
 const TAB_PARAM = 'tab';
@@ -65,6 +84,7 @@ export default function InquiriesPage() {
   const [tab, setTab] = useState<Tab>('contact');
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
+  const [statusFilter, setStatusFilter] = useState<InquiryStatus | ''>('');
 
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get(TAB_PARAM);
@@ -85,6 +105,7 @@ export default function InquiriesPage() {
   const selectTab = (next: Tab) => {
     setTab(next);
     setSearch('');
+    setStatusFilter('');
     const url = new URL(window.location.href);
     url.searchParams.set(TAB_PARAM, next);
     window.history.replaceState(null, '', url);
@@ -97,6 +118,18 @@ export default function InquiriesPage() {
       useBadgesStore.getState().refresh();
     } catch {
       toast({ title: 'Failed to update', variant: 'destructive' });
+    }
+  };
+
+  const handleStatus = async (item: Item, status: InquiryStatus) => {
+    const before = items;
+    setItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, status, read: true } : i)));
+    try {
+      await setInquiryStatus(item.tab === 'contact' ? 'lead' : 'inquiry', item._id, status);
+      useBadgesStore.getState().refresh();
+    } catch {
+      setItems(before);
+      toast({ title: 'Could not update the status', variant: 'destructive' });
     }
   };
 
@@ -113,10 +146,11 @@ export default function InquiriesPage() {
 
   const inTab = items.filter((i) => i.tab === tab);
   const s = search.trim().toLowerCase();
-  const filtered = !s ? inTab : inTab.filter((i) =>
+  const byStatus = statusFilter ? inTab.filter((i) => i.status === statusFilter) : inTab;
+  const filtered = !s ? byStatus : byStatus.filter((i) =>
     [i.name, i.email, i.phone, i.location, i.summary, i.message, ...i.details.map((d) => d.value)]
       .some((v) => v.toLowerCase().includes(s)));
-  const { pageItems, paginationProps } = usePagination(filtered, 'inquiries', `${tab}|${search}`);
+  const { pageItems, paginationProps } = usePagination(filtered, 'inquiries', `${tab}|${search}|${statusFilter}`);
   const totalUnread = items.filter((i) => !i.read).length;
   const activeLabel = TABS.find((t) => t.key === tab)!.label.toLowerCase();
 
@@ -165,6 +199,18 @@ export default function InquiriesPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-1.5 mb-4" role="group" aria-label="Status">
+        {[{ key: '' as const, label: 'All' }, ...STATUSES].map((st) => {
+          const count = st.key ? inTab.filter((i) => i.status === st.key).length : inTab.length;
+          return (
+            <button key={st.key || 'all'} type="button" aria-pressed={statusFilter === st.key} onClick={() => setStatusFilter(st.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${statusFilter === st.key ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+              {st.label} <span className="tabular-nums opacity-80">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="relative max-w-sm mb-5">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -182,7 +228,7 @@ export default function InquiriesPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={TABS.find((t) => t.key === tab)!.icon}
-          title={inTab.length === 0 ? `No ${activeLabel} inquiries yet` : 'Nothing matches your search'}
+          title={inTab.length === 0 ? `No ${activeLabel} inquiries yet` : 'Nothing matches your filters'}
         />
       ) : (
         <div className="space-y-3">
@@ -198,13 +244,11 @@ export default function InquiriesPage() {
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
                       <span className="font-semibold text-foreground text-sm">{item.name}</span>
-                      {!item.read && (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary" />New
-                        </span>
-                      )}
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUSES.find((st) => st.key === item.status)?.tone}`}>
+                        {STATUSES.find((st) => st.key === item.status)?.label}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground flex-shrink-0">{formatDate(item.createdAt)}</span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">{formatDateTimeIST(item.createdAt)}</span>
                   </div>
 
                   {item.summary && <p className="text-sm font-medium text-foreground mb-3">{item.summary}</p>}
@@ -245,9 +289,34 @@ export default function InquiriesPage() {
                       </span>
                     )}
                   </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mr-1">Reply</span>
+                    {REPLIES.map((r) => {
+                      const first = item.name.split(' ')[0];
+                      const text = r.text(first);
+                      return digits ? (
+                        <a key={r.label} href={`https://wa.me/${digits}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer"
+                          onClick={() => item.status === 'new' && handleStatus(item, 'open')}
+                          className="text-[11px] px-2 py-1 rounded-full border border-border text-muted-foreground hover:border-success/40 hover:text-success">
+                          {r.label}
+                        </a>
+                      ) : item.email ? (
+                        <a key={r.label} href={`mailto:${item.email}?subject=${encodeURIComponent('Your enquiry with Pravasa Transworld')}&body=${encodeURIComponent(text)}`}
+                          onClick={() => item.status === 'new' && handleStatus(item, 'open')}
+                          className="text-[11px] px-2 py-1 rounded-full border border-border text-muted-foreground hover:border-primary/40 hover:text-primary">
+                          {r.label}
+                        </a>
+                      ) : null;
+                    })}
+                  </div>
                 </div>
 
-                <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  <NativeSelect className="h-8 w-auto text-xs" value={item.status} aria-label="Status"
+                    onChange={(e) => handleStatus(item, e.target.value as InquiryStatus)}>
+                    {STATUSES.map((st) => <option key={st.key} value={st.key}>{st.label}</option>)}
+                  </NativeSelect>
                   {!item.read && (
                     <button
                       onClick={() => handleMarkRead(item)}

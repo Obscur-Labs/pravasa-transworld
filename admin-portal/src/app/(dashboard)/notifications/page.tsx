@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Bell, CheckCheck, Clock, CreditCard, FileText, Loader2, MessageSquare, RefreshCw, Trash2, Truck, X,
+  AtSign, Bell, CheckCheck, Clock, CreditCard, FileText, Layers, Loader2, MessageSquare, RefreshCw, Settings2, Trash2, Truck, X,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,11 @@ import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from '@/components/ui/use-toast';
+import { getNotificationPreferences, updateNotificationPreferences } from '@/lib/api';
 import { useSocket } from '@/components/providers/SocketProvider';
-import { cn, formatDate, timeAgo } from '@/lib/utils';
+import { cn, formatDate, formatDateTimeIST, timeAgo } from '@/lib/utils';
 import type { AdminNotification } from '@/types';
 
 const TYPE_STYLE: Record<string, { icon: LucideIcon; tone: string }> = {
@@ -25,7 +28,36 @@ const TYPE_STYLE: Record<string, { icon: LucideIcon; tone: string }> = {
   payment_failed: { icon: CreditCard, tone: 'bg-destructive/10 text-destructive' },
   courier_shipped: { icon: Truck, tone: 'bg-warning/10 text-warning' },
   status_update: { icon: RefreshCw, tone: 'bg-info/10 text-info' },
+  mention: { icon: AtSign, tone: 'bg-warning/10 text-warning' },
 };
+
+type Filter = 'all' | 'unread' | 'mentions' | 'payments';
+const PAYMENT_TYPES = new Set(['payment_received', 'payment_submitted', 'payment_reminder', 'payment_failed']);
+const FILTERS: Record<Filter, (n: AdminNotification) => boolean> = {
+  all: () => true,
+  unread: (n) => !n.read,
+  mentions: (n) => n.type === 'mention',
+  payments: (n) => PAYMENT_TYPES.has(n.type),
+};
+
+const CATEGORY_LABELS: Record<string, { label: string; hint: string }> = {
+  applications: { label: 'Applications', hint: 'New applications, status changes, courier updates' },
+  payments: { label: 'Payments', hint: 'Payments submitted, verified, reminders' },
+  inquiries: { label: 'Inquiries', hint: 'Contact messages and service requests' },
+  general: { label: 'Other', hint: 'Extra documents uploaded, broken family links' },
+};
+
+/** Notifications about the same application sit together, newest group first. */
+function groupByApplication(items: AdminNotification[]) {
+  const groups = new Map<string, { label: string; application: string | null; items: AdminNotification[] }>();
+  for (const n of items) {
+    const key = n.application || 'none';
+    const g = groups.get(key) ?? { label: n.applicationRef || (n.application ? 'Application' : 'Other'), application: n.application, items: [] };
+    g.items.push(n);
+    groups.set(key, g);
+  }
+  return [...groups.values()];
+}
 const FALLBACK_STYLE = { icon: Bell, tone: 'bg-muted text-muted-foreground' };
 
 function groupByDay(items: AdminNotification[]) {
@@ -51,11 +83,34 @@ export default function AdminNotificationsPage() {
   const {
     notifications, unreadCount, loading, hasMore, loadMore, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications,
   } = useSocket();
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [byApplication, setByApplication] = useState(false);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [prefs, setPrefs] = useState<{ categories: string[]; muted: string[] } | null>(null);
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
-  const visible = filter === 'unread' ? notifications.filter((n) => !n.read) : notifications;
+  useEffect(() => {
+    if (prefsOpen && !prefs) getNotificationPreferences().then((r) => setPrefs(r.data.data)).catch(() => {});
+  }, [prefsOpen, prefs]);
+
+  const savePrefs = async () => {
+    if (!prefs) return;
+    setSavingPrefs(true);
+    try {
+      await updateNotificationPreferences(prefs.muted);
+      toast({ title: 'Preferences saved', description: 'Muted categories stop appearing from now on.', variant: 'success' });
+      setPrefsOpen(false);
+    } catch {
+      toast({ title: 'Could not save', variant: 'destructive' });
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const visible = notifications.filter(FILTERS[filter]);
+  const mentionCount = notifications.filter((n) => n.type === 'mention' && !n.read).length;
   const { pageItems, paginationProps } = usePagination(visible, 'notifications', filter);
   const onLastPage = !paginationProps.pageSize || paginationProps.page * paginationProps.pageSize >= visible.length;
 
@@ -77,6 +132,9 @@ export default function AdminNotificationsPage() {
                 <CheckCheck className="w-4 h-4 mr-2" />Mark all read
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={() => setPrefsOpen(true)}>
+              <Settings2 className="w-4 h-4 mr-2" />Preferences
+            </Button>
             {notifications.length > 0 && (
               <Button variant="outline" size="sm" onClick={() => setConfirmDeleteAll(true)} className="text-destructive hover:text-destructive">
                 <Trash2 className="w-4 h-4 mr-2" />Delete all
@@ -86,12 +144,21 @@ export default function AdminNotificationsPage() {
         }
       />
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'unread')} className="mb-5">
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="unread">Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="unread">Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}</TabsTrigger>
+            <TabsTrigger value="mentions">Mentions{mentionCount > 0 ? ` (${mentionCount})` : ''}</TabsTrigger>
+            <TabsTrigger value="payments">Payments</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <button type="button" onClick={() => setByApplication((v) => !v)} aria-pressed={byApplication}
+          className={cn('ml-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+            byApplication ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground')}>
+          <Layers className="w-3.5 h-3.5" />Group by application
+        </button>
+      </div>
 
       {loading ? (
         <div className="space-y-2">
@@ -100,14 +167,20 @@ export default function AdminNotificationsPage() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={Bell}
-          title={filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+          title={filter === 'unread' ? 'No unread notifications' : filter === 'mentions' ? 'Nobody has mentioned you' : filter === 'payments' ? 'No payment notifications' : 'No notifications yet'}
           description="New applications, payments and courier updates appear here."
         />
       ) : (
         <div className="space-y-6">
-          {groupByDay(pageItems).map((group) => (
-            <section key={group.label}>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{group.label}</h2>
+          {(byApplication ? groupByApplication(pageItems) : groupByDay(pageItems)).map((group) => (
+            <section key={group.label + ('application' in group ? String(group.application) : '')}>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-2">
+                <span className={byApplication ? 'font-mono normal-case' : ''}>{group.label}</span>
+                {byApplication && <span className="normal-case font-normal">{group.items.length} update{group.items.length === 1 ? '' : 's'}</span>}
+                {byApplication && 'application' in group && typeof group.application === 'string' ? (
+                  <Link href={`/applications/${group.application}`} className="ml-auto normal-case font-medium text-primary hover:underline">Open</Link>
+                ) : null}
+              </h2>
               <div className="bg-card rounded-2xl border border-border overflow-hidden divide-y divide-border">
                 {group.items.map((n) => {
                   const { icon: Icon, tone } = TYPE_STYLE[n.type] ?? FALLBACK_STYLE;
@@ -127,7 +200,7 @@ export default function AdminNotificationsPage() {
                         </div>
                         <p className="text-sm text-muted-foreground mt-0.5">{n.message}</p>
                         <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                          <span title={new Date(n.createdAt).toLocaleString()}>{timeAgo(n.createdAt)}</span>
+                          <span title={formatDateTimeIST(n.createdAt)}>{timeAgo(n.createdAt)}</span>
                           {n.application && (
                             <Link
                               href={`/applications/${n.application}`}
@@ -165,6 +238,36 @@ export default function AdminNotificationsPage() {
           )}
         </div>
       )}
+
+      <Dialog open={prefsOpen} onOpenChange={setPrefsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Notification preferences</DialogTitle>
+            <DialogDescription>Choose what shows up in your bell. @mentions always come through.</DialogDescription>
+          </DialogHeader>
+          {!prefs ? <Skeleton className="h-40 w-full" /> : (
+            <div className="space-y-2">
+              {prefs.categories.map((c) => {
+                const on = !prefs.muted.includes(c);
+                return (
+                  <label key={c} className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5 h-4 w-4" checked={on}
+                      onChange={() => setPrefs({ ...prefs, muted: on ? [...prefs.muted, c] : prefs.muted.filter((m) => m !== c) })} />
+                    <span>
+                      <span className="block text-sm font-medium text-foreground">{CATEGORY_LABELS[c]?.label ?? c}</span>
+                      <span className="block text-xs text-muted-foreground">{CATEGORY_LABELS[c]?.hint}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPrefsOpen(false)}>Cancel</Button>
+            <Button onClick={savePrefs} disabled={!prefs || savingPrefs}>{savingPrefs && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={confirmDeleteAll}

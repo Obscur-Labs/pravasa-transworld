@@ -9,6 +9,7 @@ export type AdminNotificationType =
   | 'payment_failed'
   | 'courier_shipped'
   | 'status_update'
+  | 'mention'
   | 'general';
 
 export interface IAdminNotification extends Document {
@@ -16,6 +17,8 @@ export interface IAdminNotification extends Document {
   message: string;
   type: AdminNotificationType;
   application: mongoose.Types.ObjectId | null;
+  /** Set on @mentions: only this member sees it. Null for team-wide notifications. */
+  recipient: mongoose.Types.ObjectId | null;
   read: boolean;
   createdAt: Date;
 }
@@ -26,6 +29,7 @@ const AdminNotificationSchema = new Schema<IAdminNotification>(
     message: { type: String, required: true },
     type: { type: String, required: true },
     application: { type: Schema.Types.ObjectId, ref: 'Application', default: null },
+    recipient: { type: Schema.Types.ObjectId, ref: 'Admin', default: null },
     read: { type: Boolean, default: false },
   },
   { timestamps: true }

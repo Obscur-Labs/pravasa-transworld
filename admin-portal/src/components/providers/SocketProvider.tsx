@@ -107,6 +107,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       const me = useAdminAuthStore.getState().admin;
       const module = notificationModule(newNotif.type);
       if (module && !me?.isSuperAdmin && !allows(me?.permissions?.[module], 'view')) return;
+      // @mentions are pushed to everyone but belong to one member.
+      if (newNotif.recipient && newNotif.recipient !== me?._id) return;
       useBadgesStore.getState().refresh();
       setNotifications((prev) => [newNotif, ...prev]);
       setUnreadCount((c) => c + 1);

@@ -1,7 +1,8 @@
 // Fields each "More Services" request form collects. The user portal mirrors this in
 // src/lib/services.ts; keep the keys, options and rules in step.
 
-export const SERVICE_KEYS = ['flight', 'hotel', 'transport', 'insurance', 'forex'] as const;
+// b2b_agent is the travel-agent registration form on the B2B page, kept with the other requests.
+export const SERVICE_KEYS = ['flight', 'hotel', 'transport', 'insurance', 'forex', 'b2b_agent'] as const;
 export type ServiceKey = (typeof SERVICE_KEYS)[number];
 
 export interface FieldSpec {
@@ -18,6 +19,8 @@ export interface FieldSpec {
   after?: string;
   /** Choice that must differ from another field. */
   differentFrom?: string;
+  /** Text that must match, with the message shown when it doesn't. */
+  pattern?: { re: RegExp; message: string };
 }
 
 export const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CAD', 'AUD', 'THB', 'SAR', 'Other'] as const;
@@ -100,6 +103,17 @@ export const SERVICE_SPECS: Record<ServiceKey, { label: string; fields: FieldSpe
       { key: 'notes', label: 'Other details', type: 'longtext' },
     ],
     summary: (v) => [`${Number(v.amount).toLocaleString('en-IN')} ${v.have} → ${v.want}`, v.mode, v.neededBy].filter(Boolean).join(' · '),
+  },
+  b2b_agent: {
+    label: 'B2B agent registration',
+    fields: [
+      { key: 'agency', label: 'Agency name', type: 'text', required: true },
+      { key: 'gstin', label: 'GSTIN', type: 'text', pattern: { re: /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, message: 'GSTIN should look like 24ABCDE1234F1Z5' } },
+      { key: 'volume', label: 'Visa applications per month', type: 'choice', required: true, options: ['1 to 10', '11 to 50', '51 to 200', 'More than 200'] },
+      { key: 'destinations', label: 'Main destinations', type: 'text' },
+      { key: 'notes', label: 'Anything else', type: 'longtext' },
+    ],
+    summary: (v) => [v.agency, v.volume ? `${v.volume} a month` : '', v.gstin].filter(Boolean).join(' · '),
   },
 };
 

@@ -3,7 +3,7 @@ import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import Payment from '../../models/Payment';
 import PaymentConfig, { DEFAULT_PAYMENT_TERMS } from '../../models/PaymentConfig';
 import { IFSC_RE, METHOD_LABELS, availableMethods, UPI_ID_RE, approvePayment, loadPaymentConfig, rejectPayment } from '../../services/payment.service';
-import { logActivity } from '../../utils/activityLog';
+import { diffFields, logActivity } from '../../utils/activityLog';
 import { sendSuccess, sendError } from '../../utils/response';
 
 const todayStartIst = () => new Date(`${new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10)}T00:00:00+05:30`);
@@ -135,7 +135,8 @@ export const updatePaymentConfig = async (req: AdminRequest, res: Response): Pro
     update.terms = cleaned;
   }
 
+  const previous = await PaymentConfig.findOne().lean();
   const config = await PaymentConfig.findOneAndUpdate({}, { $set: update }, { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true });
-  logActivity(req, 'update', 'Payment Config', 'Payment settings');
+  logActivity(req, 'update', 'Payment Config', 'Payment settings', diffFields(previous, config.toObject(), Object.keys(update)));
   sendSuccess(res, { config, defaultTerms: DEFAULT_PAYMENT_TERMS }, 'Payment settings saved');
 };

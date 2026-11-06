@@ -19,6 +19,8 @@ export interface IReceiptConfig extends Document {
   phone2: string;
   website: string;
   businessHours: string;
+  /** Day-by-day hours (Sunday = 0); businessHours is regenerated from it on save. */
+  hoursSchedule: { day: number; open: boolean; from: string; to: string }[];
 }
 
 const ReceiptConfigSchema = new Schema<IReceiptConfig>(
@@ -38,6 +40,7 @@ const ReceiptConfigSchema = new Schema<IReceiptConfig>(
     phone2: { type: String, default: '' },
     website: { type: String, default: '' },
     businessHours: { type: String, default: '' },
+    hoursSchedule: { type: [{ day: Number, open: Boolean, from: String, to: String, _id: false }], default: [] },
   },
   { timestamps: true }
 );

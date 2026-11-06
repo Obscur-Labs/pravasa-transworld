@@ -7,6 +7,7 @@ import * as apps from '../controllers/admin/applications.controller';
 import * as processing from '../controllers/admin/processing.controller';
 import * as twoFactor from '../controllers/admin/twoFactor.controller';
 import * as reports from '../controllers/admin/reports.controller';
+import * as notes from '../controllers/admin/notes.controller';
 import * as leads from '../controllers/admin/contactLeads.controller';
 import * as inquiries from '../controllers/admin/serviceInquiries.controller';
 import * as notifications from '../controllers/admin/notifications.controller';
@@ -97,6 +98,7 @@ router.route('/visa-config/:id').put(visaConfig.updateVisaConfigOption).delete(v
 
 router.use('/receipt-config', requireModule('receiptSettings'));
 router.route('/receipt-config').get(receiptConfig.getReceiptConfig).put(receiptConfig.updateReceiptConfig);
+router.put('/receipt-config/hours', receiptConfig.updateBusinessHours);
 router.get('/receipt-config/demo', receiptConfig.downloadDemoReceipt);
 
 router.use('/embassy-mail-config', requireModule('embassyMailSettings'));
@@ -105,9 +107,9 @@ router.route('/embassy-mail-config').get(embassyMail.getEmbassyMailConfig).put(e
 // Trash
 router.use('/trash', requireModule('trash'));
 router.get('/trash', trash.getTrash);
-router.delete('/trash', trash.emptyTrash);
+router.delete('/trash', requireSuperAdmin, trash.emptyTrash);
 router.put('/trash/:id/restore', trash.restoreTrashItem);
-router.delete('/trash/:id', trash.deleteTrashItem);
+router.delete('/trash/:id', requireSuperAdmin, trash.deleteTrashItem);
 
 // Applications. Recording a cash/manual payment is a payments action, so it's checked first.
 router.put('/applications/:id/manual-payment', requireModule('payments', { level: 'manage' }), apps.manualPaymentOverride);
@@ -137,6 +139,7 @@ router.post('/applications/:id/additional-docs', processing.requestAdditionalDoc
 router.put('/applications/:id/additional-docs/submitted', processing.markAdditionalDocsSubmitted);
 router.put('/applications/:id/dispatch', processing.updateDispatch);
 router.put('/applications/:id/parent-link', processing.updateParentLink);
+router.route('/applications/:id/notes').get(notes.getNotes).post(notes.addNote);
 
 // AI content writer
 router.post('/ai/generate', aiLimiter, ai.generateAiContent);
@@ -155,6 +158,7 @@ router.route('/payment-config').get(payments.getPaymentConfig).put(payments.upda
 // Customers
 router.use('/users', requireModule('customers'));
 router.get('/users', apps.getUsers);
+router.get('/users/export.csv', apps.exportUsersCsv);
 router.post('/users', users.createUser);
 router.put('/users/:userId', users.updateUser);
 router.delete('/users/:userId', users.deleteUser);
@@ -178,14 +182,16 @@ router.patch('/leads/:id/read', leads.markLeadRead);
 router.delete('/leads/:id', leads.deleteLead);
 router.get('/inquiries', inquiries.getServiceInquiries);
 router.patch('/inquiries/:id/read', inquiries.markServiceInquiryRead);
+router.patch('/inquiry-status/:kind/:id', requireModule('inquiries'), inquiries.setInquiryStatus);
 router.delete('/inquiries/:id', inquiries.deleteServiceInquiry);
 
 // Activity Logs: read-only module; clearing the log is for super admins.
 router.get('/activity-logs', requireModule('activityLogs'), activityLogs.getActivityLogs);
-router.delete('/activity-logs', requireSuperAdmin, activityLogs.deleteAllActivityLogs);
+router.get('/activity-logs/export.csv', requireModule('activityLogs'), activityLogs.exportActivityLogsCsv);
 
 // Notifications (filtered to the modules each member can see)
 router.get('/notifications', notifications.getNotifications);
+router.route('/notifications/preferences').get(notifications.getNotificationPreferences).put(notifications.updateNotificationPreferences);
 router.put('/notifications/read-all', notifications.markAllAsRead);
 router.put('/notifications/:id/read', notifications.markAsRead);
 router.delete('/notifications/all', notifications.deleteAllNotifications);

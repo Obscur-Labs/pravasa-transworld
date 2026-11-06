@@ -6,11 +6,12 @@ import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { TypeToConfirmDialog } from '@/components/shared/type-to-confirm-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/components/ui/use-toast';
 import { getTrash, restoreTrashItem, deleteTrashItem, emptyTrash } from '@/lib/api';
-import { timeAgo } from '@/lib/utils';
+import { formatDateTimeIST, timeAgo } from '@/lib/utils';
+import { usePermissions } from '@/lib/usePermissions';
 import type { TrashItem, TrashEntityType } from '@/types';
 
 const TYPE_ICON: Record<TrashEntityType, React.ComponentType<{ className?: string }>> = {
@@ -27,8 +28,8 @@ const TYPE_ICON: Record<TrashEntityType, React.ComponentType<{ className?: strin
 const TYPE_BADGE: Record<TrashEntityType, string> = {
   country: 'bg-info/10 text-info border-info/20',
   visaType: 'bg-primary/10 text-primary border-primary/20',
-  formPreset: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
-  termPreset: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
+  formPreset: 'bg-muted text-muted-foreground border-border',
+  termPreset: 'bg-muted text-muted-foreground border-border',
   contactLead: 'bg-warning/10 text-warning border-warning/20',
   serviceInquiry: 'bg-warning/10 text-warning border-warning/20',
   application: 'bg-success/10 text-success border-success/20',
@@ -41,10 +42,16 @@ export default function TrashPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TrashItem | null>(null);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(30);
+  // Restoring is for anyone with trash access; destroying for good is super admin only.
+  const { isSuperAdmin } = usePermissions();
 
   const load = () => {
     setLoading(true);
-    getTrash().then((r) => setItems(r.data.data)).catch(() => {}).finally(() => setLoading(false));
+    getTrash()
+      .then((r) => { setItems(r.data.data.items || []); setRetentionDays(r.data.data.retentionDays || 30); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
   useEffect(load, []);
 
@@ -61,10 +68,10 @@ export default function TrashPage() {
     }
   };
 
-  const handleDelete = async (item: TrashItem) => {
+  const handleDelete = async (item: TrashItem, confirm: string) => {
     setBusy(item._id);
     try {
-      await deleteTrashItem(item._id);
+      await deleteTrashItem(item._id, confirm);
       toast({ title: 'Permanently deleted' });
       setItems((prev) => prev.filter((i) => i._id !== item._id));
     } catch (err: any) {
@@ -74,14 +81,14 @@ export default function TrashPage() {
     }
   };
 
-  const handleEmpty = async () => {
+  const handleEmpty = async (confirm: string) => {
     if (items.length === 0) return;
     try {
-      await emptyTrash();
+      await emptyTrash(confirm);
       toast({ title: 'Trash emptied' });
       setItems([]);
-    } catch {
-      toast({ title: 'Failed to empty trash', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Failed to empty trash', description: err.response?.data?.message, variant: 'destructive' });
     }
   };
 
@@ -91,9 +98,9 @@ export default function TrashPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <PageHeader
         title="Trash"
-        description="Deleted records are kept here. Restore them or delete permanently."
+        description={`Deleted records are kept for ${retentionDays} days, then removed for good. Restore anything you need before then.`}
         action={
-          items.length > 0 ? (
+          items.length > 0 && isSuperAdmin ? (
             <Button variant="outline" onClick={() => setConfirmEmpty(true)} className="text-destructive border-destructive/20 hover:bg-destructive/10">
               <Trash2 className="w-4 h-4 mr-2" /> Empty Trash
             </Button>
@@ -111,13 +118,13 @@ export default function TrashPage() {
         <>
           <div className="flex items-start gap-2.5 p-3 mb-4 bg-warning/5 border border-warning/20 rounded-xl">
             <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-warning/90">Items here are removed from the live app. Restoring a visa type also re-links any applications that referenced it.</p>
+            <p className="text-xs text-warning/90">Items here are removed from the live app and deleted automatically after {retentionDays} days. Restoring a visa type also re-links any applications that referenced it. Only a super admin can delete permanently.</p>
           </div>
           <div className="bg-card rounded-2xl border border-border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent bg-muted/40">
-                  {['Type', 'Name', 'Deleted', ''].map((h) => (
+                  {['Type', 'Name', 'Deleted', 'Kept for', ''].map((h) => (
                     <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
                   ))}
                 </TableRow>
@@ -136,17 +143,24 @@ export default function TrashPage() {
                         <p className="font-semibold text-foreground">{item.label}</p>
                         {item.sublabel && <p className="text-xs text-muted-foreground">{item.sublabel}</p>}
                       </TableCell>
-                      <TableCell className="text-muted-foreground whitespace-nowrap">{timeAgo(item.deletedAt)}</TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap" title={formatDateTimeIST(item.deletedAt)}>{timeAgo(item.deletedAt)}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className={`text-xs font-semibold ${(item.daysLeft ?? retentionDays) <= 3 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          {item.daysLeft ?? retentionDays} day{(item.daysLeft ?? retentionDays) === 1 ? '' : 's'} left
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1 justify-end">
                           <button onClick={() => handleRestore(item)} disabled={busy === item._id}
                             className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-success hover:bg-success/10 border border-success/20 disabled:opacity-50">
                             {busy === item._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore
                           </button>
-                          <button onClick={() => setDeleteTarget(item)} disabled={busy === item._id}
-                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-destructive hover:bg-destructive/10 border border-destructive/20 disabled:opacity-50">
-                            <Trash2 className="w-3.5 h-3.5" /> Delete
-                          </button>
+                          {isSuperAdmin && (
+                            <button onClick={() => setDeleteTarget(item)} disabled={busy === item._id}
+                              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-destructive hover:bg-destructive/10 border border-destructive/20 disabled:opacity-50">
+                              <Trash2 className="w-3.5 h-3.5" /> Delete
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -159,20 +173,22 @@ export default function TrashPage() {
         </>
       )}
 
-      <ConfirmDialog
+      <TypeToConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title="Permanently delete this item?"
-        description={deleteTarget ? `"${deleteTarget.label}" will be permanently deleted. This cannot be undone.` : undefined}
-        confirmLabel="Delete Permanently"
-        onConfirm={async () => { if (deleteTarget) await handleDelete(deleteTarget); }}
+        description={deleteTarget ? `"${deleteTarget.label}" and everything attached to it will be deleted. This cannot be undone.` : ''}
+        phrase={deleteTarget?.label || ''}
+        confirmLabel="Delete permanently"
+        onConfirm={async (typed) => { if (deleteTarget) await handleDelete(deleteTarget, typed); }}
       />
-      <ConfirmDialog
+      <TypeToConfirmDialog
         open={confirmEmpty}
         onOpenChange={setConfirmEmpty}
         title="Empty the trash?"
         description={`All ${items.length} item(s) will be permanently deleted. This cannot be undone.`}
-        confirmLabel="Empty Trash"
+        phrase="EMPTY TRASH"
+        confirmLabel="Empty trash"
         onConfirm={handleEmpty}
       />
     </div>

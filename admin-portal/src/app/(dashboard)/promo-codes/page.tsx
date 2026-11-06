@@ -22,6 +22,7 @@ import {
   togglePromoActive, togglePromoWebsite, getPromoHistory,
 } from '@/lib/api';
 import type { PromoCode, PromoHistory } from '@/types';
+import { formatDate, formatDateTimeIST } from '@/lib/utils';
 
 const DISCOUNT_TYPES = [
   { value: 'percentage', label: 'Percentage (%)', icon: Percent },
@@ -249,7 +250,7 @@ export default function PromoCodesPage() {
                     : <span className="text-xs text-muted-foreground">Hidden</span>}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-xs">
-                  {p.expiresAt ? new Date(p.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : <span className="text-muted-foreground/50">Never</span>}
+                  {p.expiresAt ? formatDate(p.expiresAt) : <span className="text-muted-foreground/50">Never</span>}
                 </TableCell>
                 <TableCell>
                   <span className="font-semibold text-foreground">{p.usageCount}</span>
@@ -464,7 +465,7 @@ export default function PromoCodesPage() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm font-bold text-success">-₹{entry.discountApplied}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(entry.usedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                          <p className="text-xs text-muted-foreground">{formatDateTimeIST(entry.usedAt)}</p>
                         </div>
                       </div>
                       {entry.applicationRef && (

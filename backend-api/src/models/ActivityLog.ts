@@ -10,7 +10,14 @@ export interface IActivityLog extends Document {
   module: string;
   entityType: string;
   entityLabel: string;
+  changes: ActivityChange[];
   createdAt: Date;
+}
+
+export interface ActivityChange {
+  field: string;
+  from: string;
+  to: string;
 }
 
 const ActivityLogSchema = new Schema<IActivityLog>(
@@ -21,6 +28,7 @@ const ActivityLogSchema = new Schema<IActivityLog>(
     module: { type: String, default: '' },
     entityType: { type: String, required: true },
     entityLabel: { type: String, required: true },
+    changes: { type: [{ field: String, from: String, to: String, _id: false }], default: undefined },
   },
   { timestamps: true }
 );

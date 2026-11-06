@@ -28,6 +28,8 @@ export interface IAdmin extends Document {
   /** Invited by email: the member sets their own password from the link. */
   inviteTokenHash?: string;
   inviteExpiresAt?: Date | null;
+  /** Notification categories this member has turned off (applications, payments, inquiries). */
+  mutedNotifications: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +56,7 @@ const AdminSchema = new Schema<IAdmin>(
     recoveryCodes: { type: [String], select: false, default: undefined },
     inviteTokenHash: { type: String, select: false },
     inviteExpiresAt: { type: Date, default: null },
+    mutedNotifications: { type: [String], default: [] },
   },
   { timestamps: true }
 );

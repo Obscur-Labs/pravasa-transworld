@@ -5,7 +5,7 @@ import VisaType from '../../models/VisaType';
 import User from '../../models/User';
 import { sendSuccess, sendError } from '../../utils/response';
 import { moveToTrash } from '../../utils/trash';
-import { logActivity } from '../../utils/activityLog';
+import { diffFields, logActivity } from '../../utils/activityLog';
 import { normalizeFormItems } from '../../utils/formItems';
 import { uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudinary.service';
 
@@ -172,7 +172,7 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
   delete body.description;
   const downloads = cleanDownloads(body.downloads);
   if (downloads) body.downloads = downloads; else delete body.downloads;
-  const before = downloads ? await VisaType.findById(req.params.id).select('downloads').lean() : null;
+  const before = await VisaType.findById(req.params.id).lean();
   const update = Object.keys(unset).length ? { $set: body, $unset: unset } : body;
   const visaType = await VisaType.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true })
     .populate('country', 'name flag');
@@ -188,7 +188,7 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
         .catch(() => {});
     }
   }
-  logActivity(req, 'update', 'Visa Type', visaType.name);
+  logActivity(req, 'update', 'Visa Type', visaType.name, diffFields(before, visaType.toObject(), ['name', 'isActive', 'price', 'adultPrice', 'childPrice', 'adultVfsFee', 'childVfsFee', 'adultServiceFee', 'childServiceFee', 'corporateAdultServiceFee', 'corporateChildServiceFee', 'b2bAdultServiceFee', 'b2bChildServiceFee', 'processingTime', 'validity', 'stayDuration', 'process', 'visaSubType', 'visaCategory']));
   sendSuccess(res, visaType, 'Visa type updated');
 };
 

@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { INQUIRY_STATUSES, InquiryStatus } from './ServiceInquiry';
 
 export interface IContactLead extends Document {
   name: string;
@@ -6,6 +7,7 @@ export interface IContactLead extends Document {
   phone?: string;
   message: string;
   read: boolean;
+  status: InquiryStatus;
   createdAt: Date;
 }
 
@@ -16,6 +18,7 @@ const ContactLeadSchema = new Schema<IContactLead>(
     phone: { type: String, trim: true, default: '' },
     message: { type: String, required: true, trim: true },
     read: { type: Boolean, default: false },
+    status: { type: String, enum: INQUIRY_STATUSES, default: 'new' },
   },
   { timestamps: true }
 );

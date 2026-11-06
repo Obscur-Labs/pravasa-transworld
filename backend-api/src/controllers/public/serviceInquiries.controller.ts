@@ -28,6 +28,7 @@ function validate(fields: FieldSpec[], body: Record<string, unknown>): { values:
       continue;
     }
     if (f.type === 'choice' && !f.options!.includes(v)) return { error: `Choose a valid ${f.label.toLowerCase()}` };
+    if (f.pattern && !f.pattern.re.test(v.toUpperCase())) return { error: f.pattern.message };
     if (f.type === 'number') {
       const n = Number(v);
       if (!Number.isFinite(n) || (f.min != null && n < f.min) || (f.max != null && n > f.max)) {
@@ -46,7 +47,7 @@ function validate(fields: FieldSpec[], body: Record<string, unknown>): { values:
     if (f.differentFrom && v === values[f.differentFrom] && v !== 'Other') {
       return { error: `${f.label} must differ from ${fields.find((x) => x.key === f.differentFrom)!.label.toLowerCase()}` };
     }
-    values[f.key] = f.type === 'number' ? String(Number(v)) : v;
+    values[f.key] = f.type === 'number' ? String(Number(v)) : f.pattern ? v.toUpperCase() : v;
   }
   return { values };
 }
