@@ -24,6 +24,7 @@ export default function Navbar() {
     { href: '/arrival-cards', label: 'Arrival Cards' },
     { href: '/b2b-agents', label: 'B2B Agents' },
     { href: '/testimonials', label: 'Reviews' },
+    { href: '/blog', label: 'Blog' },
     { href: '/about', label: 'About' },
     { href: '/contact', label: 'Contact' },
   ];
