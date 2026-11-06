@@ -260,3 +260,14 @@ export const getNotificationPreferences = () => api.get('/admin/notifications/pr
 export const updateNotificationPreferences = (muted: string[]) => api.put('/admin/notifications/preferences', { muted });
 export const getApplicationNotes = (id: string) => api.get(`/admin/applications/${id}/notes`);
 export const addApplicationNote = (id: string, data: { text: string; mentions: string[] }) => api.post(`/admin/applications/${id}/notes`, data);
+
+// B2B agents
+export const getAgents = () => api.get('/admin/agents');
+export const createAgent = (data: object) => api.post('/admin/agents', data);
+export const updateAgent = (id: string, data: object) => api.put(`/admin/agents/${id}`, data);
+export const getAgentStatement = (id: string, params: { from?: string; to?: string }) => api.get(`/admin/agents/${id}/statement`, { params });
+export const exportAgentStatement = (id: string, params: { from?: string; to?: string }) =>
+  api.get(`/admin/agents/${id}/statement.csv`, { params, responseType: 'blob' });
+export const emailAgentStatement = (id: string, data: { from?: string; to?: string }) => api.post(`/admin/agents/${id}/statement/email`, data);
+export const recordAgentPayment = (id: string, data: object) => api.post(`/admin/agents/${id}/payments`, data);
+export const postAgentCommission = (month: string) => api.post('/admin/agents/commission', { month });

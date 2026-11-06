@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 import { deliveryUrl } from '../services/cloudinary.service';
 
 // 'online' is kept only so records from the retired card gateway still load.
-export type PaymentMethod = 'upi' | 'bank_transfer' | 'cash' | 'manual_override' | 'online';
+export type PaymentMethod = 'upi' | 'bank_transfer' | 'cash' | 'manual_override' | 'online' | 'credit';
 // pending: payment details shown, customer has not confirmed paying yet.
 // awaiting_verification: customer submitted a UTR; an admin must match it to the bank statement.
 // failed: an admin rejected the submission (failureReason says why); the customer can pay again.
@@ -57,7 +57,7 @@ const PaymentSchema = new Schema<IPayment>(
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: 'INR' },
-    method: { type: String, enum: ['upi', 'bank_transfer', 'cash', 'manual_override', 'online'], default: 'upi' },
+    method: { type: String, enum: ['upi', 'bank_transfer', 'cash', 'manual_override', 'online', 'credit'], default: 'upi' },
     status: { type: String, enum: ['pending', 'awaiting_verification', 'completed', 'failed', 'refunded'], default: 'pending' },
     transactionId: { type: String, default: '' },
     gateway: { type: String, default: '' },

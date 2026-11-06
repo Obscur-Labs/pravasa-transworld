@@ -1,8 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { getAgentAccount } from '@/lib/api';
 import {
-  LayoutDashboard, FileText, Plus, Stamp, CreditCard, FolderLock, X,
+  LayoutDashboard, FileText, Plus, Stamp, CreditCard, FolderLock, X, Briefcase,
 } from 'lucide-react';
 
 const navItems = [
@@ -12,6 +14,7 @@ const navItems = [
   { href: '/my-visas', label: 'My Visas', icon: Stamp },
   { href: '/document-vault', label: 'Document Vault', icon: FolderLock },
   { href: '/payment-history', label: 'Payment History', icon: CreditCard },
+  { href: '/agent', label: 'Agent Account', icon: Briefcase, agentOnly: true },
 ];
 
 interface Props {
@@ -24,6 +27,8 @@ interface Props {
 // Account actions (profile, install, sign out) live in the header's avatar menu.
 export default function DashboardSidebar({ collapsed, onClose, mobile = false }: Props) {
   const pathname = usePathname();
+  const [isAgent, setIsAgent] = useState(false);
+  useEffect(() => { getAgentAccount().then((r) => setIsAgent(!!r.data.data.isAgent)).catch(() => {}); }, []);
   const isCollapsed = mobile ? false : collapsed;
 
   const asideClass = mobile
@@ -54,7 +59,7 @@ export default function DashboardSidebar({ collapsed, onClose, mobile = false }:
       </div>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto p-2 space-y-1">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.filter((i) => !i.agentOnly || isAgent).map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'));
           return (
             <Link

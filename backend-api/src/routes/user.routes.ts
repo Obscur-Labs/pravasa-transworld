@@ -48,6 +48,7 @@ router.post('/applications/:id/payment/upi', payments.startPayment);
 router.post('/applications/:id/payment/upi/submit', payments.submitPayment);
 
 // Saved apply-flow progress
+router.get('/agent-account', apps.getAgentAccount);
 router.get('/drafts', drafts.getDrafts);
 router.get('/drafts/:id', drafts.getDraft);
 router.post('/drafts', drafts.createDraft);

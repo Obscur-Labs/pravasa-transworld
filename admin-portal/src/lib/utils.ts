@@ -45,5 +45,5 @@ export function deadlineLabel(deadline: string | Date, now = Date.now()): { labe
 }
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  upi: 'UPI', bank_transfer: 'Bank transfer', cash: 'Cash', manual_override: 'Manual', online: 'Card (legacy)',
+  upi: 'UPI', bank_transfer: 'Bank transfer', cash: 'Cash', manual_override: 'Manual', online: 'Card (legacy)', credit: 'Agent credit',
 };

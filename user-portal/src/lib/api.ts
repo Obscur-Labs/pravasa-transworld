@@ -59,8 +59,10 @@ export const createApplication = (data: {
   travelDate?: string; travelEndDate?: string; acceptedTerms?: string[];
   travellers?: { key: string; parents: { key: string; relation: string }[] }[];
   parentLink?: { applicationId: string; parents: { key: string; relation: string }[] };
+  payOnCredit?: boolean;
 }) =>
   api.post('/user/applications', data);
+export const getAgentAccount = (params?: { from?: string; to?: string }) => api.get('/user/agent-account', { params });
 export const getApplication = (id: string) => api.get(`/user/applications/${id}`);
 export const downloadCarryChecklist = (id: string) =>
   api.get(`/user/applications/${id}/carry-checklist`, { responseType: 'blob' });

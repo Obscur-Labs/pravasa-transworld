@@ -17,6 +17,8 @@ import { generateVisaSummaryPDF } from '../../services/pdf.service';
 import { buildTravellers } from '../../utils/travellers';
 import { resolveParentLink } from './parentLink.controller';
 import { familyIdOf, newFamilyId, newReferenceId } from '../../utils/references';
+import AgentLedger from '../../models/AgentLedger';
+import { agentBalance, agentStatement } from '../../utils/agentLedger';
 import { sendSuccess, sendError } from '../../utils/response';
 import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf, GST_RATE } from '../../utils/pricing';
 
@@ -113,6 +115,22 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     referenceId,
     familyId,
   });
+
+  // B2B agents with room on their credit line can bill the order to their account instead of paying now.
+  const u = req.user as unknown as { corporateType?: string; creditLimit?: number; agentPaused?: boolean };
+  if (req.body.payOnCredit && u.corporateType === 'b2b_agent' && !u.agentPaused && (u.creditLimit || 0) > 0) {
+    const owed = await agentBalance(req.user!._id);
+    if (owed + paymentAmount <= (u.creditLimit || 0)) {
+      const now = new Date();
+      await Payment.create({ application: application._id, user: req.user!._id, amount: paymentAmount, method: 'credit', status: 'completed', paidAt: now, verifiedAt: now });
+      await AgentLedger.create({
+        agent: req.user!._id, date: now, kind: 'invoice', debit: paymentAmount, application: application._id, reference: referenceId,
+        description: `${referenceId} · ${visaType.name}${numAdults + numChildren > 1 ? ` x${numAdults + numChildren}` : ''}`,
+      });
+      application.status = 'payment_completed';
+      await application.save();
+    }
+  }
 
   const populated = await Application.findById(application._id)
     .populate('visaType', 'name price processingTime')
@@ -530,4 +548,19 @@ export const downloadCarryChecklist = async (req: AuthRequest, res: Response): P
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="checklist-${app.referenceId}.pdf"`);
   res.end(pdf);
+};
+
+/** A B2B agent's own credit position and statement; other customers get isAgent false. */
+export const getAgentAccount = async (req: AuthRequest, res: Response): Promise<void> => {
+  const u = req.user as unknown as { corporateType?: string; creditLimit?: number; agentPaused?: boolean; agentCode?: string; paymentTermsDays?: number };
+  if (u.corporateType !== 'b2b_agent') { sendSuccess(res, { isAgent: false }); return; }
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to)) ? new Date(`${req.query.to}T23:59:59+05:30`) : new Date();
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from)) ? new Date(`${req.query.from}T00:00:00+05:30`) : new Date(to.getTime() - 30 * 86400000);
+  const statement = await agentStatement(req.user!._id, from, to);
+  const owed = await agentBalance(req.user!._id);
+  const limit = u.creditLimit || 0;
+  sendSuccess(res, {
+    isAgent: true, agentCode: u.agentCode || '', creditLimit: limit, owed, available: Math.max(0, limit - owed),
+    paused: !!u.agentPaused, paymentTermsDays: u.paymentTermsDays ?? 15, from, to, ...statement,
+  });
 };

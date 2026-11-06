@@ -26,6 +26,7 @@ import type { ParentLinkValue } from '@/components/apply/ParentApplicationPicker
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { checkVisaPhoto } from '@/lib/photoCheck';
+import { getAgentAccount } from '@/lib/api';
 import { compressImage } from '@/lib/compressImage';
 import { isSchengen, passportPrefill, passportValidityProblem } from '@/lib/passportPrefill';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
@@ -809,6 +810,12 @@ export default function ApplyPage() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
+  // B2B agents with room on their credit line can bill the order to it instead of paying now.
+  const [agentCredit, setAgentCredit] = useState<{ available: number; paused: boolean } | null>(null);
+  const [payOnCredit, setPayOnCredit] = useState(false);
+  useEffect(() => {
+    getAgentAccount().then((r) => { if (r.data.data.isAgent) setAgentCredit({ available: r.data.data.available, paused: r.data.data.paused }); }).catch(() => {});
+  }, []);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number; fraction: number } | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
   // Server-side draft this progress was resumed from (or last saved to), see StartOverDialog.
@@ -1172,8 +1179,10 @@ export default function ApplyPage() {
         travellers: travelers.map((tr) => ({ key: tr.key, parents: tr.type === 'child' && !childOnly ? parentLinksOf(tr.key) : [] })),
         ...(childOnly && parentApp ? { parentLink: { applicationId: parentApp.applicationId, parents: parentApp.parents } } : {}),
         acceptedTerms: visaTerms.filter((_, i) => termsAccepted[i]).map((t) => t.text),
+        payOnCredit,
       });
       const appId = r.data.data._id;
+      const billedToCredit = r.data.data.status === 'payment_completed';
 
       const reqs = withDefaultPassport(selectedVisa.documentRequirements);
       // Count first so the progress bar knows the total.
@@ -1238,6 +1247,11 @@ export default function ApplyPage() {
 
       localStorage.removeItem(DRAFT_KEY);
       if (draftId) deleteDraft(draftId).catch(() => {});
+      if (billedToCredit) {
+        toast({ title: 'Application submitted', description: 'Billed to your agent credit. Processing starts now.', variant: 'success' });
+        router.push(`/applications/${appId}`);
+        return;
+      }
       toast({ title: 'Application saved', description: 'Complete your payment to start processing.', variant: 'success' });
       // The application page owns the payment flow; ?pay=1 opens it straight away.
       const promo = promoResult?.code ? `&promo=${encodeURIComponent(promoResult.code)}` : '';
@@ -2007,6 +2021,18 @@ export default function ApplyPage() {
             <p className="text-xs text-slate-500 mb-3">
               <strong className="text-slate-700">Pay by UPI or bank transfer.</strong> After you submit you&apos;ll see a UPI QR code and our bank details. Our team verifies the payment, then reviews your documents.
             </p>
+            {agentCredit && !agentCredit.paused && (
+              <label className="mb-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm cursor-pointer">
+                <input type="checkbox" className="mt-0.5 rounded" checked={payOnCredit} disabled={agentCredit.available < base}
+                  onChange={(e) => setPayOnCredit(e.target.checked)} />
+                <span>
+                  <span className="font-semibold text-slate-900">Bill to my agent credit</span>
+                  <span className="block text-xs text-slate-500">
+                    {agentCredit.available >= base ? `${formatCurrency(agentCredit.available)} available. No payment needed now.` : `Only ${formatCurrency(agentCredit.available)} available, not enough for this order.`}
+                  </span>
+                </span>
+              </label>
+            )}
             {submitButton('h-11')}
           </FormSection>
         </div>

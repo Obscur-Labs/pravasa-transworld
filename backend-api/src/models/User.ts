@@ -13,6 +13,14 @@ export interface IUser extends Document {
   profilePhotoPublicId: string;
   isActive: boolean;
   promoApplicable: boolean;
+  /** B2B agent account: code, contact, credit and commission. */
+  agentCode?: string;
+  contactPerson?: string;
+  city?: string;
+  creditLimit?: number;
+  commissionPct?: number;
+  paymentTermsDays?: number;
+  agentPaused?: boolean;
   createdAt: Date;
 }
 
@@ -28,6 +36,13 @@ const UserSchema = new Schema<IUser>(
     profilePhotoPublicId: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
     promoApplicable: { type: Boolean, default: true },
+    agentCode: { type: String, default: '' },
+    contactPerson: { type: String, default: '' },
+    city: { type: String, default: '' },
+    creditLimit: { type: Number, default: 0, min: 0 },
+    commissionPct: { type: Number, default: 0, min: 0, max: 30 },
+    paymentTermsDays: { type: Number, default: 15 },
+    agentPaused: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
