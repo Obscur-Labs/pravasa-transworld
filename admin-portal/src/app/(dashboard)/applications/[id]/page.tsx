@@ -433,7 +433,7 @@ export default function AdminApplicationDetailPage() {
               <div className="p-5 border-b border-border flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
                 <h3 className="font-semibold text-foreground">Family group</h3>
-                <span className="text-xs font-mono text-muted-foreground">{application.referenceId}</span>
+                <span className="text-xs font-mono text-muted-foreground">{application.familyId || application.referenceId}</span>
                 <span className="ml-auto text-xs text-muted-foreground">
                   {application.adults} adult{application.adults === 1 ? '' : 's'}
                   {application.children ? ` + ${application.children} child${application.children === 1 ? '' : 'ren'}` : ''}

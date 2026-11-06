@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import archiver from 'archiver';
 import { AdminRequest, hasAccess } from '../../middleware/adminAuth.middleware';
-import Application, { APPLICATION_STATUSES, ApplicationStatus, EMPTY_COURIER, STATUS_LABELS } from '../../models/Application';
+import Application, { APPLICATION_STATUSES, ApplicationStatus, EMPTY_COURIER, STATUS_LABELS, customerStatus } from '../../models/Application';
 import Admin from '../../models/Admin';
 import Country from '../../models/Country';
 import Document from '../../models/Document';
@@ -70,6 +70,7 @@ async function applicationFilter(req: AdminRequest): Promise<Record<string, unkn
     ]);
     filter.$or = [
       { referenceId: pattern },
+      { familyId: pattern },
       { 'travellers.ref': pattern },
       { user: { $in: users.map((u) => u._id) } },
       { _id: { $in: passportDocs.map((d) => d.application) } },
@@ -481,10 +482,11 @@ async function changeStatus(
   if (status === 'visa_rejected') await markChildrenBroken(application, 'was rejected');
   if (!notify) return null;
 
+  const wording = customerStatus(status as ApplicationStatus);
   const notif = await Notification.create({
     user: application.user,
-    title: 'Application Status Updated',
-    message: `Your application ${application.referenceId} status: ${label}`,
+    title: `${application.referenceId}: ${wording.label}`,
+    message: status === 'visa_rejected' && rejectionReason ? `${wording.message} Reason: ${rejectionReason}` : wording.message,
     type: 'status_update',
     application: application._id,
   });
@@ -495,7 +497,7 @@ async function changeStatus(
     console.error('Socket emission failed', err);
   }
   try {
-    await sendStatusUpdateEmail(user.email, user.name, label, application.referenceId);
+    await sendStatusUpdateEmail(user.email, user.name, label, application.referenceId, wording);
   } catch (err) { console.error(err); }
   return null;
 }

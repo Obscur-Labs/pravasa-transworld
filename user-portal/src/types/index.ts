@@ -269,6 +269,7 @@ export interface Application {
   } | null;
   dispatch?: { method: '' | 'courier' | 'pickup' | 'digital'; courier: string; trackingNumber: string; notifiedAt: string | null } | null;
   referenceId: string;
+  familyId?: string;
   createdAt: string;
   updatedAt: string;
 }

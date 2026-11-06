@@ -8,7 +8,7 @@ const MAX_PARENTS = 2;
 
 /**
  * Every traveller on an order gets its own ID under the order's referenceId, which acts
- * as the family group: PRS-ARE-4821-A1, PRS-ARE-4821-C1. Keys match the apply form
+ * as the family group: PRS-UNI-24817-A1, PRS-UNI-24817-C1. Keys match the apply form
  * (a0, a1, c0). Parent links from the client are kept only when they point at an adult
  * on the same order; anything else is dropped rather than failing the submission.
  */

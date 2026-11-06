@@ -26,6 +26,8 @@ import type { ParentLinkValue } from '@/components/apply/ParentApplicationPicker
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
 import { formatCurrency } from '@/lib/utils';
 import { checkVisaPhoto } from '@/lib/photoCheck';
+import { compressImage } from '@/lib/compressImage';
+import { isSchengen, passportPrefill, passportValidityProblem } from '@/lib/passportPrefill';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useAuthStore } from '@/store/auth.store';
 import { docRuleMet, mergeFormItems, shownSubFields } from '@/types';
@@ -807,6 +809,7 @@ export default function ApplyPage() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number; fraction: number } | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
   // Server-side draft this progress was resumed from (or last saved to), see StartOverDialog.
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -1086,8 +1089,9 @@ export default function ApplyPage() {
     input.type = 'file';
     input.accept = rules.accept;
     input.multiple = true;
-    input.onchange = (e: any) => {
-      const picked: File[] = Array.from(e.target?.files || []);
+    input.onchange = async (e: any) => {
+      // Phone photos are shrunk first, so a 12 MB camera image can still meet a 2 MB limit.
+      const picked: File[] = await Promise.all(Array.from((e.target?.files || []) as FileList).map((f) => compressImage(f)));
       const extOk = (f: File) => rules.exts.includes(f.name.split('.').pop()?.toLowerCase() || '');
       const wrongType = picked.filter((f) => !extOk(f));
       if (wrongType.length) toast({ title: 'File type not accepted', description: `${wrongType.map((f) => f.name).join(', ')}: this document takes ${rules.hint}.`, variant: 'destructive' });
@@ -1172,18 +1176,30 @@ export default function ApplyPage() {
       const appId = r.data.data._id;
 
       const reqs = withDefaultPassport(selectedVisa.documentRequirements);
+      // Count first so the progress bar knows the total.
+      const totalUploads = travelers.reduce((n, tr) => n + [...docsForTraveler(reqs, tr, formData), ...extraReqsFor(tr)].reduce((m, req) => {
+        if (isPassportPair(req) && req.ocrEnabled !== false) {
+          return m + (docSources[docKey(tr, req.name, '__front')] ? 1 : 0) + (docSources[docKey(tr, req.name, '__back')] ? 1 : 0);
+        }
+        const source = docSources[docKey(tr, req.name)];
+        return m + (!source ? 0 : source.type === 'files' ? source.files.length : 1);
+      }, 0), 0);
       let uploadIdx = 0;
+      const nextUpload = () => {
+        uploadIdx++;
+        setSubmitStatus(`Uploading ${uploadIdx} of ${totalUploads}…`);
+        setUploadProgress({ done: uploadIdx - 1, total: totalUploads, fraction: 0 });
+      };
 
       const doUpload = async (file: File, requirementName: string, docType = '', extractedData?: Record<string, string>, triggeredBy = '') => {
-        uploadIdx++;
-        setSubmitStatus(`Uploading documents (${uploadIdx})…`);
+        nextUpload();
         const fd = new FormData();
         fd.append('file', file);
         fd.append('requirementName', requirementName);
         if (docType) fd.append('docType', docType);
         if (triggeredBy) fd.append('triggeredBy', triggeredBy);
         if (extractedData && Object.keys(extractedData).length > 0) fd.append('extractedData', JSON.stringify(extractedData));
-        await uploadDocument(appId, fd);
+        await uploadDocument(appId, fd, (fraction) => setUploadProgress((p) => (p ? { ...p, fraction } : p)));
       };
 
       const pickFields = (pv: Record<string, string>, keys: string[]) =>
@@ -1203,8 +1219,7 @@ export default function ApplyPage() {
             const source = docSources[docKey(tr, req.name)];
             if (!source) continue;
             if (source.type === 'vault') {
-              uploadIdx++;
-              setSubmitStatus(`Uploading documents (${uploadIdx})…`);
+              nextUpload();
               await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName: label, triggeredBy: because });
             } else if (source.type === 'files') {
               for (const [i, file] of source.files.entries()) await doUpload(file, partName(label, i), req.docType || '', undefined, because);
@@ -1232,6 +1247,7 @@ export default function ApplyPage() {
     } finally {
       setSubmitting(false);
       setSubmitStatus('');
+      setUploadProgress(null);
     }
   };
 
@@ -1330,6 +1346,28 @@ export default function ApplyPage() {
     return q && answer ? `${q.label || q.fieldName} = ${answer}` : '';
   };
 
+  // Copy scanned passport details into matching questions the traveller has not answered yet.
+  useEffect(() => {
+    if (!sortedFields.length) return;
+    setFormData((prev) => {
+      let next = prev;
+      for (const tr of travelers) {
+        const pv = passportValues[tr.key];
+        if (!pv) continue;
+        const fills = passportPrefill(questionsForTraveler(sortedFields, tr, prev), pv, (f) => !!prev[`${tr.key}__${f}`]?.trim());
+        for (const [f, v] of Object.entries(fills)) {
+          if (next === prev) next = { ...prev };
+          next[`${tr.key}__${f}`] = v;
+        }
+      }
+      return next;
+    });
+  }, [passportValues, selectedVisa?._id]);
+
+  const schengen = isSchengen(selectedCountry?.name, selectedVisa?.name);
+  const passportProblem = (tr: Traveler) =>
+    passportValidityProblem(passportValues[tr.key]?.['Date of Expiry'], travelEndDate || travelStartDate, schengen);
+
   const travelerComplete = (tr: Traveler) => {
     const fieldsOk = questionsForTraveler(sortedFields, tr, formData).filter((f) => f.required).every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim());
     const docsOk = reqsFor(tr).filter((r) => r.required).every((r) => {
@@ -1337,7 +1375,7 @@ export default function ApplyPage() {
       return !!docSources[docKey(tr, r.name)];
     });
     const parentOk = !needsParentLink(tr) || parentLinksOf(tr.key).length > 0;
-    return fieldsOk && docsOk && parentOk;
+    return fieldsOk && docsOk && parentOk && !passportProblem(tr);
   };
 
   // ── Travel date rules ──
@@ -1447,27 +1485,38 @@ export default function ApplyPage() {
     return <Input {...common} type={field.type} placeholder={field.placeholder} />;
   };
 
+  const passportNote = (tr: Traveler) => {
+    const problem = passportProblem(tr);
+    return problem ? (
+      <p className="mt-2 flex gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">
+        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />{problem}
+      </p>
+    ) : null;
+  };
+
   const renderDocCard = (tr: Traveler, req: DocumentRequirement) => {
     if (isPassportPair(req) && req.ocrEnabled !== false) {
       const frontSrc = docSources[docKey(tr, req.name, '__front')];
       const backSrc = docSources[docKey(tr, req.name, '__back')];
       return (
-        <PassportScanCard
-          key={`${tr.key}::${req._id || req.name}`}
-          requirementName={req.name}
-          frontFile={frontSrc?.type === 'file' ? frontSrc.file : null}
-          backFile={backSrc?.type === 'file' ? backSrc.file : null}
-          values={passportValues[tr.key] || {}}
-          onValuesChange={(vals) => setPassportValues((p) => ({ ...p, [tr.key]: vals }))}
-          onFrontChange={(file) => {
-            if (file) setDocSources((p) => ({ ...p, [docKey(tr, req.name, '__front')]: { type: 'file', file } }));
-            else clearDocSource(docKey(tr, req.name, '__front'));
-          }}
-          onBackChange={(file) => {
-            if (file) setDocSources((p) => ({ ...p, [docKey(tr, req.name, '__back')]: { type: 'file', file } }));
-            else clearDocSource(docKey(tr, req.name, '__back'));
-          }}
-        />
+        <div key={`${tr.key}::${req._id || req.name}`}>
+          <PassportScanCard
+            requirementName={req.name}
+            frontFile={frontSrc?.type === 'file' ? frontSrc.file : null}
+            backFile={backSrc?.type === 'file' ? backSrc.file : null}
+            values={passportValues[tr.key] || {}}
+            onValuesChange={(vals) => setPassportValues((p) => ({ ...p, [tr.key]: vals }))}
+            onFrontChange={(file) => {
+              if (file) setDocSources((p) => ({ ...p, [docKey(tr, req.name, '__front')]: { type: 'file', file } }));
+              else clearDocSource(docKey(tr, req.name, '__front'));
+            }}
+            onBackChange={(file) => {
+              if (file) setDocSources((p) => ({ ...p, [docKey(tr, req.name, '__back')]: { type: 'file', file } }));
+              else clearDocSource(docKey(tr, req.name, '__back'));
+            }}
+          />
+          {passportNote(tr)}
+        </div>
       );
     }
 
@@ -1481,17 +1530,19 @@ export default function ApplyPage() {
         else clearDocSource(sk);
       };
       return (
-        <PassportScanCard
-          key={`${tr.key}::${req._id || req.name}`}
-          mode={side}
-          requirementName={req.name}
-          frontFile={side === 'front' ? file : null}
-          backFile={side === 'back' ? file : null}
-          values={passportValues[tr.key] || {}}
-          onValuesChange={(vals) => setPassportValues((p) => ({ ...p, [tr.key]: vals }))}
-          onFrontChange={side === 'front' ? onFile : () => {}}
-          onBackChange={side === 'back' ? onFile : () => {}}
-        />
+        <div key={`${tr.key}::${req._id || req.name}`}>
+          <PassportScanCard
+            mode={side}
+            requirementName={req.name}
+            frontFile={side === 'front' ? file : null}
+            backFile={side === 'back' ? file : null}
+            values={passportValues[tr.key] || {}}
+            onValuesChange={(vals) => setPassportValues((p) => ({ ...p, [tr.key]: vals }))}
+            onFrontChange={side === 'front' ? onFile : () => {}}
+            onBackChange={side === 'back' ? onFile : () => {}}
+          />
+          {side === 'front' && passportNote(tr)}
+        </div>
       );
     }
 
@@ -1609,12 +1660,22 @@ export default function ApplyPage() {
       return links.length ? `${name}, linked to ${links.join(' & ')}` : name;
     }).join(' · ');
 
+    const progressPct = uploadProgress?.total
+      ? Math.round(((uploadProgress.done + uploadProgress.fraction) / uploadProgress.total) * 100)
+      : 0;
     const submitButton = (className = '') => (
-      <Button onClick={trySubmit} disabled={submitting} className={`w-full ${allDone ? '' : 'opacity-60'} ${className}`}>
-        {submitting
-          ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">{submitStatus || 'Submitting…'}</span></span>
-          : <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Submit &amp; Pay {formatCurrency(finalTotal)}</span>}
-      </Button>
+      <div className="w-full">
+        <Button onClick={trySubmit} disabled={submitting} className={`w-full ${allDone ? '' : 'opacity-60'} ${className}`}>
+          {submitting
+            ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">{submitStatus || 'Submitting…'}{uploadProgress ? ` ${progressPct}%` : ''}</span></span>
+            : <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Submit &amp; Pay {formatCurrency(finalTotal)}</span>}
+        </Button>
+        {uploadProgress && (
+          <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="Upload progress">
+            <div className="h-full bg-brand-900 transition-all duration-200" style={{ width: `${progressPct}%` }} />
+          </div>
+        )}
+      </div>
     );
 
     const reviewRow = (label: string, value: React.ReactNode, target: string) => (

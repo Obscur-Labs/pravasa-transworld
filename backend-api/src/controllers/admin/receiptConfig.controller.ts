@@ -45,7 +45,7 @@ export const downloadDemoReceipt = async (_req: AdminRequest, res: Response): Pr
       promoCode: null,
       paidAt: new Date(),
     } as any,
-    appRef: 'PRS-DEMO-1234',
+    appRef: 'PRS-UNI-24817',
     userName: 'John Sample Doe',
     visaType: 'Tourist Visa',
     visaCategory: 'tourist',

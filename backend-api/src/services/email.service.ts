@@ -141,7 +141,8 @@ export async function sendStatusUpdateEmail(
   email: string,
   name: string,
   statusLabel: string,
-  referenceId: string
+  referenceId: string,
+  detail?: { stage: string; message: string },
 ): Promise<void> {
   console.log(`[APP_STATUS] Sending status update "${statusLabel}" → ${email} | ref: ${referenceId}`);
   await sendMail(
@@ -156,7 +157,9 @@ export async function sendStatusUpdateEmail(
             Your visa application <strong>${referenceId}</strong> status has been updated.
           </p>
           <div style="background: #EFF7FB; border-radius: 8px; padding: 20px; margin: 0 0 32px; text-align: center;">
+            ${detail?.stage ? `<p style="color: #64748B; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 6px;">${detail.stage}</p>` : ''}
             <p style="color: #165874; font-size: 18px; font-weight: 700; margin: 0;">${statusLabel}</p>
+            ${detail?.message ? `<p style="color: #475569; font-size: 14px; margin: 10px 0 0;">${detail.message}</p>` : ''}
           </div>
           <a href="${frontendUrl}/applications" style="display: inline-block; background: #165874; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
             View Application

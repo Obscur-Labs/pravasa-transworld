@@ -48,6 +48,7 @@ export default function ProcessingBoardPage() {
   const [open, setOpen] = useState<Application | null>(null);
   const [embassyRef, setEmbassyRef] = useState('');
   const [busy, setBusy] = useState(false);
+  const [groupFamilies, setGroupFamilies] = useState(false);
 
   useEffect(() => {
     Promise.all(BOARD_COLUMNS.map((c) => getApplications({ status: c.status, limit: 50 })))
@@ -120,6 +121,71 @@ export default function ProcessingBoardPage() {
     }
   };
 
+  const renderCard = (app: Application) => (
+    <div
+      key={app._id}
+      draggable
+      onDragStart={(e) => { e.dataTransfer.setData('text/plain', app._id); e.dataTransfer.effectAllowed = 'move'; setDragId(app._id); }}
+      onDragEnd={endDrag}
+      className={cn(
+        'relative p-3 bg-muted/50 rounded-lg border border-border cursor-grab active:cursor-grabbing hover:border-primary/30 hover:bg-accent transition-all',
+        dragId === app._id && 'opacity-40',
+      )}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <img src={`https://flagcdn.com/w20/${app.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />
+        <span className="text-xs font-semibold text-foreground/90 truncate">{app.country?.name}</span>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger
+            aria-label={`Move ${app.referenceId}`}
+            className="relative z-10 ml-auto -mr-1 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-card focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel className="text-xs text-muted-foreground font-medium">Move to</DropdownMenuLabel>
+            {BOARD_COLUMNS.filter((c) => c.status !== app.status).map((c) => (
+              <DropdownMenuItem key={c.status} onSelect={() => setPending({ app, to: c.status })} className="cursor-pointer">
+                {STATUS_LABELS[c.status]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {/* Stretched button: the whole card opens the quick-actions drawer. */}
+      <button
+        type="button"
+        onClick={() => setOpen(app)}
+        className="block w-full text-left text-sm font-bold text-foreground mb-1 after:absolute after:inset-0 focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:rounded-lg"
+      >
+        {app.visaType?.name}
+      </button>
+      <p className="text-xs text-muted-foreground mb-2">{app.user?.name}{(app.travellers?.length ?? 0) > 1 ? ` · family of ${app.travellers!.length}` : ''}</p>
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-xs text-muted-foreground">{app.referenceId}</span>
+        <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded ${age(app.updatedAt).tone}`} title={`In this stage since ${formatDateTimeIST(app.updatedAt)}`}>
+          {age(app.updatedAt).label}
+        </span>
+        {app.assignedTo ? (
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary" title={app.assignedTo.name}>
+            {initials(app.assignedTo.name)}
+          </span>
+        ) : <span className="h-6 w-6 rounded-full border border-dashed border-border" title="Unassigned" />}
+      </div>
+    </div>
+  );
+
+  // With grouping on, orders that share a family (parent plus linked child orders) sit together.
+  const groupByFamily = (list: Application[]) => {
+    if (!groupFamilies) return list.map((a) => [a]);
+    const groups = new Map<string, Application[]>();
+    for (const a of list) {
+      const key = a.familyId || a._id;
+      groups.set(key, [...(groups.get(key) || []), a]);
+    }
+    return [...groups.values()];
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
       <PageHeader
@@ -137,7 +203,11 @@ export default function ProcessingBoardPage() {
           <option value="none">Unassigned</option>
           {assignees.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
         </NativeSelect>
-        {(filters.country || filters.assignee) && (
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer ml-1">
+          <input type="checkbox" checked={groupFamilies} onChange={(e) => setGroupFamilies(e.target.checked)} className="rounded" />
+          Group families
+        </label>
+                {(filters.country || filters.assignee) && (
           <Button variant="ghost" size="sm" onClick={() => setFilters({ country: '', assignee: '' })}><X className="w-3.5 h-3.5 mr-1" />Clear</Button>
         )}
       </div>
@@ -174,59 +244,12 @@ export default function ProcessingBoardPage() {
                     {canDrop ? 'Drop here' : 'No applications'}
                   </p>
                 ) : (
-                  colApps.map((app) => (
-                    <div
-                      key={app._id}
-                      draggable
-                      onDragStart={(e) => { e.dataTransfer.setData('text/plain', app._id); e.dataTransfer.effectAllowed = 'move'; setDragId(app._id); }}
-                      onDragEnd={endDrag}
-                      className={cn(
-                        'relative p-3 bg-muted/50 rounded-lg border border-border cursor-grab active:cursor-grabbing hover:border-primary/30 hover:bg-accent transition-all',
-                        dragId === app._id && 'opacity-40',
-                      )}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <img src={`https://flagcdn.com/w20/${app.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />
-                        <span className="text-xs font-semibold text-foreground/90 truncate">{app.country?.name}</span>
-                        <DropdownMenu modal={false}>
-                          <DropdownMenuTrigger
-                            aria-label={`Move ${app.referenceId}`}
-                            className="relative z-10 ml-auto -mr-1 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-card focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel className="text-xs text-muted-foreground font-medium">Move to</DropdownMenuLabel>
-                            {BOARD_COLUMNS.filter((c) => c.status !== app.status).map((c) => (
-                              <DropdownMenuItem key={c.status} onSelect={() => setPending({ app, to: c.status })} className="cursor-pointer">
-                                {STATUS_LABELS[c.status]}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                      {/* Stretched button: the whole card opens the quick-actions drawer. */}
-                      <button
-                        type="button"
-                        onClick={() => setOpen(app)}
-                        className="block w-full text-left text-sm font-bold text-foreground mb-1 after:absolute after:inset-0 focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:rounded-lg"
-                      >
-                        {app.visaType?.name}
-                      </button>
-                      <p className="text-xs text-muted-foreground mb-2">{app.user?.name}{(app.travellers?.length ?? 0) > 1 ? ` · family of ${app.travellers!.length}` : ''}</p>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">{app.referenceId}</span>
-                        <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded ${age(app.updatedAt).tone}`} title={`In this stage since ${formatDateTimeIST(app.updatedAt)}`}>
-                          {age(app.updatedAt).label}
-                        </span>
-                        {app.assignedTo ? (
-                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary" title={app.assignedTo.name}>
-                            {initials(app.assignedTo.name)}
-                          </span>
-                        ) : <span className="h-6 w-6 rounded-full border border-dashed border-border" title="Unassigned" />}
-                      </div>
+                  groupByFamily(colApps).map((group) => group.length > 1 ? (
+                    <div key={group[0].familyId} className="rounded-xl border-2 border-dashed border-gold-500/60 bg-gold-500/5 p-2 space-y-2">
+                      <p className="px-1 text-[11px] font-bold text-gold-700 dark:text-gold-400">{group[0].familyId} · family of {group.length} applications</p>
+                      {group.map(renderCard)}
                     </div>
-                  ))
+                  ) : renderCard(group[0]))
                 )}
               </div>
             </section>

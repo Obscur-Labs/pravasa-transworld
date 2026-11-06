@@ -2,6 +2,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Camera, Check, X, Upload, FileText, Loader2, ScanLine, Maximize2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { scanPassport } from '@/lib/api';
+import { compressImage } from '@/lib/compressImage';
 import { toast } from '@/components/ui/use-toast';
 
 export const PASSPORT_FRONT_FIELDS = [
@@ -377,7 +378,8 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
     }
   }, [onValuesChange]);
 
-  const handleFile = useCallback(async (side: 'front' | 'back', file: File) => {
+  const handleFile = useCallback(async (side: 'front' | 'back', picked: File) => {
+    const file = await compressImage(picked);
     side === 'front' ? onFrontChange(file) : onBackChange(file);
     readPreview(file, side === 'front' ? setFrontPreview : setBackPreview);
 

@@ -9,6 +9,7 @@ import { notifyCustomer } from '../../utils/customerNotify';
 import { checkParent, parentAdults, tripDates } from '../../utils/parentLink';
 import { buildTravellers } from '../../utils/travellers';
 import { sendSuccess, sendError } from '../../utils/response';
+import { familyIdOf } from '../../utils/references';
 
 /**
  * The France flow after documents are approved: VFS appointment, how each traveller
@@ -292,6 +293,7 @@ export const updateParentLink = async (req: AdminRequest, res: Response): Promis
     reason: '',
     checkedAt: new Date(),
   };
+  app.familyId = await familyIdOf(parent._id);
   await app.save();
   logActivity(req, 'update', 'Application', `${app.referenceId}: parent changed from ${previous} to ${parent.referenceId}`);
   sendSuccess(res, app, `Linked to ${parent.referenceId}`);

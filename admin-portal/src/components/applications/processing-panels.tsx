@@ -125,7 +125,7 @@ export function ParentLinkCard({ application, linkedParent, linkedChildren, onCh
               <div className="flex flex-wrap items-end gap-2 rounded-lg bg-muted/40 p-3">
                 <div>
                   <Label className="text-xs">Parent application ID</Label>
-                  <Input className="mt-1 h-8 w-48 font-mono text-xs" placeholder="PRS-ARE-4821" value={parentRef} onChange={(e) => setParentRef(e.target.value)} />
+                  <Input className="mt-1 h-8 w-48 font-mono text-xs" placeholder="PRS-UNI-24817" value={parentRef} onChange={(e) => setParentRef(e.target.value)} />
                 </div>
                 <div>
                   <Label className="text-xs">Relation</Label>

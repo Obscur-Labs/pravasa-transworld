@@ -20,7 +20,7 @@ export interface Placeholder {
 
 /** Advertised to the config page, so the documented tokens are always the working ones. */
 export const PLACEHOLDERS: Placeholder[] = [
-  { token: 'referenceId', description: 'Application number, e.g. PRS-GEN-1234' },
+  { token: 'referenceId', description: 'Application number, e.g. PRS-UNI-24817' },
   { token: 'applicantName', description: 'Name on the account that applied' },
   { token: 'applicantEmail', description: 'Applicant email address' },
   { token: 'applicantPhone', description: 'Applicant phone number' },

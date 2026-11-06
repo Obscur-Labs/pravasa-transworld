@@ -16,6 +16,7 @@ import { extractPassport } from '../../services/ocr.service';
 import { generateVisaSummaryPDF } from '../../services/pdf.service';
 import { buildTravellers } from '../../utils/travellers';
 import { resolveParentLink } from './parentLink.controller';
+import { familyIdOf, newFamilyId, newReferenceId } from '../../utils/references';
 import { sendSuccess, sendError } from '../../utils/response';
 import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf, GST_RATE } from '../../utils/pricing';
 
@@ -71,21 +72,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     .filter((t) => accepted.includes(t.text))
     .map((t) => ({ text: t.text, required: t.required }));
 
-  const countryDoc = await Country.findById(visaType.country);
-  const rawCode = (countryDoc?.code || countryDoc?.name || 'GEN')
-    .toUpperCase()
-    .replace(/[^A-Z]/g, '')
-    .slice(0, 3)
-    .padEnd(3, 'X');
-
-  let referenceId = '';
-  for (let i = 0; i < 10; i++) {
-    const num = String(Math.floor(1000 + Math.random() * 9000));
-    const candidate = `PRS-${rawCode}-${num}`;
-    const exists = await Application.findOne({ referenceId: candidate });
-    if (!exists) { referenceId = candidate; break; }
-  }
-  if (!referenceId) referenceId = `PRS-${rawCode}-${Date.now().toString().slice(-4)}`;
+  const referenceId = await newReferenceId();
 
   const pricingTier = pricingTierOf(req.user);
   const numChildren = Math.max(0, Number(children) || 0);
@@ -99,6 +86,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     if ('error' in resolved) { sendError(res, resolved.error); return; }
     link = resolved.link;
   }
+  const familyId = link ? await familyIdOf(link.application) : await newFamilyId();
 
   const breakdown = computeVisaPricing(visaType, pricingTier, req.user!._id);
   const { adultBase, adultVfs, adultFee, childBase, childVfs, childFee } = breakdown;
@@ -123,6 +111,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     pricingTier,
     acceptedTerms: acceptedSnapshot,
     referenceId,
+    familyId,
   });
 
   const populated = await Application.findById(application._id)

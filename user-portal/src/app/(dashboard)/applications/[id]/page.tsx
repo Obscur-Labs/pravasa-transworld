@@ -1136,7 +1136,7 @@ export default function ApplicationDetailPage() {
             <Card className="mt-5">
               <div className="p-5 border-b border-slate-100">
                 <h3 className="font-semibold text-slate-900">Your application IDs</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Family group {application.referenceId}</p>
+                <p className="text-xs text-slate-400 mt-0.5">Family group {application.familyId || application.referenceId}</p>
               </div>
               <CardContent className="p-5 space-y-2.5">
                 {application.travellers!.map((t) => {

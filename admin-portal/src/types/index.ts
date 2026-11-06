@@ -587,6 +587,8 @@ export interface Application {
   dispatch?: Dispatch | null;
   assignedTo?: { _id: string; name: string } | null;
   referenceId: string;
+  /** Family group shared with linked child-only orders, e.g. FAM-0193. */
+  familyId?: string;
   createdAt: string;
   updatedAt: string;
 }

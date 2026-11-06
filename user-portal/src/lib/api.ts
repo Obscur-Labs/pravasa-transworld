@@ -70,8 +70,11 @@ export const lookupParentApplication = (data: { query: string; country: string; 
   api.post('/user/parent-applications/lookup', data);
 export const verifyParentApplication = (data: { applicationId: string; dob: string }) =>
   api.post('/user/parent-applications/verify', data);
-export const uploadDocument = (id: string, formData: FormData) =>
-  api.post(`/user/applications/${id}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const uploadDocument = (id: string, formData: FormData, onProgress?: (fraction: number) => void) =>
+  api.post(`/user/applications/${id}/documents`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (e) => { if (onProgress && e.total) onProgress(e.loaded / e.total); },
+  });
 export const addDocumentFromVault = (id: string, data: { vaultDocId: string; requirementName: string; triggeredBy?: string }) =>
   api.post(`/user/applications/${id}/documents/from-vault`, data);
 // Live passport OCR (no persistence) used to pre-fill the editable review form.

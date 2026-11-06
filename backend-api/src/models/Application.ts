@@ -40,6 +40,39 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   visa_delivered: 'Visa Delivered',
 };
 
+// The six customer-facing stages, matching both portals' PIPELINE_STAGES.
+const PIPELINE: { label: string; statuses: ApplicationStatus[] }[] = [
+  { label: 'Submitted', statuses: ['submitted', 'payment_pending'] },
+  { label: 'Payment Verified', statuses: ['payment_completed'] },
+  { label: 'Docs Review', statuses: ['documents_under_review', 'documents_approved'] },
+  { label: 'Sent to Embassy', statuses: ['visa_processing', 'embassy_review'] },
+  { label: 'Decision', statuses: ['visa_approved', 'visa_rejected'] },
+  { label: 'Delivered', statuses: ['visa_delivered'] },
+];
+
+const STATUS_MESSAGES: Record<ApplicationStatus, string> = {
+  submitted: 'We have your application. Complete the payment so we can start.',
+  payment_pending: 'We are waiting for your payment before we start.',
+  payment_completed: 'Your payment is verified. Our team will check your documents next.',
+  documents_under_review: 'Our team is checking your documents.',
+  documents_approved: 'Your documents are approved and being prepared for the embassy.',
+  visa_processing: 'Your application has been sent to the embassy.',
+  embassy_review: 'The embassy is reviewing your application.',
+  visa_approved: 'Your visa is approved. We will send it to you shortly.',
+  visa_rejected: 'The embassy did not approve this visa. Our team will contact you about next steps.',
+  visa_delivered: 'Your visa has been delivered. Have a great trip!',
+};
+
+/** Customer wording for a status: "Stage 3 of 6: Docs Review" plus a one-line explanation. */
+export function customerStatus(status: ApplicationStatus) {
+  const i = PIPELINE.findIndex((s) => s.statuses.includes(status));
+  return {
+    stage: i >= 0 ? `Stage ${i + 1} of ${PIPELINE.length}: ${PIPELINE[i].label}` : '',
+    label: STATUS_LABELS[status] || status,
+    message: STATUS_MESSAGES[status] || '',
+  };
+}
+
 // Some missions want original papers in hand rather than scans. When the admin asks
 // for them, the applicant ships the documents and reports the consignment back. The
 // whole exchange sits outside the main flow, nothing here ever blocks an application.
@@ -178,6 +211,8 @@ export interface IApplication extends Document {
   /** Team member handling it. */
   assignedTo: mongoose.Types.ObjectId | null;
   referenceId: string;
+  /** Family group (FAM-0193) shared with linked child-only orders; groups the processing board. */
+  familyId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -333,6 +368,7 @@ const ApplicationSchema = new Schema<IApplication>(
     dispatch: { type: DispatchSchema, default: null },
     assignedTo: { type: Schema.Types.ObjectId, ref: 'Admin', default: null, index: true },
     referenceId: { type: String, unique: true },
+    familyId: { type: String, index: true },
   },
   { timestamps: true }
 );
@@ -343,8 +379,8 @@ ApplicationSchema.plugin(encryptionPlugin, { fields: ['formResponses'] });
 
 ApplicationSchema.pre('save', function (next) {
   if (!this.referenceId) {
-    const num = String(Math.floor(1000 + Math.random() * 9000));
-    this.referenceId = `PRS-GEN-${num}`;
+    const num = String(Math.floor(10000 + Math.random() * 90000));
+    this.referenceId = `PRS-UNI-${num}`;
   }
   if (this.isNew || this.isModified('status')) this.statusHistory.push({ status: this.status, at: new Date() });
   next();
