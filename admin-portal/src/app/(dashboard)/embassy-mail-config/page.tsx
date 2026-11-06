@@ -1,4 +1,5 @@
 'use client';
+import { UnsavedBar } from '@/components/shared/unsaved-bar';
 import { useEffect, useState } from 'react';
 import { Loader2, RotateCcw, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,13 @@ export default function EmbassyMailConfigPage() {
   };
 
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
@@ -198,6 +206,7 @@ export default function EmbassyMailConfigPage() {
           </Card>
         </div>
       )}
+      <UnsavedBar dirty={dirty && !loading} saving={saving} onSave={handleSave} onDiscard={() => setForm(saved)} />
     </div>
   );
 }

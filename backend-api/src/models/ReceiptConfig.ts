@@ -16,6 +16,10 @@ export interface IReceiptConfig extends Document {
   stateCode: string;
   sacCode: string;
   logoUrl: string;
+  /** Brand colours and font used by emails and receipts. */
+  brandPrimary: string;
+  brandAccent: string;
+  brandFont: string;
   phone2: string;
   website: string;
   businessHours: string;
@@ -37,6 +41,9 @@ const ReceiptConfigSchema = new Schema<IReceiptConfig>(
     stateCode: { type: String, default: '' },
     sacCode: { type: String, default: '998555' },
     logoUrl: { type: String, default: '' },
+    brandPrimary: { type: String, default: '#0B2E3D' },
+    brandAccent: { type: String, default: '#9F7437' },
+    brandFont: { type: String, default: 'Inter' },
     phone2: { type: String, default: '' },
     website: { type: String, default: '' },
     businessHours: { type: String, default: '' },

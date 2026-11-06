@@ -27,21 +27,13 @@ export default function ContactSection() {
   };
 
   return (
-    <section id="contact" className="py-24 bg-gradient-to-b from-white to-brand-50/20 relative overflow-hidden border-t border-slate-100">
+    <section id="contact" className="py-14 sm:py-16 bg-gradient-to-b from-white to-brand-50/20 relative overflow-hidden">
       {/* Decorative light glowing blobs with very slow & gentle animations */}
       <div className="absolute top-0 left-1/3 w-96 h-96 bg-brand-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
       <div className="absolute bottom-0 right-10 w-80 h-80 bg-gold-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
 
+      {/* The page hero already introduces this, so the section goes straight to details and form. */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <span className="inline-block bg-brand-50 text-brand-800 border border-brand-100/60 text-xs font-bold px-4 py-1.5 rounded-full mb-4 uppercase tracking-widest shadow-sm">
-            Get In Touch
-          </span>
-          <h2 className="text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Need Help?</h2>
-          <p className="text-lg text-slate-600 max-w-xl mx-auto font-semibold">
-            Our visa experts are available to guide you through any part of the process.
-          </p>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
           {/* Left info */}

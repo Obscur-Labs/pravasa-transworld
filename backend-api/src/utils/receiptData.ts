@@ -19,8 +19,8 @@ const DEFAULT_COMPANY: CompanyInfo = {
 export async function getCompanyInfo(): Promise<CompanyInfo> {
   const config = await ReceiptConfig.findOne().lean<IReceiptConfig>();
   if (!config) return DEFAULT_COMPANY;
-  const { companyName, addressLine1, addressLine2, phone, fax, email, gstin, pan, stateName, stateCode, sacCode, logoUrl } = config;
-  return { companyName, addressLine1, addressLine2, phone, fax, email, gstin, pan, stateName, stateCode, sacCode, logoUrl };
+  const { companyName, addressLine1, addressLine2, phone, fax, email, gstin, pan, stateName, stateCode, sacCode, logoUrl, brandPrimary } = config;
+  return { companyName, addressLine1, addressLine2, phone, fax, email, gstin, pan, stateName, stateCode, sacCode, logoUrl, brandPrimary };
 }
 
 // Best-effort passport lookup, the field name is admin-configurable per visa type

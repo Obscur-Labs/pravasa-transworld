@@ -1,6 +1,7 @@
 import {
   brevo, brevoErrorDetail, MAIL_FROM_NAME, MAIL_FROM_EMAIL, EMBASSY_FROM_NAME, EMBASSY_FROM_EMAIL,
 } from '../config/email';
+import { applyBrandingToHtml, getBranding } from '../utils/branding';
 
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -44,12 +45,13 @@ async function sendMail(to: string, subject: string, html: string, label: string
   const sender = extras.from ?? { name: MAIL_FROM_NAME, email: MAIL_FROM_EMAIL };
   console.log(`[EMAIL:${label}] Preparing to send → ${to} | From: ${sender.email} | Subject: "${subject}"`);
 
+  const branded = applyBrandingToHtml(html, await getBranding().catch(() => ({ logoUrl: '', primary: '#0B2E3D', accent: '#9F7437', font: 'Inter' })));
   try {
     const { messageId } = await brevo.transactionalEmails.sendTransacEmail({
       sender,
       to: [{ email: to }],
       subject,
-      htmlContent: html,
+      htmlContent: branded,
       ...(extras.cc?.length ? { cc: extras.cc.map((address) => ({ email: address })) } : {}),
       ...(extras.replyTo ? { replyTo: { email: extras.replyTo } } : {}),
       ...(extras.attachments?.length ? { attachment: extras.attachments } : {}),
@@ -293,6 +295,29 @@ export async function sendApplicationUpdateEmail(opts: {
     'APP_UPDATE'
   );
 }
+
+/** A team member's reply to a website inquiry, optionally with a button (e.g. continue an application). */
+export async function sendInquiryReplyEmail(opts: { email: string; name: string; body: string; link?: string; linkLabel?: string }): Promise<void> {
+  const paragraphs = escapeHtml(opts.body).split(/\n{2,}/).map((p) => `<p style="color: #475569; font-size: 15px; margin: 0 0 16px; white-space: pre-line;">${p}</p>`).join('');
+  await sendMail(
+    opts.email,
+    'Your enquiry with Pravasa Transworld',
+    `
+      <div style="${baseStyle}">
+        ${header('Reply to your enquiry')}
+        <div style="padding: 40px 32px;">
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${escapeHtml(opts.name)},</p>
+          ${paragraphs}
+          ${opts.link ? `<a href="${opts.link}" style="display: inline-block; background: #0B2E3D; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">${escapeHtml(opts.linkLabel || 'Open')}</a>` : ''}
+        </div>
+        ${footer()}
+      </div>
+    `,
+    'INQUIRY_REPLY'
+  );
+}
+
+export const customerAppUrl = (path: string) => `${frontendUrl}${path}`;
 
 /** Invites a new team member to set their own admin password. */
 export async function sendAdminInviteEmail(opts: { email: string; name: string; username: string; token: string; invitedBy: string }): Promise<void> {

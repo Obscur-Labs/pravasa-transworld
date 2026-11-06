@@ -275,6 +275,9 @@ export interface ReceiptConfig {
   stateCode: string;
   sacCode: string;
   logoUrl: string;
+  brandPrimary: string;
+  brandAccent: string;
+  brandFont: string;
   phone2: string;
   website: string;
   businessHours: string;
@@ -821,8 +824,14 @@ export interface ServiceInquiry {
   details: { key: string; label: string; value: string }[];
   read: boolean;
   status?: InquiryStatus;
+  assignedTo?: string | null;
+  replies?: InquiryReply[];
+  convertedTo?: { user: string; draft: string; visaName: string; at: string } | null;
   createdAt: string;
 }
+
+export interface InquiryReply { body: string; channel: 'whatsapp' | 'email' | 'both'; by: string; at: string }
+export interface ReplyTemplate { _id?: string; title: string; body: string }
 
 export interface ContactLead {
   _id: string;
@@ -832,5 +841,8 @@ export interface ContactLead {
   message: string;
   read: boolean;
   status?: InquiryStatus;
+  assignedTo?: string | null;
+  replies?: InquiryReply[];
+  convertedTo?: { user: string; draft: string; visaName: string; at: string } | null;
   createdAt: string;
 }

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Download, Loader2, Save } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,19 +8,26 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
-import { getReceiptConfig, updateReceiptConfig, downloadDemoReceipt } from '@/lib/api';
+import { getReceiptConfig, updateReceiptConfig, downloadDemoReceipt, updateBranding } from '@/lib/api';
 import type { ReceiptConfig } from '@/types';
 import { BusinessHoursCard } from '@/components/shared/business-hours-card';
+import { BrandingCard, type BrandingValue } from '@/components/shared/branding-card';
+import { UnsavedBar, useUnsaved } from '@/components/shared/unsaved-bar';
 
 type FormState = Omit<ReceiptConfig, '_id'>;
 
 const empty: FormState = {
   companyName: '', addressLine1: '', addressLine2: '', phone: '', fax: '', email: '',
   gstin: '', pan: '', stateName: '', stateCode: '', sacCode: '998555', logoUrl: '',
+  brandPrimary: '#0B2E3D', brandAccent: '#9F7437', brandFont: 'Inter',
   phone2: '', website: '', businessHours: '',
 };
 
-const FIELDS: { key: Exclude<keyof FormState, 'hoursSchedule'>; label: string; placeholder: string; span?: 1 | 2 }[] = [
+const BRAND_KEYS = ['logoUrl', 'brandPrimary', 'brandAccent', 'brandFont', 'website'] as const;
+// Hours save from their own card, so they never count as unsaved here.
+const tracked = ({ hoursSchedule: _h, businessHours: _b, ...rest }: FormState) => rest;
+
+const FIELDS: { key: Exclude<keyof FormState, 'hoursSchedule' | (typeof BRAND_KEYS)[number]>; label: string; placeholder: string; span?: 1 | 2 }[] = [
   { key: 'companyName', label: 'Company Name', placeholder: 'e.g. Pravasa Transworld Pvt. Ltd.', span: 2 },
   { key: 'addressLine1', label: 'Address Line 1', placeholder: 'Building, street', span: 2 },
   { key: 'addressLine2', label: 'Address Line 2', placeholder: 'City, state, PIN', span: 2 },
@@ -28,8 +35,6 @@ const FIELDS: { key: Exclude<keyof FormState, 'hoursSchedule'>; label: string; p
   { key: 'phone2', label: 'Second Phone', placeholder: '+91 84693 24000' },
   { key: 'fax', label: 'Fax', placeholder: 'Optional' },
   { key: 'email', label: 'Email', placeholder: 'billing@yourcompany.com' },
-  { key: 'website', label: 'Website', placeholder: 'www.pravasatransworld.com' },
-  { key: 'logoUrl', label: 'Logo URL', placeholder: 'https://... (optional)' },
   { key: 'gstin', label: 'Company GSTIN', placeholder: 'e.g. 27AACCA7715P1Z9' },
   { key: 'pan', label: 'Company PAN', placeholder: 'e.g. AACCA7715P' },
   { key: 'stateName', label: 'State', placeholder: 'e.g. Maharashtra' },
@@ -42,12 +47,15 @@ export default function ReceiptConfigPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const { dirty, markSaved, saved } = useUnsaved(tracked(form));
 
   useEffect(() => {
     getReceiptConfig()
       .then((r) => {
         const { _id, ...rest } = r.data.data as ReceiptConfig;
-        setForm({ ...empty, ...rest });
+        const loaded = { ...empty, ...rest };
+        setForm(loaded);
+        markSaved(tracked(loaded));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -55,8 +63,12 @@ export default function ReceiptConfigPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateReceiptConfig(form);
-      toast({ title: 'Receipt settings saved', variant: 'success' });
+      const { hoursSchedule: _h, businessHours: _b, ...details } = form;
+      const brand = Object.fromEntries(BRAND_KEYS.map((k) => [k, form[k]]));
+      await updateReceiptConfig(details);
+      await updateBranding(brand);
+      markSaved(tracked(form));
+      toast({ title: 'Settings saved', variant: 'success' });
     } catch (err: any) {
       toast({ title: 'Failed to save', description: err.response?.data?.message, variant: 'destructive' });
     } finally {
@@ -127,14 +139,15 @@ export default function ReceiptConfigPage() {
             Individual customers get a simpler receipt without any tax details.
           </p>
 
-          <div className="mt-6">
-            <Button onClick={handleSave} disabled={saving || loading}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              Save Settings
-            </Button>
-          </div>
         </CardContent>
       </Card>
+
+      {!loading && (
+        <BrandingCard
+          value={Object.fromEntries(BRAND_KEYS.map((k) => [k, form[k]])) as unknown as BrandingValue}
+          onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+        />
+      )}
 
       {!loading && (
         <BusinessHoursCard
@@ -143,6 +156,13 @@ export default function ReceiptConfigPage() {
           onSaved={(businessHours, hoursSchedule) => setForm((f) => ({ ...f, businessHours, hoursSchedule }))}
         />
       )}
+
+      <UnsavedBar
+        dirty={dirty}
+        saving={saving}
+        onSave={handleSave}
+        onDiscard={() => { const s = saved(); if (s) setForm((f) => ({ ...f, ...s })); }}
+      />
     </div>
   );
 }

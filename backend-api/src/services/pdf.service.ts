@@ -17,6 +17,8 @@ export interface CompanyInfo {
   stateCode: string;
   sacCode: string;
   logoUrl: string;
+  /** Brand navy for headings and the logo tile; defaults to the logo colour. */
+  brandPrimary?: string;
 }
 
 export interface ReceiptData {
@@ -90,6 +92,7 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
 }
 
 async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorporate: boolean, company: CompanyInfo) {
+  const BRAND = company.brandPrimary || '#0B2E3D';
   const receiptNo = data.receiptNumber || `VF-RCP-${String(data.payment._id).slice(-8).toUpperCase()}`;
   const paidDate = data.payment.paidAt ? new Date(data.payment.paidAt) : new Date();
 
@@ -105,12 +108,12 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
     }
   }
   if (!logoDrawn) {
-    doc.roundedRect(MARGIN, 40, 60, 60, 8).fill('#0B2E3D');
+    doc.roundedRect(MARGIN, 40, 60, 60, 8).fill(BRAND);
     doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(24)
       .text((company.companyName || 'P').trim().charAt(0).toUpperCase(), MARGIN, 62, { width: 60, align: 'center' });
   }
 
-  doc.fillColor('#0B2E3D').font('Helvetica-Bold').fontSize(14).text(company.companyName || 'Pravasa Transworld', MARGIN + 110, 42, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(14).text(company.companyName || 'Pravasa Transworld', MARGIN + 110, 42, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
   doc.fillColor('#b91c1c').font('Helvetica').fontSize(8);
   const addrLines = [company.addressLine1, company.addressLine2].filter(Boolean);
   addrLines.forEach((line) => doc.text(line as string, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' }));

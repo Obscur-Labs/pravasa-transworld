@@ -1,4 +1,5 @@
 'use client';
+import { UnsavedBar, useUnsaved } from '@/components/shared/unsaved-bar';
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Loader2, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
@@ -46,12 +47,14 @@ export default function PaymentConfigPage() {
   const [defaultTerms, setDefaultTerms] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { dirty, markSaved, saved } = useUnsaved(form);
 
   useEffect(() => {
     getPaymentConfig()
       .then((r) => {
         const { _id, ...rest } = r.data.data.config as PaymentConfig;
         setForm({ ...empty, ...rest });
+        markSaved({ ...empty, ...rest });
         setDefaultTerms(r.data.data.defaultTerms || []);
       })
       .finally(() => setLoading(false));
@@ -73,6 +76,7 @@ export default function PaymentConfigPage() {
       const r = await updatePaymentConfig({ ...form, terms: form.terms.map((t) => t.trim()).filter(Boolean) });
       const { _id, ...rest } = r.data.data.config as PaymentConfig;
       setForm({ ...empty, ...rest });
+      markSaved({ ...empty, ...rest });
       toast({ title: 'Payment settings saved', variant: 'success' });
     } catch (err: any) {
       toast({ title: 'Failed to save', description: err.response?.data?.message, variant: 'destructive' });
@@ -239,6 +243,7 @@ export default function PaymentConfigPage() {
           </Card>
         </div>
       )}
+      <UnsavedBar dirty={dirty} saving={saving} onSave={handleSave} onDiscard={() => { const v = saved(); if (v) setForm(v); }} />
     </div>
   );
 }

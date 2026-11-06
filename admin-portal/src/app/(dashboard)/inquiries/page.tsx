@@ -3,7 +3,12 @@ import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Mail, Phone, MapPin, Trash2, Eye, MessageSquare, Search, Plane, Hotel, Bus, ShieldCheck, Banknote, MessageCircle, Briefcase,
+  Reply, FilePlus2, CheckCircle2,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ReplyDrawer, type ReplyTarget } from '@/components/inquiries/reply-drawer';
+import { TemplatesDialog } from '@/components/inquiries/templates-dialog';
+import { ConvertDialog, type ConvertTarget } from '@/components/inquiries/convert-dialog';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -15,9 +20,10 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/use-toast';
 import {
   getLeads, markLeadRead, deleteLead, getServiceInquiries, markServiceInquiryRead, deleteServiceInquiry, setInquiryStatus,
+  getReplyTemplates, getApplicationAssignees, assignInquiry,
 } from '@/lib/api';
 import { formatDateTimeIST } from '@/lib/utils';
-import type { ContactLead, InquiryService, InquiryStatus, ServiceInquiry } from '@/types';
+import type { ContactLead, InquiryReply, InquiryService, InquiryStatus, ReplyTemplate, ServiceInquiry } from '@/types';
 import { useBadgesStore } from '@/store/badges.store';
 
 type Tab = 'contact' | InquiryService;
@@ -40,14 +46,6 @@ const STATUSES: { key: InquiryStatus; label: string; tone: string }[] = [
   { key: 'closed', label: 'Closed', tone: 'bg-muted text-muted-foreground' },
 ];
 
-// One tap fills the reply; the team edits it in WhatsApp or the mail app before sending.
-const REPLIES: { label: string; text: (name: string) => string }[] = [
-  { label: 'Thanks, calling soon', text: (n) => `Namaste ${n}, thank you for contacting Pravasa Transworld. Our team will call you shortly.` },
-  { label: 'Need more details', text: (n) => `Namaste ${n}, thanks for your request. Could you share your travel dates and the number of travellers so we can help you faster?` },
-  { label: 'Quote ready', text: (n) => `Namaste ${n}, your quote is ready. Please let us know a good time to walk you through the options.` },
-  { label: 'Documents checklist', text: (n) => `Namaste ${n}, here is what we need to start: passport front and back, a recent photo with white background, and your travel dates.` },
-];
-
 /** Contact leads and service inquiries in one shape, so a single card renders both. */
 interface Item {
   _id: string;
@@ -61,12 +59,18 @@ interface Item {
   details: { label: string; value: string }[];
   read: boolean;
   status: InquiryStatus;
+  assignedTo: string | null;
+  replies: InquiryReply[];
+  convertedTo: { visaName: string; at: string } | null;
   createdAt: string;
 }
+
+const kindOf = (item: { tab: Tab }) => (item.tab === 'contact' ? 'lead' : 'inquiry') as 'lead' | 'inquiry';
 
 const fromLead = (l: ContactLead): Item => ({
   _id: l._id, tab: 'contact', name: l.name, email: l.email, phone: l.phone || '', location: '',
   summary: '', message: l.message, details: [], read: l.read, status: l.status || (l.read ? 'open' : 'new'), createdAt: l.createdAt,
+  assignedTo: l.assignedTo || null, replies: l.replies || [], convertedTo: l.convertedTo || null,
 });
 
 // Free-text notes read better as a paragraph than as a grid cell.
@@ -74,6 +78,7 @@ const fromInquiry = (q: ServiceInquiry): Item => ({
   _id: q._id, tab: q.service, name: q.name, email: q.email, phone: q.phone, location: q.location,
   summary: q.summary, message: q.details.find((d) => d.key === 'notes')?.value || '',
   details: q.details.filter((d) => d.key !== 'notes'), read: q.read, status: q.status || (q.read ? 'open' : 'new'), createdAt: q.createdAt,
+  assignedTo: q.assignedTo || null, replies: q.replies || [], convertedTo: q.convertedTo || null,
 });
 
 const TAB_PARAM = 'tab';
@@ -85,6 +90,11 @@ export default function InquiriesPage() {
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const [statusFilter, setStatusFilter] = useState<InquiryStatus | ''>('');
+  const [templates, setTemplates] = useState<ReplyTemplate[]>([]);
+  const [team, setTeam] = useState<{ _id: string; name: string }[]>([]);
+  const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
+  const [convertFor, setConvertFor] = useState<ConvertTarget | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get(TAB_PARAM);
@@ -100,7 +110,28 @@ export default function InquiriesPage() {
       })
       .catch(() => toast({ title: 'Could not load inquiries', variant: 'destructive' }))
       .finally(() => setLoading(false));
+    getReplyTemplates().then((r) => setTemplates(r.data.data)).catch(() => {});
+    getApplicationAssignees().then((r) => setTeam(r.data.data)).catch(() => {});
   }, []);
+
+  const patch = (id: string, change: Partial<Item>) => setItems((prev) => prev.map((i) => (i._id === id ? { ...i, ...change } : i)));
+
+  const handleAssign = async (item: Item, assignee: string) => {
+    const before = item.assignedTo;
+    patch(item._id, { assignedTo: assignee || null });
+    try {
+      await assignInquiry(kindOf(item), item._id, assignee || null);
+    } catch {
+      patch(item._id, { assignedTo: before });
+      toast({ title: 'Could not assign', variant: 'destructive' });
+    }
+  };
+
+  const openReply = (item: Item) => setReplyTo({
+    kind: kindOf(item), id: item._id, name: item.name, email: item.email, phone: item.phone,
+    source: TABS.find((t) => t.key === item.tab)!.label, message: item.summary ? `${item.summary}${item.message ? `\n${item.message}` : ''}` : item.message,
+    createdAt: item.createdAt, replies: item.replies,
+  });
 
   const selectTab = (next: Tab) => {
     setTab(next);
@@ -125,7 +156,7 @@ export default function InquiriesPage() {
     const before = items;
     setItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, status, read: true } : i)));
     try {
-      await setInquiryStatus(item.tab === 'contact' ? 'lead' : 'inquiry', item._id, status);
+      await setInquiryStatus(kindOf(item), item._id, status);
       useBadgesStore.getState().refresh();
     } catch {
       setItems(before);
@@ -290,25 +321,29 @@ export default function InquiriesPage() {
                     )}
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mr-1">Reply</span>
-                    {REPLIES.map((r) => {
-                      const first = item.name.split(' ')[0];
-                      const text = r.text(first);
-                      return digits ? (
-                        <a key={r.label} href={`https://wa.me/${digits}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer"
-                          onClick={() => item.status === 'new' && handleStatus(item, 'open')}
-                          className="text-[11px] px-2 py-1 rounded-full border border-border text-muted-foreground hover:border-success/40 hover:text-success">
-                          {r.label}
-                        </a>
-                      ) : item.email ? (
-                        <a key={r.label} href={`mailto:${item.email}?subject=${encodeURIComponent('Your enquiry with Pravasa Transworld')}&body=${encodeURIComponent(text)}`}
-                          onClick={() => item.status === 'new' && handleStatus(item, 'open')}
-                          className="text-[11px] px-2 py-1 rounded-full border border-border text-muted-foreground hover:border-primary/40 hover:text-primary">
-                          {r.label}
-                        </a>
-                      ) : null;
-                    })}
+                  {item.replies.length > 0 && (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Last reply by {item.replies[item.replies.length - 1].by} · {formatDateTimeIST(item.replies[item.replies.length - 1].at)}
+                      {item.replies.length > 1 ? ` · ${item.replies.length} replies` : ''}
+                    </p>
+                  )}
+                  {item.convertedTo && (
+                    <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-success">
+                      <CheckCircle2 className="w-3.5 h-3.5" />Application started: {item.convertedTo.visaName}
+                    </p>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openReply(item)}>
+                      <Reply className="w-3.5 h-3.5 mr-1.5" />Reply
+                    </Button>
+                    {!item.convertedTo && (
+                      <Button size="sm" variant="ghost" onClick={() => setConvertFor({ kind: kindOf(item), id: item._id, name: item.name, email: item.email })}>
+                        <FilePlus2 className="w-3.5 h-3.5 mr-1.5" />Convert to application
+                      </Button>
+                    )}
+                    {item.status !== 'closed' && (
+                      <Button size="sm" variant="ghost" onClick={() => handleStatus(item, 'closed')}>Mark closed</Button>
+                    )}
                   </div>
                 </div>
 
@@ -316,6 +351,11 @@ export default function InquiriesPage() {
                   <NativeSelect className="h-8 w-auto text-xs" value={item.status} aria-label="Status"
                     onChange={(e) => handleStatus(item, e.target.value as InquiryStatus)}>
                     {STATUSES.map((st) => <option key={st.key} value={st.key}>{st.label}</option>)}
+                  </NativeSelect>
+                  <NativeSelect className="h-8 w-auto text-xs" value={item.assignedTo || ''} aria-label="Assigned to"
+                    onChange={(e) => handleAssign(item, e.target.value)}>
+                    <option value="">Unassigned</option>
+                    {team.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
                   </NativeSelect>
                   {!item.read && (
                     <button
@@ -342,6 +382,22 @@ export default function InquiriesPage() {
           <Pagination {...paginationProps} className="px-0" />
         </div>
       )}
+
+      <ReplyDrawer
+        target={replyTo}
+        templates={templates}
+        onClose={() => setReplyTo(null)}
+        onSent={(doc) => replyTo && patch(replyTo.id, { replies: doc.replies, status: doc.status as InquiryStatus, read: true })}
+        onManageTemplates={() => setTemplatesOpen(true)}
+      />
+      <TemplatesDialog open={templatesOpen} onOpenChange={setTemplatesOpen} templates={templates} onSaved={setTemplates} />
+      <ConvertDialog
+        target={convertFor}
+        onClose={() => setConvertFor(null)}
+        onConverted={(doc) => convertFor && patch(convertFor.id, {
+          status: doc.status as InquiryStatus, read: true, convertedTo: { visaName: doc.convertedTo.visaName, at: new Date().toISOString() },
+        })}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}

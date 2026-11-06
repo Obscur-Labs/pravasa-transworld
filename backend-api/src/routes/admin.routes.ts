@@ -99,6 +99,8 @@ router.route('/visa-config/:id').put(visaConfig.updateVisaConfigOption).delete(v
 router.use('/receipt-config', requireModule('receiptSettings'));
 router.route('/receipt-config').get(receiptConfig.getReceiptConfig).put(receiptConfig.updateReceiptConfig);
 router.put('/receipt-config/hours', receiptConfig.updateBusinessHours);
+router.put('/receipt-config/branding', receiptConfig.updateBranding);
+router.post('/receipt-config/logo', upload.single('file'), receiptConfig.uploadLogo);
 router.get('/receipt-config/demo', receiptConfig.downloadDemoReceipt);
 
 router.use('/embassy-mail-config', requireModule('embassyMailSettings'));
@@ -185,6 +187,11 @@ router.get('/inquiries', inquiries.getServiceInquiries);
 router.patch('/inquiries/:id/read', inquiries.markServiceInquiryRead);
 router.patch('/inquiry-status/:kind/:id', requireModule('inquiries'), inquiries.setInquiryStatus);
 router.delete('/inquiries/:id', inquiries.deleteServiceInquiry);
+router.get('/inquiries/reply-templates', inquiries.getReplyTemplates);
+router.put('/inquiries/reply-templates', inquiries.saveReplyTemplates);
+router.post('/inquiries/:kind(lead|inquiry)/:id/replies', inquiries.sendInquiryReply);
+router.patch('/inquiries/:kind(lead|inquiry)/:id/assign', inquiries.assignInquiry);
+router.post('/inquiries/:kind(lead|inquiry)/:id/convert', inquiries.convertInquiry);
 
 // Activity Logs: read-only module; clearing the log is for super admins.
 router.get('/activity-logs', requireModule('activityLogs'), activityLogs.getActivityLogs);

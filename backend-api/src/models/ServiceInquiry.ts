@@ -5,6 +5,27 @@ export const INQUIRY_STATUSES = ['new', 'open', 'awaiting_customer', 'converted'
 export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
 
 
+export type ReplyChannel = 'whatsapp' | 'email' | 'both';
+
+/** Follow-up shared by contact messages and service requests: who owns it, what was said, what it became. */
+export interface InquiryWorkflow {
+  assignedTo: mongoose.Types.ObjectId | null;
+  replies: { body: string; channel: ReplyChannel; by: string; at: Date }[];
+  convertedTo: { user: mongoose.Types.ObjectId; draft: mongoose.Types.ObjectId; visaName: string; at: Date } | null;
+}
+
+export const inquiryWorkflowFields = {
+  assignedTo: { type: Schema.Types.ObjectId, ref: 'Admin', default: null },
+  replies: {
+    type: [{ _id: false, body: String, channel: { type: String, enum: ['whatsapp', 'email', 'both'] }, by: String, at: { type: Date, default: Date.now } }],
+    default: [],
+  },
+  convertedTo: {
+    type: new Schema({ user: { type: Schema.Types.ObjectId, ref: 'User' }, draft: { type: Schema.Types.ObjectId }, visaName: String, at: Date }, { _id: false }),
+    default: null,
+  },
+};
+
 export interface InquiryDetail {
   key: string;
   label: string;
@@ -12,7 +33,7 @@ export interface InquiryDetail {
 }
 
 /** A request from one of the "More Services" forms (flights, hotels, transport, insurance, forex). */
-export interface IServiceInquiry extends Document {
+export interface IServiceInquiry extends Document, InquiryWorkflow {
   service: ServiceKey;
   name: string;
   email: string;
@@ -37,6 +58,7 @@ const ServiceInquirySchema = new Schema<IServiceInquiry>(
     details: [{ _id: false, key: String, label: String, value: String }],
     read: { type: Boolean, default: false },
     status: { type: String, enum: INQUIRY_STATUSES, default: 'new', index: true },
+    ...inquiryWorkflowFields,
   },
   { timestamps: true }
 );

@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { INQUIRY_STATUSES, InquiryStatus } from './ServiceInquiry';
+import { INQUIRY_STATUSES, InquiryStatus, InquiryWorkflow, inquiryWorkflowFields } from './ServiceInquiry';
 
-export interface IContactLead extends Document {
+export interface IContactLead extends Document, InquiryWorkflow {
   name: string;
   email: string;
   phone?: string;
@@ -19,6 +19,7 @@ const ContactLeadSchema = new Schema<IContactLead>(
     message: { type: String, required: true, trim: true },
     read: { type: Boolean, default: false },
     status: { type: String, enum: INQUIRY_STATUSES, default: 'new' },
+    ...inquiryWorkflowFields,
   },
   { timestamps: true }
 );

@@ -6,10 +6,12 @@ import { getCompanyInfo } from '../../utils/receiptData';
 import { diffFields, logActivity } from '../../utils/activityLog';
 import { cleanSchedule, summarizeSchedule } from '../../utils/businessHours';
 import { sendSuccess, sendError } from '../../utils/response';
+import { BRAND_FONTS, HEX_RE, clearBrandingCache } from '../../utils/branding';
+import { uploadToCloudinary } from '../../services/cloudinary.service';
 
 const EDITABLE_FIELDS = [
   'companyName', 'addressLine1', 'addressLine2', 'phone', 'fax', 'email',
-  'gstin', 'pan', 'stateName', 'stateCode', 'sacCode', 'logoUrl',
+  'gstin', 'pan', 'stateName', 'stateCode', 'sacCode',
   'phone2', 'website', 'businessHours',
 ] as const;
 
@@ -27,6 +29,40 @@ export const updateReceiptConfig = async (req: AdminRequest, res: Response): Pro
   const config = await ReceiptConfig.findOneAndUpdate({}, update, { upsert: true, new: true, setDefaultsOnInsert: true });
   logActivity(req, 'update', 'Receipt Config', config.companyName, diffFields(previous, config.toObject(), Object.keys(update)));
   sendSuccess(res, config, 'Receipt settings updated');
+};
+
+/** Logo, colours, font and website. Colours must be #RRGGBB; the font comes from a fixed list. */
+export const updateBranding = async (req: AdminRequest, res: Response): Promise<void> => {
+  const update: Record<string, string> = {};
+  const { logoUrl, brandPrimary, brandAccent, brandFont, website } = req.body || {};
+  if (logoUrl !== undefined) {
+    const url = String(logoUrl).trim();
+    if (url && !/^https:\/\//i.test(url)) { sendError(res, 'The logo must be an https link'); return; }
+    update.logoUrl = url;
+  }
+  for (const [key, value] of [['brandPrimary', brandPrimary], ['brandAccent', brandAccent]] as const) {
+    if (value === undefined) continue;
+    if (!HEX_RE.test(String(value))) { sendError(res, 'Colours must look like #0B2E3D'); return; }
+    update[key] = String(value).toUpperCase();
+  }
+  if (brandFont !== undefined) {
+    if (!BRAND_FONTS.includes(String(brandFont))) { sendError(res, 'Pick a font from the list'); return; }
+    update.brandFont = String(brandFont);
+  }
+  if (website !== undefined) update.website = String(website).trim().slice(0, 200);
+  const previous = await ReceiptConfig.findOne().lean();
+  const config = await ReceiptConfig.findOneAndUpdate({}, update, { upsert: true, new: true, setDefaultsOnInsert: true });
+  clearBrandingCache();
+  logActivity(req, 'update', 'Branding', 'Branding', diffFields(previous, config.toObject(), Object.keys(update)));
+  sendSuccess(res, config, 'Branding saved');
+};
+
+/** Stores an uploaded logo image and returns its public link; saving it is a separate step. */
+export const uploadLogo = async (req: AdminRequest, res: Response): Promise<void> => {
+  if (!req.file) { sendError(res, 'No file provided'); return; }
+  if (!/^image\/(png|jpe?g)$/.test(req.file.mimetype)) { sendError(res, 'The logo must be a PNG or JPG'); return; }
+  const { url } = await uploadToCloudinary(req.file.buffer, 'branding', 'image');
+  sendSuccess(res, { url }, 'Logo uploaded', 201);
 };
 
 // Generates a receipt from synthetic data (no real payment involved) so an admin can

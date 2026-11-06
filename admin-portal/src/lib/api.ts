@@ -137,6 +137,9 @@ export const deleteVisaConfigOption = (id: string) => api.delete(`/admin/visa-co
 export const getReceiptConfig = () => api.get('/admin/receipt-config');
 export const updateReceiptConfig = (data: object) => api.put('/admin/receipt-config', data);
 export const updateBusinessHours = (schedule: object[]) => api.put('/admin/receipt-config/hours', { schedule });
+export const updateBranding = (data: object) => api.put('/admin/receipt-config/branding', data);
+export const uploadBrandLogo = (formData: FormData) =>
+  api.post('/admin/receipt-config/logo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 export const downloadDemoReceipt = () => api.get('/admin/receipt-config/demo', { responseType: 'blob' });
 
 // Embassy Mail
@@ -237,6 +240,15 @@ export const markServiceInquiryRead = (id: string) => api.patch(`/admin/inquirie
 export const deleteServiceInquiry = (id: string) => api.delete(`/admin/inquiries/${id}`);
 export const setInquiryStatus = (kind: 'lead' | 'inquiry', id: string, status: string) =>
   api.patch(`/admin/inquiry-status/${kind}/${id}`, { status });
+export const getReplyTemplates = () => api.get('/admin/inquiries/reply-templates');
+export const saveReplyTemplates = (templates: { title: string; body: string }[]) =>
+  api.put('/admin/inquiries/reply-templates', { templates });
+export const sendInquiryReply = (kind: 'lead' | 'inquiry', id: string, data: { body: string; channel: string; markAwaiting: boolean }) =>
+  api.post(`/admin/inquiries/${kind}/${id}/replies`, data);
+export const assignInquiry = (kind: 'lead' | 'inquiry', id: string, assignee: string | null) =>
+  api.patch(`/admin/inquiries/${kind}/${id}/assign`, { assignee });
+export const convertInquiry = (kind: 'lead' | 'inquiry', id: string, data: { visaTypeId: string; adults: number; children: number; travelDate: string; notify: boolean }) =>
+  api.post(`/admin/inquiries/${kind}/${id}/convert`, data);
 
 // Notifications
 export const getAdminNotifications = (before?: string) => api.get('/admin/notifications', { params: { before } });
