@@ -138,3 +138,18 @@ export default function AdminSidebar() {
     </aside>
   );
 }
+
+/** "Customers / B2B Agents": the section and page for the current path, shown in the top bar. */
+export function Breadcrumb() {
+  const pathname = usePathname();
+  const items = [...topNavItems, ...bottomNavItems, ...otherNavItems, ...configNavItems];
+  const item = items.find((i) => isActivePath(pathname, i.href));
+  if (!item) return null;
+  const section = configNavItems.includes(item) ? 'Admin / Configurations' : SECTIONS.find((s) => s.hrefs.includes(item.href))?.label;
+  return (
+    <nav aria-label="Breadcrumb" className="hidden lg:block mr-auto text-sm text-muted-foreground truncate">
+      {section && <span>{section} / </span>}
+      <span className="font-semibold text-foreground">{item.label}</span>
+    </nav>
+  );
+}

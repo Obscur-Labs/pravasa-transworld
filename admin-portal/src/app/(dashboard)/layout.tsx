@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, Search } from 'lucide-react';
-import AdminSidebar, { SidebarContent } from '@/components/layout/AdminSidebar';
+import AdminSidebar, { Breadcrumb, SidebarContent } from '@/components/layout/AdminSidebar';
 import { useAdminAuthStore } from '@/store/auth.store';
 
 import { SocketProvider } from '@/components/providers/SocketProvider';
@@ -94,6 +94,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <Menu className="w-5 h-5" />
             </Button>
+
+            <Breadcrumb />
 
             <button
               onClick={() => openPalette(true)}
