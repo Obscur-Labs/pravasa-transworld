@@ -32,6 +32,15 @@
     --ring: 198 65% 36%;
     --radius: 0.75rem;
 
+    /* Navy sidebar from the redesign, the same in both themes apart from depth. */
+    --sidebar: 198 69% 14%;
+    --sidebar-foreground: 198 25% 95%;
+    --sidebar-muted: 198 22% 74%;
+    --sidebar-label: 35 55% 62%;
+    --sidebar-accent: 198 48% 21%;
+    --sidebar-border: 198 45% 20%;
+    --sidebar-active: 35 49% 42%;
+
     /* Raw brand values, straight off the logo. */
     --brand-navy: #0B2E3D;
     --brand-gold: #9F7437;
@@ -72,6 +81,14 @@
     --border: 198 28% 18%;
     --input: 198 28% 18%;
     --ring: 198 55% 60%;
+
+    --sidebar: 198 55% 8%;
+    --sidebar-foreground: 198 20% 94%;
+    --sidebar-muted: 198 15% 68%;
+    --sidebar-label: 35 55% 62%;
+    --sidebar-accent: 198 38% 15%;
+    --sidebar-border: 198 32% 15%;
+    --sidebar-active: 35 55% 50%;
 
     --chart-1: 198 55% 60%;
     --chart-2: 199 89% 58%;

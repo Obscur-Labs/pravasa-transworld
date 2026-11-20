@@ -77,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <AdminSidebar />
 
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-          <SheetContent side="left" className="flex flex-col w-72">
+          <SheetContent side="left" className="flex flex-col w-72 p-0 bg-sidebar text-sidebar-foreground border-sidebar-border">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SidebarContent onNavigate={() => setMobileNavOpen(false)} />
           </SheetContent>
