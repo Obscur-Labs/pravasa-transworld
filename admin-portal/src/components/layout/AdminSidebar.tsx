@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { topNavItems, configNavItems, bottomNavItems, otherNavItems, type NavItem } from '@/config/nav';
 import { usePermissions } from '@/lib/usePermissions';
 import { useBadgesStore } from '@/store/badges.store';
+import { useAdminAuthStore } from '@/store/auth.store';
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + '/');
@@ -86,6 +87,7 @@ const SECTIONS: { label: string; hrefs: string[] }[] = [
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { can, isSuperAdmin } = usePermissions();
+  const admin = useAdminAuthStore((s) => s.admin);
   // Only pages this member can open are listed.
   const visible = (items: NavItem[]) => items.filter((i) => (i.superAdminOnly ? isSuperAdmin : !i.module || can(i.module)));
   const configItems = visible(configNavItems);
@@ -126,6 +128,18 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
+
+      {admin && (
+        <Link href="/profile" onClick={onNavigate} className="shrink-0 flex items-center gap-3 border-t border-sidebar-border px-5 py-4 hover:bg-sidebar-accent">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sidebar-active text-xs font-bold text-sidebar-foreground">
+            {admin.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+          </span>
+          <span className="min-w-0 leading-tight">
+            <span className="block truncate text-sm font-semibold text-sidebar-foreground">{admin.name}</span>
+            <span className="block truncate text-xs text-sidebar-muted">{admin.isSuperAdmin ? 'Super Admin' : admin.roleName || 'Team member'}</span>
+          </span>
+        </Link>
+      )}
     </>
   );
 }
