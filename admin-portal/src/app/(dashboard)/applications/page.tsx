@@ -1,7 +1,12 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, FileSearch, Download, Loader2, UserPlus, X, ListChecks } from 'lucide-react';
+import { Search, FileSearch, Download, Loader2, UserPlus, X, MoreHorizontal } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,7 +20,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Pagination, usePageSize } from '@/components/ui/pagination';
 import {
   bulkAssignApplications, bulkUpdateApplicationStatus, exportApplicationsCsv, getApplicationAssignees,
-  getApplications, getCountries, getVisaTypes,
+  getApplications, getCountries, getVisaTypes, deleteApplication, downloadApplicationDocumentsZip,
 } from '@/lib/api';
 import { usePermissions } from '@/lib/usePermissions';
 import { formatCurrency, formatDateTimeIST, formatNumber } from '@/lib/utils';
@@ -30,7 +35,7 @@ const statusVariant = (s: string) => {
   return 'info';
 };
 
-const COLUMNS = ['', 'Application No.', 'Applicant', 'Visa', 'Status', 'Assignee', 'Amount', 'Submitted', ''];
+const COLUMNS = ['', 'App ID', 'Applicant', 'Country', 'Visa type', 'Status', 'Assignee', 'Amount', 'Submitted', ''];
 const EMPTY_FILTERS = { status: '', country: '', visaType: '', assignee: '', from: '', to: '' };
 
 export default function ApplicationsPage() {
@@ -55,6 +60,24 @@ export default function ApplicationsPage() {
   const [bulkNote, setBulkNote] = useState('');
   const [bulkNotify, setBulkNotify] = useState(true);
   const [reload, setReload] = useState(0);
+  const [trashTarget, setTrashTarget] = useState<Application | null>(null);
+  const router = useRouter();
+
+  // Row menu actions work on that one application through the same bulk tools.
+  const only = (app: Application) => setSelected(new Set([app._id]));
+  const downloadDocs = async (app: Application) => {
+    try {
+      const r = await downloadApplicationDocumentsZip(app._id);
+      const url = URL.createObjectURL(r.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${app.referenceId}-documents.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'No documents to download', variant: 'destructive' });
+    }
+  };
 
   // Deep links from the dashboard: /applications?status=...
   useEffect(() => {
@@ -218,19 +241,22 @@ export default function ApplicationsPage() {
 
       {/* Bulk actions for the ticked rows */}
       {canManage && selected.size > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
-          <ListChecks className="w-4 h-4 text-primary" />
-          <span className="font-medium text-foreground">{selected.size} selected</span>
-          <span className="flex items-center gap-1.5 ml-2">
-            <UserPlus className="w-4 h-4 text-muted-foreground" />
-            <NativeSelect className="h-8 w-auto text-xs" value="" disabled={busy} onChange={(e) => e.target.value && assign(e.target.value === 'none' ? '' : e.target.value)} aria-label="Assign to">
-              <option value="">Assign to...</option>
-              <option value="none">Nobody (unassign)</option>
-              {assignees.map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
-            </NativeSelect>
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-sidebar text-sidebar-foreground px-4 py-2.5 text-sm">
+          <span className="font-semibold">{selected.size} selected</span>
+          <span className="text-sidebar-muted">of {formatNumber(total)} applications</span>
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="secondary" className="h-8" onClick={() => setStatusDialog(true)} disabled={busy}>Change status</Button>
+            <Button size="sm" variant="secondary" className="h-8" onClick={exportCsv} disabled={exporting}><Download className="w-3.5 h-3.5 mr-1" />Export CSV</Button>
+            <span className="flex items-center gap-1.5">
+              <UserPlus className="w-4 h-4 text-sidebar-muted" />
+              <NativeSelect className="h-8 w-auto text-xs" value="" disabled={busy} onChange={(e) => e.target.value && assign(e.target.value === 'none' ? '' : e.target.value)} aria-label="Assign to">
+                <option value="">Assign to...</option>
+                <option value="none">Nobody (unassign)</option>
+                {assignees.map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
+              </NativeSelect>
+            </span>
+            <button type="button" onClick={() => setSelected(new Set())} aria-label="Clear selection" className="p-1.5 rounded hover:bg-sidebar-accent"><X className="w-4 h-4" /></button>
           </span>
-          <Button size="sm" variant="outline" className="h-8" onClick={() => setStatusDialog(true)} disabled={busy}>Change status</Button>
-          <Button size="sm" variant="ghost" className="h-8 ml-auto" onClick={() => setSelected(new Set())}>Clear selection</Button>
         </div>
       )}
 
@@ -257,8 +283,8 @@ export default function ApplicationsPage() {
                   <TableCell>
                     {canManage && <input type="checkbox" className="h-4 w-4" checked={selected.has(app._id)} onChange={() => toggle(app._id)} aria-label={`Select ${app.referenceId}`} />}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                    {app.referenceId}
+                  <TableCell className="font-mono text-xs whitespace-nowrap">
+                    <Link href={`/applications/${app._id}`} className="font-semibold text-primary hover:underline">{app.referenceId}</Link>
                     {(app.travellers?.length ?? 0) > 1 && (
                       <span className="block mt-1 w-fit font-sans text-[10px] font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5"
                         title={app.travellers!.map((t) => t.ref).join(', ')}>
@@ -275,8 +301,8 @@ export default function ApplicationsPage() {
                       <img src={`https://flagcdn.com/w20/${app.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />
                       {app.country?.name}
                     </span>
-                    <span className="text-xs text-muted-foreground">{app.visaType?.name}</span>
                   </TableCell>
+                  <TableCell className="text-foreground/90">{app.visaType?.name}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant(app.status) as any} className="text-xs whitespace-nowrap">{STATUS_LABELS[app.status]}</Badge>
                   </TableCell>
@@ -288,9 +314,23 @@ export default function ApplicationsPage() {
                   <TableCell className="font-semibold text-foreground whitespace-nowrap tabular-nums">{formatCurrency(app.paymentAmount)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{formatDateTimeIST(app.createdAt)}</TableCell>
                   <TableCell>
-                    <Link href={`/applications/${app._id}`} className="text-primary hover:underline text-xs font-medium whitespace-nowrap">
-                      Review →
-                    </Link>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger aria-label={`Actions for ${app.referenceId}`} className="p-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onSelect={() => router.push(`/applications/${app._id}`)}>View details</DropdownMenuItem>
+                        {canManage && <DropdownMenuItem onSelect={() => only(app)}>Assign to...</DropdownMenuItem>}
+                        {canManage && <DropdownMenuItem onSelect={() => { only(app); setStatusDialog(true); }}>Change status</DropdownMenuItem>}
+                        <DropdownMenuItem onSelect={() => downloadDocs(app)}>Download documents</DropdownMenuItem>
+                        {canManage && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => setTrashTarget(app)} className="text-destructive focus:text-destructive">Move to Trash</DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
@@ -306,6 +346,24 @@ export default function ApplicationsPage() {
         )}
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} className="border-t border-border" />
       </Card>
+
+      <ConfirmDialog
+        open={!!trashTarget}
+        onOpenChange={(v) => !v && setTrashTarget(null)}
+        title={`Move ${trashTarget?.referenceId} to Trash?`}
+        description="It can be restored from Trash for 30 days."
+        confirmLabel="Move to Trash"
+        onConfirm={async () => {
+          if (!trashTarget) return;
+          try {
+            await deleteApplication(trashTarget._id);
+            toast({ title: 'Moved to Trash', variant: 'success' });
+            setReload((n) => n + 1);
+          } catch (err: any) {
+            toast({ title: 'Could not move to Trash', description: err.response?.data?.message, variant: 'destructive' });
+          }
+        }}
+      />
 
       <Dialog open={statusDialog} onOpenChange={setStatusDialog}>
         <DialogContent className="max-w-md">
