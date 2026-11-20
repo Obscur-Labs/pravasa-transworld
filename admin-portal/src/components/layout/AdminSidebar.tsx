@@ -79,7 +79,7 @@ const SECTIONS: { label: string; hrefs: string[] }[] = [
   { label: 'Operations', hrefs: ['/dashboard', '/applications', '/payments', '/processing'] },
   { label: 'Catalogue', hrefs: ['/countries', '/promo-codes'] },
   { label: 'Customers', hrefs: ['/users', '/agents', '/inquiries'] },
-  { label: 'Insights & Comms', hrefs: ['/reports', '/testimonials', '/blog', '/notifications'] },
+  { label: 'Insights & Comms', hrefs: ['/reports', '/message-templates', '/testimonials', '/blog', '/notifications'] },
   { label: 'Admin', hrefs: ['/team', '/logs', '/trash'] },
 ];
 

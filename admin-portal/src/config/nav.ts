@@ -4,7 +4,7 @@ import type { BadgeKey } from '@/store/badges.store';
 import {
   LayoutDashboard, FileText, Globe2, Users, Kanban,
   Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal, Receipt, Mail, UserRound, ScrollText,
-  BadgeCheck, QrCode, ShieldHalf, BarChart3, Briefcase, Star, Newspaper,
+  BadgeCheck, QrCode, ShieldHalf, BarChart3, Briefcase, Star, Newspaper, MessageSquareText,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -45,6 +45,7 @@ export const bottomNavItems: NavItem[] = [
   { href: '/inquiries', label: 'Inquiries', icon: MessageSquare, module: 'inquiries', badge: 'inquiries' },
   { href: '/testimonials', label: 'Testimonials', icon: Star, module: 'inquiries' },
   { href: '/blog', label: 'Blog', icon: Newspaper, module: 'inquiries' },
+  { href: '/message-templates', label: 'Message Templates', icon: MessageSquareText, module: 'applications' },
   { href: '/team', label: 'Team & Roles', icon: ShieldHalf, superAdminOnly: true },
 ];
 

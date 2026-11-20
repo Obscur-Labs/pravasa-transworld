@@ -4,6 +4,7 @@ import { AdminRequest, hasAccess } from '../../middleware/adminAuth.middleware';
 import Application, { APPLICATION_STATUSES, ApplicationStatus, EMPTY_COURIER, STATUS_LABELS, customerStatus } from '../../models/Application';
 import Admin from '../../models/Admin';
 import Country from '../../models/Country';
+import VisaType from '../../models/VisaType';
 import Document from '../../models/Document';
 import EmbassyMail from '../../models/EmbassyMail';
 import Notification from '../../models/Notification';
@@ -12,7 +13,8 @@ import User from '../../models/User';
 import Payment from '../../models/Payment';
 import Trash from '../../models/Trash';
 import { deliveryUrl, fetchAsset, uploadToCloudinary } from '../../services/cloudinary.service';
-import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
+import { customerAppUrl, sendDocumentStatusEmail, sendStatusUpdateEmail, sendTemplateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
+import { activeTemplate, render } from '../../utils/messageTemplates';
 import { generateReceiptPDF } from '../../services/pdf.service';
 import { buildReceiptData } from '../../utils/receiptData';
 import { computeVisaPricing, computeSubtotal, computeGst, pricingTierOf } from '../../utils/pricing';
@@ -493,7 +495,18 @@ async function changeStatus(
     console.error('Socket emission failed', err);
   }
   try {
-    await sendStatusUpdateEmail(user.email, user.name, label, application.referenceId, wording);
+    // A switched-on message template replaces the built-in status email.
+    const country = await Country.findById(application.country).select('name').lean<{ name: string }>();
+    const visa = await VisaType.findById(application.visaType).select('name').lean<{ name: string }>();
+    const vars = {
+      name: user.name, app_id: application.referenceId, country: country?.name || '', visa: visa?.name || '', status: label,
+      reason: application.rejectionReason || '', link: customerAppUrl(`/applications/${application._id}`), review_link: customerAppUrl('/testimonials'),
+    };
+    const custom = await activeTemplate(status);
+    if (custom) await sendTemplateEmail({ email: user.email, subject: render(custom.subject, vars), body: render(custom.body, vars) });
+    else await sendStatusUpdateEmail(user.email, user.name, label, application.referenceId, wording);
+    const feedback = status === 'visa_delivered' ? await activeTemplate('feedback_request') : null;
+    if (feedback) await sendTemplateEmail({ email: user.email, subject: render(feedback.subject, vars), body: render(feedback.body, vars) });
   } catch (err) { console.error(err); }
   return null;
 }

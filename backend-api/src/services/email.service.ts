@@ -319,6 +319,24 @@ export async function sendInquiryReplyEmail(opts: { email: string; name: string;
 
 export const customerAppUrl = (path: string) => `${frontendUrl}${path}`;
 
+/** A saved message template, already filled in; the body's blank lines become paragraphs. */
+export async function sendTemplateEmail(opts: { email: string; subject: string; body: string }): Promise<void> {
+  const linked = escapeHtml(opts.body).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color: #0B2E3D;">$1</a>');
+  const paragraphs = linked.split(/\n{2,}/).map((p) => `<p style="color: #475569; font-size: 15px; margin: 0 0 16px; white-space: pre-line;">${p}</p>`).join('');
+  await sendMail(
+    opts.email,
+    opts.subject,
+    `
+      <div style="${baseStyle}">
+        ${header('Application update')}
+        <div style="padding: 40px 32px;">${paragraphs}</div>
+        ${footer()}
+      </div>
+    `,
+    'TEMPLATE'
+  );
+}
+
 /** Invites a new team member to set their own admin password. */
 export async function sendAdminInviteEmail(opts: { email: string; name: string; username: string; token: string; invitedBy: string }): Promise<void> {
   const link = `${adminUrl}/accept-invite?token=${opts.token}`;
